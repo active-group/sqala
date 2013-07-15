@@ -1,10 +1,5 @@
 package de.ag.sqala
 
-class SqlTableName(val name: String) // FIXME type alias?
-
-class SqlColumn(val name: String) // FIXME type alias?
-
-
 case class Scheme() // TODO
 
 
@@ -17,7 +12,7 @@ case class SqlExprConst(value: String) extends SqlExpr
 
 case class SqlExprTuple(values: Seq[String]) extends SqlExpr
 
-case class SqlExprColumn(name: SqlColumn) extends SqlExpr
+case class SqlExprColumn(name: SqlColumnName) extends SqlExpr
 
 case class SqlExprApp(operator: SqlOperator, operands: Seq[SqlExpr]) extends SqlExpr
 
@@ -97,7 +92,7 @@ sealed abstract class SqlQuery
 case class SqlQueryTable(name: SqlTableName) extends SqlQuery
 
 case class SqlQuerySelect(options: Seq[String], // DISTINCT, ALL, etc.
-                          attributes: Seq[(SqlExpr, SqlColumn)], // selected fields (expr + alias), empty seq for '*'
+                          attributes: Seq[(SqlExpr, SqlColumnName)], // selected fields (expr + alias), empty seq for '*'
                           //                     isNullary: Boolean, // true if select represents nullary relation (?); in this case attributes should contain single dummy attribute (?)
                           from: Seq[(SqlQuery, Option[SqlTableName])], // FROM (
                           where: Seq[SqlExpr], // WHERE
