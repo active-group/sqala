@@ -1,7 +1,8 @@
 package de.ag.sqala
 
-case class Scheme() // TODO
+class Label(val label:String) // FIXME type alias?
 
+class Domain(val typ: String)  // FIXME structured?
 
 case class SqlExprCaseBranch(condition: SqlExpr, value: SqlExpr)
 
@@ -73,15 +74,8 @@ object SqlOperatorVar extends SqlPrefixOperator("Var")
 object SqlOperatorVarP extends SqlPrefixOperator("VarP")
 
 
-sealed abstract class SqlOrder
-
-case object Ascending extends SqlOrder
-
-case object Descending extends SqlOrder
-
-
 case class SqlTable(name: SqlTableName,
-                    scheme: Scheme)
+                    schema: Schema)
 
 
 class CombineOp  // TODO
@@ -98,7 +92,7 @@ case class SqlQuerySelect(options: Seq[String], // DISTINCT, ALL, etc.
                           where: Seq[SqlExpr], // WHERE
                           groupBy: Seq[SqlExpr], // GROUP BY
                           having: Seq[SqlExpr], // HAVING
-                          orderBy: Seq[(SqlExpr, SqlOrder)], // ORDER BY
+                          orderBy: Seq[(SqlExpr, Order)], // ORDER BY
                           extra: Seq[String] // TOP n, etc.
                            ) extends SqlQuery
 
