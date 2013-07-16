@@ -9,7 +9,7 @@ trait DbConnection {
   val name: String       // same, for humans
   val data: Any  /*FIXME*/   // internal connection data, for the driver
   val handle: Handle /*FIXME*/ // DB-specific connection handle (?)
-  val sqlPutParameterization: Any /*FIXME*/
+  val sqlWriteParameterization: SqlWriteParameterization
 
   def close():Unit
   def query(sqlQuery:SqlQuery, schema:Schema): Cursor

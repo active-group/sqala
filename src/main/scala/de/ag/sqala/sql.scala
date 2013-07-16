@@ -1,5 +1,7 @@
 package de.ag.sqala
 
+import java.io.Writer
+
 class Label(val label:String) // FIXME type alias?
 
 class Domain(val typ: String)  // FIXME structured?
@@ -106,3 +108,25 @@ case class SqlQueryCombine(op: CombineOp,
                             right: SqlQuery) extends SqlQuery
 
 case object SqlQueryEmpty extends SqlQuery // FIXME used when?
+
+
+// printing sql
+trait SqlWriteParameterization {
+  /**
+   * write SqlQueryCombine to output sink
+   *
+   * @param out output sink
+   * @param param this object for recursive calls
+   * @param sqlCombine left sql query, combine operator, right sql query
+   */
+  def writeCombine(out:Writer, param:SqlWriteParameterization, sqlCombine:(SqlQuery, CombineOp, SqlQuery)):Unit
+
+  /**
+   * write constant SQL expression (literal) to output sink
+   *
+   * @param out: output sink
+   * @param value: constant value to write
+   */
+  def writeLiteral(out:Writer, value:SqlLiteral): Unit
+}
+
