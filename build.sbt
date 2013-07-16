@@ -18,6 +18,10 @@ scalacOptions += "-feature"
 // but org.xerial has only 3.7.15-M1
 libraryDependencies += "org.xerial" % "sqlite-jdbc" % "3.7.2"
 
+// scalatest
+// as of 2013-07-16, only milestones for 2.0
+libraryDependencies += "org.scalatest" %% "scalatest" % "1.9.1"
+
 resolvers ++= Seq(
   "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots",
   "Sonatype Releases" at "http://oss.sonatype.org/content/repositories/releases"
