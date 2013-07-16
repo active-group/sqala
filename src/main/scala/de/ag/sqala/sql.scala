@@ -74,6 +74,8 @@ sealed abstract class SqlExpr {
     write(result, param)
     result.toString
   }
+
+  override def toString = toString(defaultSqlWriteParameterization)
 }
 
 case class SqlExprConst(value: SqlLiteral) extends SqlExpr
@@ -245,6 +247,14 @@ sealed abstract class SqlQuery {
       case SqlQueryEmpty =>
     }
   }
+
+  def toString(param:SqlWriteParameterization) = {
+    val result = new StringWriter()
+    write(result, param)
+    result.toString
+  }
+
+  override def toString = toString(defaultSqlWriteParameterization)
 }
 
 case class SqlQueryTable(name: SqlTableName) extends SqlQuery
@@ -284,6 +294,31 @@ object SqlQuery {
     sqlCombine.right.write(out, param)
     out.write(")")
   }
+
+  def defaultWriteLiteral(out:Writer, literal:SqlLiteral) {
+    literal match {
+      case SqlLiteralBoolean(b) => out.write(if (b) "TRUE" else "FALSE")
+      case SqlLiteralNull => out.write("NULL")
+      case SqlLiteralNumber(n) => out.write(n.toString())
+      case SqlLiteralString(s) => out.write('\'')
+        for(c <- s) {
+          if (c == '\'') out.write('\'')
+          out.write(c)
+        }
+        out.write('\'')
+    }
+  }
+
+  def makeSelect(options:Seq[String]=Seq(),
+                         attributes:Seq[SqlQuerySelectAttribute]=Seq(),
+                          from:Seq[SqlQuerySelectFrom],
+                          where: Seq[SqlExpr]=Seq(),
+                          groupBy: Seq[SqlExpr]=Seq(),
+                          having: Option[SqlExpr]=None,
+                          orderBy: Seq[SqlQuerySelectOrderBy]=Seq(),
+                          extra:Seq[String]=Seq()) = {
+    SqlQuerySelect(options, attributes, from, where, groupBy, having, orderBy, extra)
+  }
 }
 
 // printing sql
@@ -301,8 +336,30 @@ trait SqlWriteParameterization {
    * write constant SQL expression (literal) to output sink
    *
    * @param out: output sink
-   * @param value: constant value to write
+   * @param literal: constant literal to write
    */
-  def writeLiteral(out:Writer, value:SqlLiteral): Unit
+  def writeLiteral(out:Writer, literal:SqlLiteral): Unit
 }
 
+object defaultSqlWriteParameterization extends SqlWriteParameterization {
+  /**
+   * write SqlQueryCombine to output sink
+   *
+   * @param out output sink
+   * @param param this object for recursive calls
+   * @param sqlCombine combining sql query
+   */
+  def writeCombine(out: Writer, param: SqlWriteParameterization, sqlCombine: SqlQueryCombine) {
+    SqlQuery.defaultWriteCombine(out, param, sqlCombine)
+  }
+
+  /**
+   * write constant SQL expression (literal) to output sink
+   *
+   * @param out: output sink
+   * @param literal: constant literal to write
+   */
+  def writeLiteral(out: Writer, literal: SqlLiteral) {
+    SqlQuery.defaultWriteLiteral(out, literal)
+  }
+}
