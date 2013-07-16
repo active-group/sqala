@@ -1,24 +1,85 @@
 package de.ag.sqala
 
-import java.io.Writer
+import java.io.{StringWriter, Writer}
 import de.ag.sqala.StringUtils._
 
 class Label(val label:String) // FIXME type alias?
 
 class Domain(val typ: String)  // FIXME structured?
 
-case class SqlExprCaseBranch(condition: SqlExpr, value: SqlExpr)
+case class SqlExprCaseBranch(condition: SqlExpr, expr: SqlExpr)
 
 
 sealed abstract class SqlExpr {
   def write(out:Writer, param:SqlWriteParameterization) {
-    /* FIXME */
+    this match {
+      case SqlExprConst(value) =>
+        param.writeLiteral(out, value)
+      case SqlExprTuple(exprs) =>
+        out.write("(")
+        writeJoined[SqlExpr](out, exprs, ", ", {
+          (out, expr) => expr.write(out, param)})
+      case SqlExprColumn(columnName) =>
+        out.write(columnName)
+      case SqlExprApp(operator, operands) =>
+        operator match {
+          case SqlPostfixOperator(opName) =>
+            out.write("(")
+            operands.head.write(out, param)
+            writeSpace(out)
+            out.write(opName)
+          case SqlPrefixOperator(opName) =>
+            out.write(opName)
+            out.write("(")
+            operands.head.write(out, param)
+            out.write(")")
+          case SqlInfixOperator(opName) =>
+            out.write("(")
+            operands.head.write(out, param)
+            writeSpace(out)
+            out.write(opName)
+            writeSpace(out)
+            operands.tail.head.write(out, param)
+            out.write(")")
+        }
+      case SqlExprCase(branches, default) =>
+        out.write("(CASE ")
+        branches.foreach(writeBranch(out, param, _))
+        default match {
+          case None =>
+          case Some(expr) =>
+            out.write(" ELSE ")
+            expr.write(out, param)
+        }
+        out.write(")")
+      case SqlExprExists(query) =>
+        out.write("EXISTS (")
+        query.write(out, param)
+        out.write(")")
+      case SqlExprSubQuery(query) =>
+        out.write("(")
+        query.write(out, param)
+        out.write(")")
+    }
+  }
+
+  protected def writeBranch(out:Writer, param:SqlWriteParameterization, branch:SqlExprCaseBranch) {
+    out.write("WHEN ")
+    branch.condition.write(out, param)
+    out.write(" THEN ")
+    branch.expr.write(out, param)
+  }
+
+  def toString(param:SqlWriteParameterization) = {
+    val result = new StringWriter()
+    write(result, param)
+    result.toString
   }
 }
 
 case class SqlExprConst(value: SqlLiteral) extends SqlExpr
 
-case class SqlExprTuple(values: Seq[String]) extends SqlExpr
+case class SqlExprTuple(exprs: Seq[SqlExpr]) extends SqlExpr
 
 case class SqlExprColumn(name: SqlColumnName) extends SqlExpr
 
@@ -26,9 +87,9 @@ case class SqlExprApp(operator: SqlOperator, operands: Seq[SqlExpr]) extends Sql
 
 case class SqlExprCase(branches: Seq[SqlExprCaseBranch], default: Option[SqlExpr]) extends SqlExpr
 
-case class SqlExprExists(select: SqlQuery) extends SqlExpr
+case class SqlExprExists(query: SqlQuery) extends SqlExpr
 
-case class SqlExprSubQuery(select: SqlQuery) extends SqlExpr
+case class SqlExprSubQuery(query: SqlQuery) extends SqlExpr
 
 sealed abstract class SqlLiteral
 case class SqlLiteralNumber(n:BigDecimal) extends SqlLiteral // FIXME other type than BigDecimal?
