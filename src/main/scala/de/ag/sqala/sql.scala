@@ -9,7 +9,6 @@ class Domain(val typ: String)  // FIXME structured?
 
 case class SqlExprCaseBranch(condition: SqlExpr, expr: SqlExpr)
 
-
 sealed abstract class SqlExpr {
   def write(out:Writer, param:SqlWriteParameterization) {
     this match {
@@ -78,17 +77,11 @@ sealed abstract class SqlExpr {
 }
 
 case class SqlExprConst(value: SqlLiteral) extends SqlExpr
-
 case class SqlExprTuple(exprs: Seq[SqlExpr]) extends SqlExpr
-
 case class SqlExprColumn(name: SqlColumnName) extends SqlExpr
-
 case class SqlExprApp(operator: SqlOperator, operands: Seq[SqlExpr]) extends SqlExpr
-
 case class SqlExprCase(branches: Seq[SqlExprCaseBranch], default: Option[SqlExpr]) extends SqlExpr
-
 case class SqlExprExists(query: SqlQuery) extends SqlExpr
-
 case class SqlExprSubQuery(query: SqlQuery) extends SqlExpr
 
 sealed abstract class SqlLiteral
@@ -98,13 +91,9 @@ case object SqlLiteralNull extends SqlLiteral
 case class SqlLiteralBoolean(b:Boolean) extends SqlLiteral
 
 sealed abstract class SqlOperator(val name: String, val arity: Int)
-
 case class SqlPrefixOperator(override val name: String) extends SqlOperator(name, 1)
-
 case class SqlInfixOperator(override val name: String) extends SqlOperator(name, 2)
-
 case class SqlPostfixOperator(override val name: String) extends SqlOperator(name, 1)
-
 
 object SqlOperatorEq extends SqlInfixOperator("=")
 object SqlOperatorLt extends SqlInfixOperator("<")
