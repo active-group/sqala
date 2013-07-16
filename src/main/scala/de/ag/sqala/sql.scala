@@ -9,7 +9,7 @@ case class SqlExprCaseBranch(condition: SqlExpr, value: SqlExpr)
 
 sealed abstract class SqlExpr
 
-case class SqlExprConst(value: String) extends SqlExpr
+case class SqlExprConst(value: SqlLiteral) extends SqlExpr
 
 case class SqlExprTuple(values: Seq[String]) extends SqlExpr
 
@@ -23,6 +23,11 @@ case class SqlExprExists(select: SqlQuery) extends SqlExpr
 
 case class SqlExprSubQuery(select: SqlQuery) extends SqlExpr
 
+sealed abstract class SqlLiteral
+case class SqlLiteralNumber(n:BigDecimal) extends SqlLiteral // FIXME other type than BigDecimal?
+case class SqlLiteralString(s:String) extends SqlLiteral
+case object SqlLiteralNull extends SqlLiteral
+case class SqlLiteralBoolean(b:Boolean) extends SqlLiteral
 
 sealed abstract class SqlOperator(val name: String, val arity: Int)
 
