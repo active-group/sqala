@@ -9,7 +9,11 @@ class Domain(val typ: String)  // FIXME structured?
 case class SqlExprCaseBranch(condition: SqlExpr, value: SqlExpr)
 
 
-sealed abstract class SqlExpr
+sealed abstract class SqlExpr {
+  def write(out:Writer, param:SqlWriteParameterization) {
+    /* FIXME */
+  }
+}
 
 case class SqlExprConst(value: SqlLiteral) extends SqlExpr
 
@@ -85,21 +89,163 @@ case class SqlTable(name: SqlTableName,
                     schema: Schema)
 
 
-class CombineOp  // TODO
+sealed abstract class CombineOp
+case object CombineOpUnion extends CombineOp
+case object CombineOpIntersect extends CombineOp
+case object CombineOpExcept extends CombineOp
 
 
-sealed abstract class SqlQuery
+sealed abstract class SqlQuery {
+
+  protected def writeAttributes(out: Writer, param: SqlWriteParameterization, attributes: Seq[SqlQuerySelectAttribute]) {
+    if (attributes.isEmpty) {
+      out.write("*")
+    } else {
+      writeJoined[SqlQuerySelectAttribute](out, attributes, ", ", {
+        (out, attr) => attr.expr match {
+          case SqlExprColumn(alias) if alias == attr.alias =>
+            out.write(alias)
+          case expr =>
+            expr.write(out, param)
+            writeAlias(out, attr.alias)
+        }
+      })
+    }
+  }
+
+  /**
+   * Writes " AS " + alias if alias is set
+   * @param out        output sink
+   * @param maybeAlias alias to write, if any
+   */
+  protected def writeAlias(out: Writer, maybeAlias: Option[String]) {
+    maybeAlias match {
+      case None =>
+      case Some(alias) => out.write(" AS "); out.write(alias)
+    }
+  }
+
+  // TODO rename 'from' to 'tableRef' or similar
+  protected def writeFrom(out: Writer, param: SqlWriteParameterization, from: Seq[SqlQuerySelectFrom]) {
+    out.write("FROM ")
+    writeJoined[SqlQuerySelectFrom](out, from, ", ", {
+      (out, from) => from.query match {
+        case q: SqlQueryTable => out.write(q.name)
+        case q =>
+          out.write("(")
+          q.write(out, param)
+          out.write(")")
+      }
+        writeAlias(out, from.alias)
+    })
+  }
+
+  protected def writeWhere(out: Writer, param: SqlWriteParameterization, where: Seq[SqlExpr]) {
+    out.write("WHERE ")
+    writeJoined[SqlExpr](out, where, " AND ", {
+      (out, expr) => expr.write(out, param)
+    })
+  }
+
+  protected def writeGroupBy(out: Writer, param: SqlWriteParameterization, groupBys: Seq[SqlExpr]) {
+    out.write("GROUP BY")
+    writeJoined[SqlExpr](out, groupBys, ", ", {
+      (out, groupBy) => groupBy.write(out, param)
+    })
+  }
+
+  protected def writeHaving(out: Writer, param: SqlWriteParameterization, having: SqlExpr) {
+    out.write("HAVING ")
+    having.write(out, param)
+  }
+
+  protected def writeOrderBy(out: Writer, param: SqlWriteParameterization, orderBys: Seq[SqlQuerySelectOrderBy]) {
+    out.write("ORDER BY ")
+    writeJoined[SqlQuerySelectOrderBy](out, orderBys, ", ", {
+      (out, orderBy) =>
+        orderBy.expr.write(out, param)
+        out.write(orderBy.order match {
+          case Ascending => " ASC"
+          case Descending => " DESC"
+        })
+    })
+  }
+
+  /**
+   * Write all elements of a sequence of things, separated by a string
+   * @param out     output sink
+   * @param strings sequence of things to write
+   * @param sep     separator to write between two consecutive things
+   */
+  // FIXME that's a util method to be put elsewhere
+  protected def writeJoined(out: Writer, strings:Seq[String], sep:String) {
+    if (!strings.isEmpty) {
+      out.write(strings.head)
+      strings.tail.foreach({s => out.write(sep); out.write(s)})
+    }
+  }
+
+  /**
+   * Call write method for all elements of a sequence of things, separating the writes by a string
+   * @param out     output sink
+   * @param things sequence of things to call write function for
+   * @param writeProc write method to be called for each string in turn
+   * @param sep     separator to write between two consecutive things
+   */
+  // FIXME that's a util method to be put elsewhere
+  protected def writeJoined[T](out: Writer, things:Seq[T], sep:String, writeProc:(Writer, T) => Unit) {
+    if (!things.isEmpty) {
+      writeProc(out, things.head)
+      things.tail.foreach({s => out.write(sep); writeProc(out, s)})
+    }
+  }
+
+  def write(out:Writer, param:SqlWriteParameterization) {
+    this match {
+      case SqlQueryTable(name) =>
+        out.write("SELECT * FROM ")
+        out.write(name)
+      case s:SqlQuerySelect =>
+        out.write("SELECT")
+        writeWithSpaceIfNotEmpty(out, s.options)(writeJoined(out, _, " "))
+        writeSpace(out); writeAttributes(out, param, s.attributes)
+        writeWithSpaceIfNotEmpty(out, s.from)(writeFrom(out, param, _))
+        writeWithSpaceIfNotEmpty(out, s.where)(writeWhere(out, param, _))
+        writeWithSpaceIfNotEmpty(out, s.groupBy)(writeGroupBy(out, param, _))
+        if (s.having.isDefined) {
+          writeSpace(out)
+          writeHaving(out, param, s.having.get)
+        }
+        writeWithSpaceIfNotEmpty(out, s.orderBy)(writeOrderBy(out, param, _))
+        writeWithSpaceIfNotEmpty(out, s.extra)(writeJoined(out, _, " "))
+      case s:SqlQueryCombine =>
+        param.writeCombine(out, param, s)
+      case SqlQueryEmpty =>
+    }
+  }
+
+  private def writeWithSpaceIfNotEmpty[T](out:Writer, things:Seq[T])(proc:(Seq[T]) => Unit) {
+    if (!things.isEmpty) {
+      out.write(" ")
+      proc(things)
+    }
+  }
+
+  private def writeSpace(out:Writer) {
+    out.write(' ')
+  }
+}
 
 case class SqlQueryTable(name: SqlTableName) extends SqlQuery
 
 case class SqlQuerySelect(options: Seq[String], // DISTINCT, ALL, etc.
-                          attributes: Seq[(SqlExpr, SqlColumnName)], // selected fields (expr + alias), empty seq for '*'
+                          attributes: Seq[SqlQuerySelectAttribute], // selected fields (expr + alias), empty seq for '*'
                           //                     isNullary: Boolean, // true if select represents nullary relation (?); in this case attributes should contain single dummy attribute (?)
-                          from: Seq[(SqlQuery, Option[SqlTableName])], // FROM (
-                          where: Seq[SqlExpr], // WHERE
+                          from: Seq[SqlQuerySelectFrom], // FROM (
+                          where: Seq[SqlExpr], // WHERE; Seq constructed from relational algebra
                           groupBy: Seq[SqlExpr], // GROUP BY
-                          having: Seq[SqlExpr], // HAVING
-                          orderBy: Seq[(SqlExpr, Order)], // ORDER BY
+                          having: Option[SqlExpr], // HAVING
+                          orderBy: Seq[SqlQuerySelectOrderBy], // ORDER BY
                           extra: Seq[String] // TOP n, etc.
                            ) extends SqlQuery
 
@@ -109,6 +255,25 @@ case class SqlQueryCombine(op: CombineOp,
 
 case object SqlQueryEmpty extends SqlQuery // FIXME used when?
 
+case class SqlQuerySelectAttribute(expr:SqlExpr, alias:Option[SqlColumnName])
+case class SqlQuerySelectFrom(query:SqlQuery, alias:Option[SqlTableName])
+case class SqlQuerySelectOrderBy(expr:SqlExpr, order:Order)
+
+object SqlQuery {
+  def defaultWriteCombine(out:Writer, param:SqlWriteParameterization, sqlCombine:SqlQueryCombine) {
+    out.write('(')
+    sqlCombine.left.write(out, param)
+    out.write(") ")
+    out.write(sqlCombine.op match {
+      case CombineOpUnion => "UNION"
+      case CombineOpIntersect => "INTERSECT"
+      case CombineOpExcept => "EXCEPT"
+    })
+    out.write(" (")
+    sqlCombine.right.write(out, param)
+    out.write(")")
+  }
+}
 
 // printing sql
 trait SqlWriteParameterization {
@@ -117,9 +282,9 @@ trait SqlWriteParameterization {
    *
    * @param out output sink
    * @param param this object for recursive calls
-   * @param sqlCombine left sql query, combine operator, right sql query
+   * @param sqlCombine combining sql query
    */
-  def writeCombine(out:Writer, param:SqlWriteParameterization, sqlCombine:(SqlQuery, CombineOp, SqlQuery)):Unit
+  def writeCombine(out:Writer, param:SqlWriteParameterization, sqlCombine:SqlQueryCombine):Unit
 
   /**
    * write constant SQL expression (literal) to output sink
