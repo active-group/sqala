@@ -27,6 +27,7 @@ sealed abstract class SqlExpr {
             operands.head.write(out, param)
             writeSpace(out)
             out.write(opName)
+            out.write(")")
           case SqlPrefixOperator(opName) =>
             out.write(opName)
             out.write("(")
@@ -201,7 +202,7 @@ sealed abstract class SqlQuery {
   }
 
   protected def writeGroupBy(out: Writer, param: SqlWriteParameterization, groupBys: Seq[SqlExpr]) {
-    out.write("GROUP BY")
+    out.write("GROUP BY ")
     writeJoined[SqlExpr](out, groupBys, ", ", {
       (out, groupBy) => groupBy.write(out, param)
     })
