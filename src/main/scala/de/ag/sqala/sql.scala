@@ -3,10 +3,6 @@ package de.ag.sqala
 import java.io.{StringWriter, Writer}
 import de.ag.sqala.StringUtils._
 
-class Label(val label:String) // FIXME type alias?
-
-class Domain(val typ: String)  // FIXME structured?
-
 case class SqlExprCaseBranch(condition: SqlExpr, expr: SqlExpr)
 
 sealed abstract class SqlExpr {
