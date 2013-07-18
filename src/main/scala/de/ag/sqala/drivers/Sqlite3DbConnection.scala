@@ -2,6 +2,8 @@ package de.ag.sqala.drivers
 
 import de.ag.sqala._
 import java.io.{File, Writer}
+import org.sqlite.SQLiteConfig
+import java.util.Properties
 
 /**
  *
@@ -35,14 +37,48 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     connection.close()
   }
 
-  def query(sqlQuery: SqlQuery, schema: Schema): Cursor = {
+  def query(sqlQuery: SqlQuery, schema: Schema): ResultSetIterator = {
     val sql = sqlQuery.toString(sqlWriteParameterization)
     val statement = connection.createStatement()
-    statement.executeQuery(sql)
-    new Cursor() // FIXME
+    val resultSet = statement.executeQuery(sql)
+    // first shot: primitively return Objects
+    new ResultSetIterator(resultSet)
   }
 
-  def insert(table: SqlTableName, schema: Schema, values: Seq[Any]): Int = ??? /*FIXME*/
+
+  def insert(tableName: SqlTableName, schema: Schema, values: Seq[AnyRef]): Int = {
+    val sql = "INSERT INTO %s(%s) VALUES (%s)".format(
+      tableName,
+      schema.labels.mkString(", "),
+      listToPlaceholders(values)
+    )
+    val statement = connection.prepareStatement(sql)
+    values
+      .zip(schema.domains)
+      .zip(1 to schema.degree) // sqlite counts from 1
+      .foreach {
+      case ((value, domain), i) =>
+        domain match {
+          case DBString => statement.setString(i, value.asInstanceOf[String])
+          case DBInteger => statement.setInt(i, value.asInstanceOf[Integer].intValue())
+          case DBDouble => statement.setDouble(i, value.asInstanceOf[Double])
+          case DBBoolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
+          case DBCalendarTime => throw new IllegalArgumentException("sqlite cannot handle date/time")
+          case DBBlob => statement.setBlob(i, value.asInstanceOf[java.io.InputStream])
+          case _ => throw new RuntimeException("unknown type " + domain)
+        }
+    }
+    val result = statement.executeUpdate()
+    statement.close()
+    result
+  }
+
+
+  private def listToPlaceholders(values: Seq[Any]): Seq[String] = {
+    values.zipWithIndex.map({
+      case (_, i) => ":" + i
+    })
+  }
 
   /*FIXME*/
   def delete(s: String, expr: SqlExpr): Any = ???
@@ -56,23 +92,24 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
 
 object Sqlite3DbConnection {
   def open(file:File): Sqlite3DbConnection =
-    open(file.getPath)
+    open(file.getPath, new Properties())
 
-  def open(file:File, user:String, password:String): Sqlite3DbConnection =
-    open(file.getPath, user, password)
-
-  private def open(where:String): Sqlite3DbConnection = {
-    Class.forName("org.sqlite.JDBC")
-    val connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + where)
-    new Sqlite3DbConnection(connection)
+  def open(file:File, user:String, password:String): Sqlite3DbConnection = {
+    val props = new Properties()
+    props.setProperty("user", user)
+    props.setProperty("password", password)
+    open(file.getPath, props)
   }
 
-  private def open(where:String, user:String, password:String): Sqlite3DbConnection = {
-    Class.forName("org.sqlite.JDBC")
-    val connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + where, user, password)
-    new Sqlite3DbConnection(connection)
-  }
+  def open(file:File, config:SQLiteConfig): Sqlite3DbConnection =
+    open(file.getPath, config.toProperties)
 
   def openInMemory(): Sqlite3DbConnection =
-    open(":memory:")
+    open(":memory:", new Properties())
+
+  private def open(where: String, properties: Properties): Sqlite3DbConnection = {
+    Class.forName("org.sqlite.JDBC")
+    val connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + where, properties)
+    new Sqlite3DbConnection(connection)
+  }
 }
