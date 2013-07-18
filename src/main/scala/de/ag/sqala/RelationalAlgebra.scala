@@ -10,6 +10,7 @@ class Schema(val schema:Seq[(Label, Domain)]) {
     new Schema(schema.filter(ld => !thatKeys.contains(ld._1)))
   }
   def isUnary = degree == 1
+  def labels = schema.map(_._1)
 }
 
 class RelQueryName(name:String) // FIXME type alias?
