@@ -87,7 +87,13 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   def update(s: String, schema: Schema, expr: SqlExpr, a: Seq[(String, SqlExpr)]): Int = ???
 
   // FIXME structured?
-  def execute(sql: String): Any = ???
+  def execute(sql: String): Either[ResultSetIterator, Int] = {
+    val statement = connection.createStatement()
+    if (statement.execute(sql))
+      Left(new ResultSetIterator(statement.getResultSet))
+    else
+      Right(statement.getUpdateCount)
+  }
 }
 
 object Sqlite3DbConnection {
