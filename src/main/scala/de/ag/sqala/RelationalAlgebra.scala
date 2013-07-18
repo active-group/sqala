@@ -2,8 +2,6 @@ package de.ag.sqala
 
 class Label(val label:String) // FIXME type alias?
 
-class Domain(val typ: String)  // FIXME structured?
-
 class Schema(val schema:Seq[(Label, Domain)]) {
   private lazy val schemaMap = schema.toMap
   def dom(label:Label) = schemaMap(label)
