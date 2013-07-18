@@ -16,8 +16,8 @@ trait DbConnection {
 
   def close():Unit
   def query(sqlQuery:SqlQuery, schema:Schema): Cursor
-  def insert(s:String /*FIXME*/, schema:Schema, values:Seq[Any/*FIXME*/]): Any /*FIXME*/ // FIXME structured?
-  def delete(s:String /*FIXME*/, expr:SqlExpr): Any /*FIXME*/ // FIXME structured?
-  def update(s:String /*FIXME*/, schema:Schema, expr:SqlExpr, a:Seq[(String, SqlExpr)]): Int // FIXME structured?
+  def insert(table:SqlTableName, schema:Schema, values:Seq[Any/*FIXME*/]): Any /*FIXME*/ // FIXME structured?
+  def delete(table:SqlTableName, expr:SqlExpr): Any /*FIXME*/ // FIXME structured?
+  def update(table:SqlTableName, schema:Schema, expr:SqlExpr, a:Seq[(String, SqlExpr)]): Int // FIXME structured?
   def execute(sql:String):Any /*FIXME*/ // run raw SQL, for emergencies
 }
