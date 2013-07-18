@@ -50,7 +50,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     val sql = "INSERT INTO %s(%s) VALUES (%s)".format(
       tableName,
       schema.labels.mkString(", "),
-      listToPlaceholders(values)
+      listToPlaceholders(values).mkString(", ")
     )
     val statement = connection.prepareStatement(sql)
     values
