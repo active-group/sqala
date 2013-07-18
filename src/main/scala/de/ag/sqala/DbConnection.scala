@@ -1,14 +1,17 @@
 package de.ag.sqala
 
 class Cursor //FIXME
+
+sealed abstract class Handle
+case class JDBCHandle(connection: java.sql.Connection) extends Handle
+
 /**
  *
  */
 trait DbConnection {
   val kind: Symbol       // what kind of database we're attached to
   val name: String       // same, for humans
-  val data: Any  /*FIXME*/   // internal connection data, for the driver
-  val handle: Handle /*FIXME*/ // DB-specific connection handle (?)
+  val handle: Handle     // DB-specific connection handle (?)
   val sqlWriteParameterization: SqlWriteParameterization
 
   def close():Unit

@@ -11,14 +11,12 @@ class RelQueryName(name:String) // FIXME type alias?
 
 class Universe // FIXME
 
-class Handle // FIXME
-
 sealed abstract class RelQuery
 case object RelQueryEmpty extends RelQuery
 case class RelQueryBase(name:RelQueryName,
                         schema:Schema,
                         universe:Option[Universe],
-                        handle:Option[Handle]) extends RelQuery
+                        table:Option[SqlTable]) extends RelQuery
 case class RelQueryProject(subset:Set[Label], query:RelQuery) extends RelQuery
 case class RelQueryRestrict(expr:Any /*FIXME*/, query:RelQuery) extends RelQuery
 case class RelQueryProduct(query1:RelQuery, query2:RelQuery) extends RelQuery
