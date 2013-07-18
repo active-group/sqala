@@ -8,4 +8,6 @@ package object sqala {
 
   type SqlColumnName = String
 
+  type Label = String
+
 }
