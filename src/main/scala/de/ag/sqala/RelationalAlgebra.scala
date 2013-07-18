@@ -9,7 +9,7 @@ class Schema(val schema:Seq[(Label, Domain)]) {
     // keep order of labels
     new Schema(schema.filter(ld => !thatKeys.contains(ld._1)))
   }
-  def unary = degree == 1
+  def isUnary = degree == 1
 }
 
 class RelQueryName(name:String) // FIXME type alias?
