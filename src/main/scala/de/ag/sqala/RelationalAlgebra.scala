@@ -1,9 +1,14 @@
 package de.ag.sqala
 
-class Schema(val schema:Map[Label, Domain]) {
-  def dom(label:Label) = schema(label)
-  def degree = schema.size
-  def difference(that:Schema) = this.schema -- that.schema.keys
+class Schema(val schema:Seq[(Label, Domain)]) {
+  private lazy val schemaMap = schema.toMap
+  def dom(label:Label) = schemaMap(label)
+  def degree = schemaMap.size
+  def difference(that:Schema):Schema = {
+    val thatKeys = that.schemaMap.keySet
+    // keep order of labels
+    new Schema(schema.filter(ld => !thatKeys.contains(ld._1)))
+  }
   def unary = degree == 1
 }
 
