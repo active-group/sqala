@@ -53,6 +53,25 @@ class SqlWriteTest extends FunSuite {
     (None, "SELECT 'Guns N'' Roses' FROM tbl1",
       baseQuery.copy(
       attributes = Seq(SqlQuerySelectAttribute(SqlExprConst(SqlLiteralString("Guns N' Roses")), None))
+      )),
+    (None, "SELECT id FROM tbl1 WHERE (company IN (SELECT id FROM companies WHERE (name LIKE '% Inc.')))",
+      baseQuery.copy(
+        attributes = Seq(SqlQuerySelectAttribute(SqlExprColumn("id"), None)),
+        where = Seq(SqlExprApp(SqlOperatorIn, Seq(SqlExprColumn("company"), SqlExprSubQuery(
+          SqlQuery.makeSelect(from = Seq(SqlQuerySelectFrom(SqlQueryTable("companies"), None)),
+            attributes = Seq(SqlQuerySelectAttribute(SqlExprColumn("id"), None)),
+            where = Seq(SqlExprApp(SqlOperatorLike, Seq(SqlExprColumn("name"), SqlExprConst(SqlLiteralString("% Inc."))))))
+        ))))
+      )),
+    (None, "SELECT id FROM tbl1 AS t1",
+      SqlQuery.makeSelect(
+      attributes=Seq(SqlQuerySelectAttribute(SqlExprColumn("id"), None)),
+      from=Seq(SqlQuerySelectFrom(tbl1, Some("t1"))))
+      ),
+    (None, "SELECT id FROM tbl1, tbl2",
+      SqlQuery.makeSelect(
+        attributes = Seq(SqlQuerySelectAttribute(SqlExprColumn("id"), None)),
+        from = Seq(SqlQuerySelectFrom(tbl1, None), SqlQuerySelectFrom(SqlQueryTable("tbl2"), None))
       ))
   ).foreach(s => s._1 match {
     case None => testWriteSql(s._2, s._2, s._3)
