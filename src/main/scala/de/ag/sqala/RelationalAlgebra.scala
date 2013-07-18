@@ -2,7 +2,7 @@ package de.ag.sqala
 
 class Schema(val schema:Seq[(Label, Domain)]) {
   private lazy val schemaMap = schema.toMap
-  def dom(label:Label) = schemaMap(label)
+  def dom(label:Label):Domain = schemaMap(label)
   def degree = schemaMap.size
   def difference(that:Schema):Schema = {
     val thatKeys = that.schemaMap.keySet
@@ -10,8 +10,8 @@ class Schema(val schema:Seq[(Label, Domain)]) {
     new Schema(schema.filter(ld => !thatKeys.contains(ld._1)))
   }
   def isUnary = degree == 1
-  def labels = schema.map(_._1)
-  def domains = schema.map(_._2)
+  def labels:Seq[Label] = schema.map(_._1)
+  def domains:Seq[Domain] = schema.map(_._2)
 }
 
 class RelQueryName(name:String) // FIXME type alias?
