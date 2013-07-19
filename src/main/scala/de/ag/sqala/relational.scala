@@ -38,6 +38,12 @@ object relational {
     def unapply(schema:Schema) = Some(schema.schema)
   }
 
+  sealed abstract class FailedArg // FIXME maybe just use Any
+  case class FailedSchema(schema:Schema) extends FailedArg
+  case class FailedDomain(domain:Domain) extends FailedArg
+  case class FailedExpr(expr:Expr) extends FailedArg
+  type FailProc = Option[(String, FailedArg)=>Unit]
+
   class Environment(val env: Map[Attribute, Domain]) {
     def apply(key:Attribute):Domain = env(key)
 
