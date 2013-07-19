@@ -78,6 +78,8 @@ object relational {
   case class QueryOrder(by:Seq[(Attribute, Order)], query:Query) extends Query
   case class QueryTop(n:Int) extends Query // top n entries
 
+  // TODO add make-extend
+
   //// Expressions
 
   sealed abstract class Expr
