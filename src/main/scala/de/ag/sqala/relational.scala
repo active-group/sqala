@@ -45,7 +45,7 @@ object relational {
   type FailProc = Option[(String, FailedArg)=>Unit]
 
   class Environment(val env: Map[Attribute, Domain]) {
-    def apply(key:Attribute):Domain = env(key)
+    def lookup(key:Attribute):Domain = env(key) // throws NoSuchElementException if no such key
 
     /**
      * compose two environments to one; environments must not use same attributes
