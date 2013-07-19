@@ -2,7 +2,7 @@ package de.ag.sqala.test
 
 import org.scalatest.FunSuite
 import de.ag.sqala.sql._
-import de.ag.sqala.Ascending
+import de.ag.sqala.relational.Ascending
 
 /**
  * Test writing sql

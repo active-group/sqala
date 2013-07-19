@@ -2,6 +2,7 @@ package de.ag.sqala
 
 import de.ag.sqala.sql.{Label, Table}
 
+object relational {
 
 class Schema(val schema:Seq[(Label, Domain)]) {
   private lazy val schemaMap = schema.toMap
@@ -17,27 +18,27 @@ class Schema(val schema:Seq[(Label, Domain)]) {
   def domains:Seq[Domain] = schema.map(_._2)
 }
 
-class RelQueryName(name:String) // FIXME type alias?
+class QueryName(name:String) // FIXME type alias?
 
-sealed abstract class RelQuery
-case object RelQueryEmpty extends RelQuery
-case class RelQueryBase(name:RelQueryName,
+sealed abstract class Query
+case object QueryEmpty extends Query
+case class QueryBase(name:QueryName,
                         schema:Schema,
-                        table:Option[Table]) extends RelQuery
-case class RelQueryProject(subset:Set[Label], query:RelQuery) extends RelQuery
-case class RelQueryRestrict(expr:Any /*FIXME*/, query:RelQuery) extends RelQuery
-case class RelQueryProduct(query1:RelQuery, query2:RelQuery) extends RelQuery
-case class RelQueryUnion(query1:RelQuery, query2:RelQuery) extends RelQuery
-case class RelQueryIntersection(query1:RelQuery, query2:RelQuery) extends RelQuery
-case class RelQueryQuotient(query1:RelQuery, query2:RelQuery) extends RelQuery
-case class RelQueryDifference(query1:RelQuery, query2:RelQuery) extends RelQuery
+                        table:Option[Table]) extends Query
+case class QueryProject(subset:Set[Label], query:Query) extends Query
+case class QueryRestrict(expr:Any /*FIXME*/, query:Query) extends Query
+case class QueryProduct(query1:Query, query2:Query) extends Query
+case class QueryUnion(query1:Query, query2:Query) extends Query
+case class QueryIntersection(query1:Query, query2:Query) extends Query
+case class QueryQuotient(query1:Query, query2:Query) extends Query
+case class QueryDifference(query1:Query, query2:Query) extends Query
 /*
 ; the underlying query is grouped by the non-aggregate expressions in
 ; the alist (hu? FIXME)
 */
-case class RelQueryGroupingProject(alist:Any /*FIXME*/, query:RelQuery) extends RelQuery
-case class RelQueryOrder(by:Seq[(Label, Order)], query:RelQuery) extends RelQuery
-case class RelQueryTop(n:Int) extends RelQuery // top n entries
+case class QueryGroupingProject(alist:Any /*FIXME*/, query:Query) extends Query
+case class QueryOrder(by:Seq[(Label, Order)], query:Query) extends Query
+case class QueryTop(n:Int) extends Query // top n entries
 
 
 sealed abstract class Order
@@ -46,16 +47,16 @@ case object Descending extends Order
 
 //// Expressions
 
-sealed abstract class RelExpr
-case class RelExprAttributeRef(name:String) extends RelExpr
-case class RelExprConst(value:String /*FIXME?*/) extends RelExpr
-case class RelExprNull(typ:String /*FIXME?*/) extends RelExpr
-case class RelExprApplication(operator:RelOperator /*FIXME?*/, operands:Seq[String/*FIXME?*/]) extends RelExpr
-case class RelExprTuple(expressions:Seq[RelExpr]) extends RelExpr
-case class RelExprAggregation(op:Either[AggregationOp, String], expr:RelExpr) extends RelExpr
-case class RelExprCase(branches:Seq[CaseBranch], default:Option[RelExpr]) extends RelExpr
-case class RelExprScalarSubQuery(query:RelQuery /*FIXME*/) extends RelExpr
-case class RelExprSetSubQuery(query:RelQuery /*FIXME*/) extends RelExpr
+sealed abstract class Expr
+case class ExprAttributeRef(name:String) extends Expr
+case class ExprConst(value:String /*FIXME?*/) extends Expr
+case class ExprNull(typ:String /*FIXME?*/) extends Expr
+case class ExprApplication(operator:Operator /*FIXME?*/, operands:Seq[String/*FIXME?*/]) extends Expr
+case class ExprTuple(expressions:Seq[Expr]) extends Expr
+case class ExprAggregation(op:Either[AggregationOp, String], expr:Expr) extends Expr
+case class ExprCase(branches:Seq[CaseBranch], default:Option[Expr]) extends Expr
+case class ExprScalarSubQuery(query:Query /*FIXME*/) extends Expr
+case class ExprSetSubQuery(query:Query /*FIXME*/) extends Expr
 
 
 sealed abstract class AggregationOp
@@ -69,9 +70,10 @@ case object AggregationOpStdDevP extends AggregationOp
 case object AggregationOpVar extends AggregationOp
 case object AggregationOpVarP extends AggregationOp
 
-case class RelOperator(name: String,
+case class Operator(name: String,
                        rangeType: Any, /* FIXME (fail, argTypes) => RangeType */
                        proc: Any, /* FIXME Scala implementation of operator (?) */
                        data:Any /* FIXME? domain-specific data for outside use (?)*/ )
 
-case class CaseBranch(condition:RelExpr, value:RelExpr)
+case class CaseBranch(condition:Expr, value:Expr)
+}

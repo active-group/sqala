@@ -3,7 +3,8 @@ package de.ag.sqala.test
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import de.ag.sqala.drivers.ite3DbConnection
 import de.ag.sqala.sql._
-import de.ag.sqala.{DBInteger, DBString, Schema, DbConnection}
+import de.ag.sqala.{DBInteger, DBString, DbConnection}
+import de.ag.sqala.relational.Schema
 
 /**
  *

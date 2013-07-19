@@ -8,6 +8,7 @@ import de.ag.sqala._
 import de.ag.sqala.JDBCHandle
 import de.ag.sqala.sql.LiteralBoolean
 import de.ag.sqala.sql.QueryCombine
+import de.ag.sqala.relational.Schema
 
 /**
  *

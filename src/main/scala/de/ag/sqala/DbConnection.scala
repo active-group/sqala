@@ -1,6 +1,7 @@
 package de.ag.sqala
 
 import de.ag.sqala.sql._
+import de.ag.sqala.relational.Schema
 
 class Cursor //FIXME
 
