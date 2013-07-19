@@ -14,18 +14,32 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
     conn = Sqlite3DbConnection.openInMemory()
   }
 
+  val tbl1Schema: Schema = new Schema(Seq(("one", DBString), ("two", DBInteger)))
 
-
-  test("open/close") {}
-  test("create tables") {
-    createTbl1()
-  }
+  val data = Seq(
+    ("test", 10),
+    ("foo", 12),
+    ("bar", -1),
+    ("filderstadt", 70794)
+  )
 
   def createTbl1() {
     conn.execute("CREATE TABLE tbl1(one VARCHAR(10), two SMALLINT)")
   }
 
-  val tbl1Schema: Schema = new Schema(Seq(("one", DBString), ("two", DBInteger)))
+  def createAndFillTbl1() {
+    createTbl1()
+    data.foreach {
+      case (s, i) =>
+        conn.insert("tbl1", tbl1Schema, Seq(s, Integer.valueOf(i)))
+    }
+  }
+
+  test("open/close") {}
+
+  test("create tables") {
+    createTbl1()
+  }
 
   test("insert") {
     createTbl1()
@@ -52,16 +66,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   }
 
   test("insert & query many") {
-    createTbl1()
-    val data = Seq(
-      ("test", 10),
-      ("foo", 12),
-      ("bar", -1),
-      ("filderstadt", 70794)
-    )
-    data.foreach { case (s,i) =>
-      conn.insert("tbl1", tbl1Schema, Seq(s, Integer.valueOf(i)))}
-
+    createAndFillTbl1()
     expectResult(data.map{d => Seq(d._1, d._2)}.toSet){
       conn.query(SqlQueryTable("tbl1"), tbl1Schema)
         .toSet
@@ -69,15 +74,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   }
 
   test("delete") {
-    createTbl1()
-    val data = Seq(
-      ("test", 10),
-      ("foo", 12),
-      ("bar", -1),
-      ("filderstadt", 70794)
-    )
-    data.foreach { case (s,i) =>
-      conn.insert("tbl1", tbl1Schema, Seq(s, Integer.valueOf(i)))}
+    createAndFillTbl1()
 
     expectResult(1){conn.delete("tbl1", SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("test")))))}
     expectResult(2){conn.delete("tbl1", SqlExprApp(SqlOperatorOr, Seq(
