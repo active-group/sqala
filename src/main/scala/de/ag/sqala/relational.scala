@@ -132,7 +132,109 @@ object relational {
 
   type QueryName = String
 
-  sealed abstract class Query
+  sealed abstract class Query {
+
+
+    def schema(env:Environment, failProc:FailProc): Schema = { // FIXME failProc to be func, not Option
+      def toEnv(schema:Schema) =
+        schema.toEnvironment.compose(env)
+
+      def uiq(query: Query, query1: Query, query2: Query): relational.Schema = {
+        val schema1 = rec(query1)
+        failProc match {
+          case None =>
+          case Some(fail) =>
+            if (!schema1.equals(rec(query2))) fail(schema1.toString, FailedQuery(query))
+        }
+        schema1
+      }
+
+      def rec(q:Query): Schema = q match {
+        case QueryEmpty => Schema.empty
+        case b:QueryBase => b.schema
+        case QueryProject(subset, query) =>
+          val baseScheme = rec(query)
+          failProc match {
+            case None =>
+            case Some(fail) => subset.foreach { case (attr, expr) => if (expr.isAggregate) fail("non-aggregate", FailedExpr(expr))}
+          }
+          Schema(
+            subset.map{case (attr, expr) =>
+              val domain = toEnv(baseScheme).expressionDomain(expr, failProc)
+              failProc match {
+                case None =>
+                case Some(fail) if domain.isInstanceOf[DBProduct] => fail("non-product type", FailedDomain(domain))
+              }
+              (attr, domain)
+            }.toSeq
+          )
+        case QueryRestrict(expr, query) =>
+          val schema = rec(query)
+          failProc match {
+            case None =>
+            case Some(fail) =>
+              val domain = toEnv(schema).expressionDomain(expr, failProc)
+              if (!domain.isInstanceOf[DBBoolean.type]) fail("boolean", FailedExpr(expr))
+          }
+          schema
+        case QueryProduct(query1, query2) =>
+          val schema1 = rec(query1)
+          val schema2 = rec(query2)
+          failProc match {
+            case None =>
+            case Some(fail) =>
+              val env2 = schema2.toEnvironment
+              // no two attributes with same name; avoid creating both environments
+              schema1.schema.foreach {
+                case (attr, domain) =>
+                  if (env2.contains(attr)) fail("not '" + attr + "'", FailedAttribute(attr))
+              }
+          }
+          Schema(schema1.schema ++ schema2.schema)
+        case QueryQuotient(query1, query2) =>
+          val schema1 = rec(query1)
+          val schema2 = rec(query2)
+          failProc match {
+            case None =>
+            case Some(fail) =>
+              ???  // TODO
+          }
+          schema1.difference(schema2)
+        case QueryUnion(q1, q2) => uiq(q, q1, q2)
+        case QueryIntersection(q1, q2) => uiq(q, q1, q2)
+        case QueryDifference(q1, q2) => uiq(q, q1, q2)
+        case QueryGroupingProject(alist, query) =>
+          val schema = rec(query)
+          val environment = failProc match {
+            case None => Environment.empty
+            case Some(_) => toEnv(schema)
+          }
+          Schema(
+            alist.map{case (attr, expr) =>
+              val domain = environment.expressionDomain(expr, failProc)
+              failProc match {
+                case None =>
+                case Some(fail) => if (domain.isInstanceOf[DBProduct]) fail("non-product domain", FailedDomain(domain))
+              }
+              (attr, domain)
+            }
+          )
+        case QueryOrder(by, query) =>
+          val schema = rec(query)
+          val env = toEnv(schema)
+          failProc match {
+            case None =>
+            case Some(fail) =>
+              by.foreach { case (expr, order) =>
+                val domain = env.expressionDomain(expr,failProc)
+                if (!domain.isOrdered) fail("not an ordered domain", FailedDomain(domain))} // FIXME fail first param maybe reversed ("not ...")?
+          }
+          schema
+        case QueryTop(n, query) => rec(query)
+      }
+      rec(this)
+    }
+  }
   case object QueryEmpty extends Query
   case class QueryBase(name:QueryName,
                           schema:Schema,
