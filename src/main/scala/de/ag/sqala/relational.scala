@@ -18,7 +18,7 @@ object relational {
     def domains:Seq[Domain] = schema.map(_._2)
   }
 
-  class QueryName(name:String) // FIXME type alias?
+  type QueryName = String
 
   sealed abstract class Query
   case object QueryEmpty extends Query
