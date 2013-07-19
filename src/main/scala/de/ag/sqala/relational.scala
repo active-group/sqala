@@ -42,6 +42,8 @@ object relational {
   case class FailedSchema(schema:Schema) extends FailedArg
   case class FailedDomain(domain:Domain) extends FailedArg
   case class FailedExpr(expr:Expr) extends FailedArg
+  case class FailedAttribute(attr:Attribute) extends FailedArg
+  case class FailedQuery(query:Query) extends FailedArg
   type FailProc = Option[(String, FailedArg)=>Unit]
 
   class Environment(val env: Map[Attribute, Domain]) {
