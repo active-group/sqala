@@ -3,33 +3,39 @@ package de.ag.sqala
 import java.io.{StringWriter, Writer}
 import de.ag.sqala.StringUtils._
 
-case class SqlExprCaseBranch(condition: SqlExpr, expr: SqlExpr)
+object sql {
+  type TableName = String
 
-sealed abstract class SqlExpr {
-  def write(out:Writer, param:SqlWriteParameterization) {
+  type ColumnName = String
+
+  type Label = String
+case class ExprCaseBranch(condition: Expr, expr: Expr)
+
+sealed abstract class Expr {
+  def write(out:Writer, param:WriteParameterization) {
     this match {
-      case SqlExprConst(value) =>
+      case ExprConst(value) =>
         param.writeLiteral(out, value)
-      case SqlExprTuple(exprs) =>
+      case ExprTuple(exprs) =>
         out.write("(")
-        writeJoined[SqlExpr](out, exprs, ", ", {
+        writeJoined[Expr](out, exprs, ", ", {
           (out, expr) => expr.write(out, param)})
-      case SqlExprColumn(columnName) =>
+      case ExprColumn(columnName) =>
         out.write(columnName)
-      case SqlExprApp(operator, operands) =>
+      case ExprApp(operator, operands) =>
         operator match {
-          case SqlPostfixOperator(opName) =>
+          case PostfixOperator(opName) =>
             out.write("(")
             operands.head.write(out, param)
             writeSpace(out)
             out.write(opName)
             out.write(")")
-          case SqlPrefixOperator(opName) =>
+          case PrefixOperator(opName) =>
             out.write(opName)
             out.write("(")
             operands.head.write(out, param)
             out.write(")")
-          case SqlInfixOperator(opName) =>
+          case InfixOperator(opName) =>
             out.write("(")
             operands.head.write(out, param)
             writeSpace(out)
@@ -38,7 +44,7 @@ sealed abstract class SqlExpr {
             operands.tail.head.write(out, param)
             out.write(")")
         }
-      case SqlExprCase(branches, default) =>
+      case ExprCase(branches, default) =>
         out.write("(CASE ")
         branches.foreach(writeBranch(out, param, _))
         default match {
@@ -48,25 +54,25 @@ sealed abstract class SqlExpr {
             expr.write(out, param)
         }
         out.write(")")
-      case SqlExprExists(query) =>
+      case ExprExists(query) =>
         out.write("EXISTS (")
         query.write(out, param)
         out.write(")")
-      case SqlExprSubQuery(query) =>
+      case ExprSubQuery(query) =>
         out.write("(")
         query.write(out, param)
         out.write(")")
     }
   }
 
-  protected def writeBranch(out:Writer, param:SqlWriteParameterization, branch:SqlExprCaseBranch) {
+  protected def writeBranch(out:Writer, param:WriteParameterization, branch:ExprCaseBranch) {
     out.write("WHEN ")
     branch.condition.write(out, param)
     out.write(" THEN ")
     branch.expr.write(out, param)
   }
 
-  def toString(param:SqlWriteParameterization) = {
+  def toString(param:WriteParameterization) = {
     val result = new StringWriter()
     write(result, param)
     result.toString
@@ -75,67 +81,67 @@ sealed abstract class SqlExpr {
   override def toString = toString(defaultSqlWriteParameterization)
 }
 
-case class SqlExprConst(value: SqlLiteral) extends SqlExpr
-case class SqlExprTuple(exprs: Seq[SqlExpr]) extends SqlExpr
-case class SqlExprColumn(name: SqlColumnName) extends SqlExpr
-case class SqlExprApp(operator: SqlOperator, operands: Seq[SqlExpr]) extends SqlExpr
-case class SqlExprCase(branches: Seq[SqlExprCaseBranch], default: Option[SqlExpr]) extends SqlExpr
-case class SqlExprExists(query: SqlQuery) extends SqlExpr
-case class SqlExprSubQuery(query: SqlQuery) extends SqlExpr
+case class ExprConst(value: Literal) extends Expr
+case class ExprTuple(exprs: Seq[Expr]) extends Expr
+case class ExprColumn(name: ColumnName) extends Expr
+case class ExprApp(operator: Operator, operands: Seq[Expr]) extends Expr
+case class ExprCase(branches: Seq[ExprCaseBranch], default: Option[Expr]) extends Expr
+case class ExprExists(query: Query) extends Expr
+case class ExprSubQuery(query: Query) extends Expr
 
-sealed abstract class SqlLiteral
-case class SqlLiteralNumber(n:BigDecimal) extends SqlLiteral // FIXME other type than BigDecimal?
-case class SqlLiteralString(s:String) extends SqlLiteral
-case object SqlLiteralNull extends SqlLiteral
-case class SqlLiteralBoolean(b:Boolean) extends SqlLiteral
+sealed abstract class Literal
+case class LiteralNumber(n:BigDecimal) extends Literal // FIXME other type than BigDecimal?
+case class LiteralString(s:String) extends Literal
+case object LiteralNull extends Literal
+case class LiteralBoolean(b:Boolean) extends Literal
 
-sealed abstract class SqlOperator(val name: String, val arity: Int)
-case class SqlPrefixOperator(override val name: String) extends SqlOperator(name, 1)
-case class SqlInfixOperator(override val name: String) extends SqlOperator(name, 2)
-case class SqlPostfixOperator(override val name: String) extends SqlOperator(name, 1)
+sealed abstract class Operator(val name: String, val arity: Int)
+case class PrefixOperator(override val name: String) extends Operator(name, 1)
+case class InfixOperator(override val name: String) extends Operator(name, 2)
+case class PostfixOperator(override val name: String) extends Operator(name, 1)
 
-object SqlOperatorEq extends SqlInfixOperator("=")
-object SqlOperatorLt extends SqlInfixOperator("<")
-object SqlOperatorGt extends SqlInfixOperator(">")
-object SqlOperatorLe extends SqlInfixOperator("<=")
-object SqlOperatorGe extends SqlInfixOperator(">=")
-object SqlOperatorNe extends SqlInfixOperator("<>")
-object SqlOperatorNLt extends SqlInfixOperator("!<")
-object SqlOperatorNGt extends SqlInfixOperator("!>")
+object OperatorEq extends InfixOperator("=")
+object OperatorLt extends InfixOperator("<")
+object OperatorGt extends InfixOperator(">")
+object OperatorLe extends InfixOperator("<=")
+object OperatorGe extends InfixOperator(">=")
+object OperatorNe extends InfixOperator("<>")
+object OperatorNLt extends InfixOperator("!<")
+object OperatorNGt extends InfixOperator("!>")
 
-object SqlOperatorAnd extends SqlInfixOperator("AND")
-object SqlOperatorOr extends SqlInfixOperator("OR")
-object SqlOperatorLike extends SqlInfixOperator("LIKE")
-object SqlOperatorIn extends SqlInfixOperator("IN")
-object SqlOperatorCat extends SqlInfixOperator("+")
-object SqlOperatorPlus extends SqlInfixOperator("+")
-object SqlOperatorMinus extends SqlInfixOperator("-")
-object SqlOperatorMul extends SqlInfixOperator("*")
-object SqlOperatorDiv extends SqlInfixOperator("/")
-object SqlOperatorMod extends SqlInfixOperator("MOD")
-object SqlOperatorBitNot extends SqlPrefixOperator("~")
-object SqlOperatorBitAnd extends SqlInfixOperator("&")
-object SqlOperatorBitOr extends SqlInfixOperator("|")
-object SqlOperatorBitXor extends SqlInfixOperator("^")
-object SqlOperatorAsg extends SqlInfixOperator("=")
+object OperatorAnd extends InfixOperator("AND")
+object OperatorOr extends InfixOperator("OR")
+object OperatorLike extends InfixOperator("LIKE")
+object OperatorIn extends InfixOperator("IN")
+object OperatorCat extends InfixOperator("+")
+object OperatorPlus extends InfixOperator("+")
+object OperatorMinus extends InfixOperator("-")
+object OperatorMul extends InfixOperator("*")
+object OperatorDiv extends InfixOperator("/")
+object OperatorMod extends InfixOperator("MOD")
+object OperatorBitNot extends PrefixOperator("~")
+object OperatorBitAnd extends InfixOperator("&")
+object OperatorBitOr extends InfixOperator("|")
+object OperatorBitXor extends InfixOperator("^")
+object OperatorAsg extends InfixOperator("=")
 
-object SqlOperatorNot extends SqlPrefixOperator("NOT")
-object SqlOperatorIsNull extends SqlPostfixOperator("IS NULL")
-object SqlOperatorIsNotNull extends SqlPostfixOperator("IS NOT NULL")
-object SqlOperatorLength extends SqlPrefixOperator("LENGTH")
+object OperatorNot extends PrefixOperator("NOT")
+object OperatorIsNull extends PostfixOperator("IS NULL")
+object OperatorIsNotNull extends PostfixOperator("IS NOT NULL")
+object OperatorLength extends PrefixOperator("LENGTH")
 
-object SqlOperatorCount extends SqlPrefixOperator("COUNT")
-object SqlOperatorSum extends SqlPrefixOperator("SUM")
-object SqlOperatorAvg extends SqlPrefixOperator("AVG")
-object SqlOperatorMin extends SqlPrefixOperator("MIN")
-object SqlOperatorMax extends SqlPrefixOperator("MAX")
-object SqlOperatorStdDev extends SqlPrefixOperator("StdDev")
-object SqlOperatorStdDevP extends SqlPrefixOperator("StdDevP")
-object SqlOperatorVar extends SqlPrefixOperator("Var")
-object SqlOperatorVarP extends SqlPrefixOperator("VarP")
+object OperatorCount extends PrefixOperator("COUNT")
+object OperatorSum extends PrefixOperator("SUM")
+object OperatorAvg extends PrefixOperator("AVG")
+object OperatorMin extends PrefixOperator("MIN")
+object OperatorMax extends PrefixOperator("MAX")
+object OperatorStdDev extends PrefixOperator("StdDev")
+object OperatorStdDevP extends PrefixOperator("StdDevP")
+object OperatorVar extends PrefixOperator("Var")
+object OperatorVarP extends PrefixOperator("VarP")
 
 
-case class SqlTable(name: SqlTableName,
+case class Table(name: TableName,
                     schema: Schema)
 
 
@@ -145,15 +151,15 @@ case object CombineOpIntersect extends CombineOp
 case object CombineOpExcept extends CombineOp
 
 
-sealed abstract class SqlQuery {
+sealed abstract class Query {
 
-  protected def writeAttributes(out: Writer, param: SqlWriteParameterization, attributes: Seq[SqlQuerySelectAttribute]) {
+  protected def writeAttributes(out: Writer, param: WriteParameterization, attributes: Seq[QuerySelectAttribute]) {
     if (attributes.isEmpty) {
       out.write("*")
     } else {
-      writeJoined[SqlQuerySelectAttribute](out, attributes, ", ", {
+      writeJoined[QuerySelectAttribute](out, attributes, ", ", {
         (out, attr) => attr.expr match {
-          case SqlExprColumn(alias) if alias == attr.alias =>
+          case ExprColumn(alias) if alias == attr.alias =>
             out.write(alias)
           case expr =>
             expr.write(out, param)
@@ -176,11 +182,11 @@ sealed abstract class SqlQuery {
   }
 
   // TODO rename 'from' to 'tableRef' or similar
-  protected def writeFrom(out: Writer, param: SqlWriteParameterization, from: Seq[SqlQuerySelectFrom]) {
+  protected def writeFrom(out: Writer, param: WriteParameterization, from: Seq[QuerySelectFrom]) {
     out.write("FROM ")
-    writeJoined[SqlQuerySelectFrom](out, from, ", ", {
+    writeJoined[QuerySelectFrom](out, from, ", ", {
       (out, from) => from.query match {
-        case q: SqlQueryTable => out.write(q.name)
+        case q: QueryTable => out.write(q.name)
         case q =>
           out.write("(")
           q.write(out, param)
@@ -190,28 +196,28 @@ sealed abstract class SqlQuery {
     })
   }
 
-  protected def writeWhere(out: Writer, param: SqlWriteParameterization, where: Seq[SqlExpr]) {
+  protected def writeWhere(out: Writer, param: WriteParameterization, where: Seq[Expr]) {
     out.write("WHERE ")
-    writeJoined[SqlExpr](out, where, " AND ", {
+    writeJoined[Expr](out, where, " AND ", {
       (out, expr) => expr.write(out, param)
     })
   }
 
-  protected def writeGroupBy(out: Writer, param: SqlWriteParameterization, groupBys: Seq[SqlExpr]) {
+  protected def writeGroupBy(out: Writer, param: WriteParameterization, groupBys: Seq[Expr]) {
     out.write("GROUP BY ")
-    writeJoined[SqlExpr](out, groupBys, ", ", {
+    writeJoined[Expr](out, groupBys, ", ", {
       (out, groupBy) => groupBy.write(out, param)
     })
   }
 
-  protected def writeHaving(out: Writer, param: SqlWriteParameterization, having: SqlExpr) {
+  protected def writeHaving(out: Writer, param: WriteParameterization, having: Expr) {
     out.write("HAVING ")
     having.write(out, param)
   }
 
-  protected def writeOrderBy(out: Writer, param: SqlWriteParameterization, orderBys: Seq[SqlQuerySelectOrderBy]) {
+  protected def writeOrderBy(out: Writer, param: WriteParameterization, orderBys: Seq[QuerySelectOrderBy]) {
     out.write("ORDER BY ")
-    writeJoined[SqlQuerySelectOrderBy](out, orderBys, ", ", {
+    writeJoined[QuerySelectOrderBy](out, orderBys, ", ", {
       (out, orderBy) =>
         orderBy.expr.write(out, param)
         out.write(orderBy.order match {
@@ -221,12 +227,12 @@ sealed abstract class SqlQuery {
     })
   }
 
-  def write(out:Writer, param:SqlWriteParameterization) {
+  def write(out:Writer, param:WriteParameterization) {
     this match {
-      case SqlQueryTable(name) =>
+      case QueryTable(name) =>
         out.write("SELECT * FROM ")
         out.write(name)
-      case s:SqlQuerySelect =>
+      case s:QuerySelect =>
         out.write("SELECT")
         writeWithSpaceIfNotEmpty(out, s.options)(writeJoined(out, _, " "))
         writeSpace(out); writeAttributes(out, param, s.attributes)
@@ -239,13 +245,13 @@ sealed abstract class SqlQuery {
         }
         writeWithSpaceIfNotEmpty(out, s.orderBy)(writeOrderBy(out, param, _))
         writeWithSpaceIfNotEmpty(out, s.extra)(writeJoined(out, _, " "))
-      case s:SqlQueryCombine =>
+      case s:QueryCombine =>
         param.writeCombine(out, param, s)
-      case SqlQueryEmpty =>
+      case QueryEmpty =>
     }
   }
 
-  def toString(param:SqlWriteParameterization) = {
+  def toString(param:WriteParameterization) = {
     val result = new StringWriter()
     write(result, param)
     result.toString
@@ -254,50 +260,50 @@ sealed abstract class SqlQuery {
   override def toString = toString(defaultSqlWriteParameterization)
 }
 
-case class SqlQueryTable(name: SqlTableName) extends SqlQuery
+case class QueryTable(name: TableName) extends Query
 
-case class SqlQuerySelect(options: Seq[String], // DISTINCT, ALL, etc.
-                          attributes: Seq[SqlQuerySelectAttribute], // selected fields (expr + alias), empty seq for '*'
+case class QuerySelect(options: Seq[String], // DISTINCT, ALL, etc.
+                          attributes: Seq[QuerySelectAttribute], // selected fields (expr + alias), empty seq for '*'
                           //                     isNullary: Boolean, // true if select represents nullary relation (?); in this case attributes should contain single dummy attribute (?)
-                          from: Seq[SqlQuerySelectFrom], // FROM (
-                          where: Seq[SqlExpr], // WHERE; Seq constructed from relational algebra
-                          groupBy: Seq[SqlExpr], // GROUP BY
-                          having: Option[SqlExpr], // HAVING
-                          orderBy: Seq[SqlQuerySelectOrderBy], // ORDER BY
+                          from: Seq[QuerySelectFrom], // FROM (
+                          where: Seq[Expr], // WHERE; Seq constructed from relational algebra
+                          groupBy: Seq[Expr], // GROUP BY
+                          having: Option[Expr], // HAVING
+                          orderBy: Seq[QuerySelectOrderBy], // ORDER BY
                           extra: Seq[String] // TOP n, etc.
-                           ) extends SqlQuery
+                           ) extends Query
 
-case class SqlQueryCombine(op: CombineOp,
-                            left: SqlQuery,
-                            right: SqlQuery) extends SqlQuery
+case class QueryCombine(op: CombineOp,
+                            left: Query,
+                            right: Query) extends Query
 
-case object SqlQueryEmpty extends SqlQuery // FIXME used when?
+case object QueryEmpty extends Query // FIXME used when?
 
-case class SqlQuerySelectAttribute(expr:SqlExpr, alias:Option[SqlColumnName])
-case class SqlQuerySelectFrom(query:SqlQuery, alias:Option[SqlTableName])
-case class SqlQuerySelectOrderBy(expr:SqlExpr, order:Order)
+case class QuerySelectAttribute(expr:Expr, alias:Option[ColumnName])
+case class QuerySelectFrom(query:Query, alias:Option[TableName])
+case class QuerySelectOrderBy(expr:Expr, order:Order)
 
-object SqlQuery {
-  def defaultWriteCombine(out:Writer, param:SqlWriteParameterization, sqlCombine:SqlQueryCombine) {
+object Query {
+  def defaultWriteCombine(out:Writer, param:WriteParameterization, Combine:QueryCombine) {
     out.write('(')
-    sqlCombine.left.write(out, param)
+    Combine.left.write(out, param)
     out.write(") ")
-    out.write(sqlCombine.op match {
+    out.write(Combine.op match {
       case CombineOpUnion => "UNION"
       case CombineOpIntersect => "INTERSECT"
       case CombineOpExcept => "EXCEPT"
     })
     out.write(" (")
-    sqlCombine.right.write(out, param)
+    Combine.right.write(out, param)
     out.write(")")
   }
 
-  def defaultWriteLiteral(out:Writer, literal:SqlLiteral) {
+  def defaultWriteLiteral(out:Writer, literal:Literal) {
     literal match {
-      case SqlLiteralBoolean(b) => out.write(if (b) "TRUE" else "FALSE")
-      case SqlLiteralNull => out.write("NULL")
-      case SqlLiteralNumber(n) => out.write(n.toString())
-      case SqlLiteralString(s) => out.write('\'')
+      case LiteralBoolean(b) => out.write(if (b) "TRUE" else "FALSE")
+      case LiteralNull => out.write("NULL")
+      case LiteralNumber(n) => out.write(n.toString())
+      case LiteralString(s) => out.write('\'')
         for(c <- s) {
           if (c == '\'') out.write('\'')
           out.write(c)
@@ -307,56 +313,57 @@ object SqlQuery {
   }
 
   def makeSelect(options:Seq[String]=Seq(),
-                         attributes:Seq[SqlQuerySelectAttribute]=Seq(),
-                          from:Seq[SqlQuerySelectFrom],
-                          where: Seq[SqlExpr]=Seq(),
-                          groupBy: Seq[SqlExpr]=Seq(),
-                          having: Option[SqlExpr]=None,
-                          orderBy: Seq[SqlQuerySelectOrderBy]=Seq(),
+                         attributes:Seq[QuerySelectAttribute]=Seq(),
+                          from:Seq[QuerySelectFrom],
+                          where: Seq[Expr]=Seq(),
+                          groupBy: Seq[Expr]=Seq(),
+                          having: Option[Expr]=None,
+                          orderBy: Seq[QuerySelectOrderBy]=Seq(),
                           extra:Seq[String]=Seq()) = {
-    SqlQuerySelect(options, attributes, from, where, groupBy, having, orderBy, extra)
+    QuerySelect(options, attributes, from, where, groupBy, having, orderBy, extra)
   }
 }
 
-// printing sql
-trait SqlWriteParameterization {
+// printing 
+trait WriteParameterization {
   /**
-   * write SqlQueryCombine to output sink
+   * write QueryCombine to output sink
    *
    * @param out output sink
    * @param param this object for recursive calls
-   * @param sqlCombine combining sql query
+   * @param Combine combining  query
    */
-  def writeCombine(out:Writer, param:SqlWriteParameterization, sqlCombine:SqlQueryCombine):Unit
+  def writeCombine(out:Writer, param:WriteParameterization, Combine:QueryCombine):Unit
 
   /**
-   * write constant SQL expression (literal) to output sink
+   * write constant  expression (literal) to output sink
    *
    * @param out: output sink
    * @param literal: constant literal to write
    */
-  def writeLiteral(out:Writer, literal:SqlLiteral): Unit
+  def writeLiteral(out:Writer, literal:Literal): Unit
 }
 
-object defaultSqlWriteParameterization extends SqlWriteParameterization {
+object defaultSqlWriteParameterization extends WriteParameterization {
   /**
-   * write SqlQueryCombine to output sink
+   * write QueryCombine to output sink
    *
    * @param out output sink
    * @param param this object for recursive calls
-   * @param sqlCombine combining sql query
+   * @param Combine combining  query
    */
-  def writeCombine(out: Writer, param: SqlWriteParameterization, sqlCombine: SqlQueryCombine) {
-    SqlQuery.defaultWriteCombine(out, param, sqlCombine)
+  def writeCombine(out: Writer, param: WriteParameterization, Combine: QueryCombine) {
+    Query.defaultWriteCombine(out, param, Combine)
   }
 
   /**
-   * write constant SQL expression (literal) to output sink
+   * write constant  expression (literal) to output sink
    *
    * @param out: output sink
    * @param literal: constant literal to write
    */
-  def writeLiteral(out: Writer, literal: SqlLiteral) {
-    SqlQuery.defaultWriteLiteral(out, literal)
+  def writeLiteral(out: Writer, literal: Literal) {
+    Query.defaultWriteLiteral(out, literal)
   }
+}
 }

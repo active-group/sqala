@@ -1,8 +1,9 @@
 package de.ag.sqala.test
 
 import org.scalatest.{BeforeAndAfter, FunSuite}
-import de.ag.sqala.drivers.Sqlite3DbConnection
-import de.ag.sqala._
+import de.ag.sqala.drivers.ite3DbConnection
+import de.ag.sqala.sql._
+import de.ag.sqala.{DBInteger, DBString, Schema, DbConnection}
 
 /**
  *
@@ -11,7 +12,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   var conn:DbConnection = _
 
   before {
-    conn = Sqlite3DbConnection.openInMemory()
+    conn = ite3DbConnection.openInMemory()
   }
 
   val tbl1Schema: Schema = new Schema(Seq(("one", DBString), ("two", DBInteger)))
@@ -50,9 +51,9 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
     createTbl1()
     assert(1 == conn.insert("tbl1", tbl1Schema, Seq("test", Integer.valueOf(10))))
 
-    val results = conn.query(SqlQuery.makeSelect(
-      attributes = Seq(SqlQuerySelectAttribute(SqlExprColumn("one"), None), SqlQuerySelectAttribute(SqlExprColumn("two"), None)),
-      from = Seq(SqlQuerySelectFrom(SqlQueryTable("tbl1"), None))
+    val results = conn.query(Query.makeSelect(
+      attributes = Seq(QuerySelectAttribute(ExprColumn("one"), None), QuerySelectAttribute(ExprColumn("two"), None)),
+      from = Seq(QuerySelectFrom(QueryTable("tbl1"), None))
     ),
       new Schema(Seq(("one", DBString), ("two", DBInteger))))
       .toArray
@@ -68,7 +69,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   test("insert & query many") {
     createAndFillTbl1()
     expectResult(data.map{d => Seq(d._1, d._2)}.toSet){
-      conn.query(SqlQueryTable("tbl1"), tbl1Schema)
+      conn.query(QueryTable("tbl1"), tbl1Schema)
         .toSet
     }
   }
@@ -76,24 +77,24 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   test("delete") {
     createAndFillTbl1()
 
-    expectResult(1){conn.delete("tbl1", SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("test")))))}
-    expectResult(2){conn.delete("tbl1", SqlExprApp(SqlOperatorOr, Seq(
-        SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("foo")))),
-        SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("two"), SqlExprConst(SqlLiteralNumber(-1)))))))}
-    expectResult(0){conn.delete("tbl1", SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("test")))))}
+    expectResult(1){conn.delete("tbl1", ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
+    expectResult(2){conn.delete("tbl1", ExprApp(OperatorOr, Seq(
+        ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("foo")))),
+        ExprApp(OperatorEq, Seq(ExprColumn("two"), ExprConst(LiteralNumber(-1)))))))}
+    expectResult(0){conn.delete("tbl1", ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
   }
 
   test("update") {
     createAndFillTbl1()
 
     expectResult(1){conn.update("tbl1", null, /* FIXME update does not need scheme (?) */
-      SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("bar")))),
-      Seq(("two", SqlExprConst(SqlLiteralNumber(12)))))}
+      ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("bar")))),
+      Seq(("two", ExprConst(LiteralNumber(12)))))}
     expectResult(0){conn.update("tbl1", null,
-      SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("not there")))),
-      Seq(("two", SqlExprConst(SqlLiteralNumber(12)))))}
+      ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("not there")))),
+      Seq(("two", ExprConst(LiteralNumber(12)))))}
     expectResult(2){conn.update("tbl1", null,
-      SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("two"), SqlExprConst(SqlLiteralNumber(12)))),
-      Seq(("two", SqlExprConst(SqlLiteralNull))))}
+      ExprApp(OperatorEq, Seq(ExprColumn("two"), ExprConst(LiteralNumber(12)))),
+      Seq(("two", ExprConst(LiteralNull))))}
   }
 }

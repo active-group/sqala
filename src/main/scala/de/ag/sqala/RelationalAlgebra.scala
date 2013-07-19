@@ -1,5 +1,8 @@
 package de.ag.sqala
 
+import de.ag.sqala.sql.{Label, Table}
+
+
 class Schema(val schema:Seq[(Label, Domain)]) {
   private lazy val schemaMap = schema.toMap
   def dom(label:Label):Domain = schemaMap(label)
@@ -23,7 +26,7 @@ case object RelQueryEmpty extends RelQuery
 case class RelQueryBase(name:RelQueryName,
                         schema:Schema,
                         universe:Option[Universe],
-                        table:Option[SqlTable]) extends RelQuery
+                        table:Option[Table]) extends RelQuery
 case class RelQueryProject(subset:Set[Label], query:RelQuery) extends RelQuery
 case class RelQueryRestrict(expr:Any /*FIXME*/, query:RelQuery) extends RelQuery
 case class RelQueryProduct(query1:RelQuery, query2:RelQuery) extends RelQuery

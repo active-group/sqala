@@ -1,39 +1,43 @@
 package de.ag.sqala.drivers
 
-import de.ag.sqala._
+import de.ag.sqala.sql._
 import java.io.{File, Writer}
 import org.sqlite.SQLiteConfig
 import java.util.Properties
+import de.ag.sqala._
+import de.ag.sqala.JDBCHandle
+import de.ag.sqala.sql.LiteralBoolean
+import de.ag.sqala.sql.QueryCombine
 
 /**
  *
  */
 class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   val kind: Symbol = 'sqlite3
-  val name: String = "Sqlite3"
+  val name: String = "ite3"
   val handle: Handle = JDBCHandle(connection)
-  val sqlWriteParameterization: SqlWriteParameterization = new SqlWriteParameterization {
+  val sqlWriteParameterization: WriteParameterization = new WriteParameterization {
     /**
      * write constant SQL expression (literal) to output sink
      *
      * @param out: output sink
      * @param value: constant literal to write
      */
-    def writeLiteral(out: Writer, value: SqlLiteral) {
+    def writeLiteral(out: Writer, value: Literal) {
       value match {
-        case SqlLiteralBoolean(b) => out.write(if (b) "1" else "0")
+        case LiteralBoolean(b) => out.write(if (b) "1" else "0")
         case _ => defaultSqlWriteParameterization.writeLiteral(out, value)
       }
     }
 
     /**
-     * write SqlQueryCombine to output sink
+     * write QueryCombine to output sink
      *
      * @param out output sink
      * @param param this object for recursive calls
      * @param sqlCombine left sql query, combine operator, right sql query
      */
-    def writeCombine(out: Writer, param: SqlWriteParameterization, sqlCombine: SqlQueryCombine) {
+    def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: QueryCombine) {
       /* FIXME */
     }
   }
@@ -42,7 +46,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     connection.close()
   }
 
-  def query(sqlQuery: SqlQuery, schema: Schema): ResultSetIterator = {
+  def query(sqlQuery: Query, schema: Schema): ResultSetIterator = {
     val sql = sqlQuery.toString(sqlWriteParameterization)
     val statement = connection.createStatement()
     val resultSet = statement.executeQuery(sql)
@@ -51,7 +55,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
 
-  def insert(tableName: SqlTableName, schema: Schema, values: Seq[AnyRef]): Int = {
+  def insert(tableName: TableName, schema: Schema, values: Seq[AnyRef]): Int = {
     val sql = "INSERT INTO %s(%s) VALUES (%s)".format(
       tableName,
       schema.labels.mkString(", "),
@@ -85,7 +89,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     })
   }
 
-  def delete(tableName: SqlTableName, expr: SqlExpr): Int = {
+  def delete(tableName: TableName, expr: Expr): Int = {
     val sql = "DELETE FROM %s WHERE %s".format(tableName, expr.toString(sqlWriteParameterization))
     val statement = connection.createStatement()
     val result = statement.executeUpdate(sql)
@@ -94,7 +98,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
 
-  def update(tableName: SqlTableName, schema: Schema, expr: SqlExpr, updates: Seq[(SqlColumnName, SqlExpr)]): Int = {
+  def update(tableName: TableName, schema: Schema, expr: Expr, updates: Seq[(ColumnName, Expr)]): Int = {
     val clauses = updates.map {
       case (columnName, value) => "%s = %s".format(columnName, value.toString(sqlWriteParameterization))
     }
@@ -119,7 +123,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 }
 
-object Sqlite3DbConnection {
+object ite3DbConnection {
   def open(file:File): Sqlite3DbConnection =
     open(file.getPath, new Properties())
 
