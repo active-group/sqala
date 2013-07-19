@@ -11,12 +11,30 @@ object relational {
     def difference(that:Schema):Schema = {
       val thatKeys = that.schemaMap.keySet
       // keep order of labels
-      new Schema(schema.filter(ld => !thatKeys.contains(ld._1)))
+      Schema(schema.filter(ld => !thatKeys.contains(ld._1)))
     }
     def isUnary = degree == 1
     def labels:Seq[Label] = schema.map(_._1)
     def domains:Seq[Domain] = schema.map(_._2)
+    // have own equals, etc. instead of case class to avoid construction of schemaMap
+    override def equals(it:Any) = it match {
+      case that:Schema => isComparable(that) && that.schema == this.schema
+      case _ => false
+    }
+    override def hashCode() = schema.hashCode()
+    def isComparable(that:Any) = that.isInstanceOf[Schema]
   }
+
+  object Schema {
+    // can have only one or the other apply, not both (same type after erasure);
+    // settled for the one not requiring (...:*) for Seq arguments
+    // def apply(schema:(Label, Domain)*) =
+    //   new Schema(schema)
+    def apply(schema:Seq[(Label, Domain)]) =
+      new Schema(schema)
+    def unapply(schema:Schema) = Some(schema.schema)
+  }
+
 
   type QueryName = String
 
