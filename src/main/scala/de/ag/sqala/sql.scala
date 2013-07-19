@@ -2,7 +2,7 @@ package de.ag.sqala
 
 import java.io.{StringWriter, Writer}
 import de.ag.sqala.StringUtils._
-import de.ag.sqala.relational.{Descending, Ascending, Order, Schema}
+import de.ag.sqala.relational.Schema
 
 object sql {
   type TableName = String

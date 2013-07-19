@@ -40,11 +40,6 @@ object relational {
   case class QueryOrder(by:Seq[(Label, Order)], query:Query) extends Query
   case class QueryTop(n:Int) extends Query // top n entries
 
-
-  sealed abstract class Order
-  case object Ascending extends Order
-  case object Descending extends Order
-
   //// Expressions
 
   sealed abstract class Expr
