@@ -49,6 +49,7 @@ object relational {
   class Environment(val env: Map[Attribute, Domain]) {
     def lookup(key:Attribute):Domain = env(key) // throws NoSuchElementException if no such key
 
+    def contains(attribute:Attribute) = env.contains(attribute)
     /**
      * compose two environments to one; environments must not use same attributes
      * @param that  environment to add
