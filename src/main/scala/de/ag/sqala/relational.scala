@@ -63,8 +63,8 @@ object relational {
   case class QueryBase(name:QueryName,
                           schema:Schema,
                           table:Option[Table]) extends Query
-  case class QueryProject(subset:Set[Attribute], query:Query) extends Query
-  case class QueryRestrict(expr:Any /*FIXME*/, query:Query) extends Query
+  case class QueryProject(subset:Set[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
+  case class QueryRestrict(expr:Expr /*returning boolean*/, query:Query) extends Query
   case class QueryProduct(query1:Query, query2:Query) extends Query
   case class QueryUnion(query1:Query, query2:Query) extends Query
   case class QueryIntersection(query1:Query, query2:Query) extends Query
