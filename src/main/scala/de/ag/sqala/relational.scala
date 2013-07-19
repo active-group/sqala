@@ -164,7 +164,7 @@ object relational {
   case object AggregationOpVarP extends AggregationOp
 
   case class Operator(name: String,
-                         rangeType: Any, /* FIXME (fail, argTypes) => RangeType */
+                         rangeType: (FailProc, Seq[Domain])=> Domain,
                          proc: Any, /* FIXME Scala implementation of operator (?) */
                          data:Any /* FIXME? domain-specific data for outside use (?)*/ )
 
