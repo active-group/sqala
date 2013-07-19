@@ -19,13 +19,10 @@ class Schema(val schema:Seq[(Label, Domain)]) {
 
 class RelQueryName(name:String) // FIXME type alias?
 
-class Universe // FIXME
-
 sealed abstract class RelQuery
 case object RelQueryEmpty extends RelQuery
 case class RelQueryBase(name:RelQueryName,
                         schema:Schema,
-                        universe:Option[Universe],
                         table:Option[Table]) extends RelQuery
 case class RelQueryProject(subset:Set[Label], query:RelQuery) extends RelQuery
 case class RelQueryRestrict(expr:Any /*FIXME*/, query:RelQuery) extends RelQuery
