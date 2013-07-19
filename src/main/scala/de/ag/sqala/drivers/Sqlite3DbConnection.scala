@@ -80,10 +80,14 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     })
   }
 
-  /*FIXME*/
-  def delete(s: String, expr: SqlExpr): Any = ???
+  def delete(tableName: SqlTableName, expr: SqlExpr): Int = {
+    val sql = "DELETE FROM %s WHERE %s".format(tableName, expr.toString(sqlWriteParameterization))
+    val statement = connection.createStatement()
+    val result = statement.executeUpdate(sql)
+    statement.close()
+    result
+  }
 
-  /*FIXME*/
   def update(s: String, schema: Schema, expr: SqlExpr, a: Seq[(String, SqlExpr)]): Int = ???
 
   // FIXME structured?
