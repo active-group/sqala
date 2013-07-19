@@ -82,4 +82,18 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
         SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("two"), SqlExprConst(SqlLiteralNumber(-1)))))))}
     expectResult(0){conn.delete("tbl1", SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("test")))))}
   }
+
+  test("update") {
+    createAndFillTbl1()
+
+    expectResult(1){conn.update("tbl1", null, /* FIXME update does not need scheme (?) */
+      SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("bar")))),
+      Seq(("two", SqlExprConst(SqlLiteralNumber(12)))))}
+    expectResult(0){conn.update("tbl1", null,
+      SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("not there")))),
+      Seq(("two", SqlExprConst(SqlLiteralNumber(12)))))}
+    expectResult(2){conn.update("tbl1", null,
+      SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("two"), SqlExprConst(SqlLiteralNumber(12)))),
+      Seq(("two", SqlExprConst(SqlLiteralNull))))}
+  }
 }
