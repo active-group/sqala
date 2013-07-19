@@ -5,11 +5,11 @@ import de.ag.sqala.sql.{Attribute, Table}
 object relational {
 
   class Schema(val schema:Seq[(Attribute, Domain)]) {
-    private lazy val schemaMap = schema.toMap
-    def dom(attribute:Attribute):Domain = schemaMap(attribute)
-    def degree = schemaMap.size
+    private lazy val environment = schema.toMap
+    def dom(attribute:Attribute):Domain = environment(attribute)
+    def degree = environment.size
     def difference(that:Schema):Schema = {
-      val thatKeys = that.schemaMap.keySet
+      val thatKeys = that.environment.keySet
       // keep order of attributes
       Schema(schema.filter(tuple => !thatKeys.contains(tuple._1)))
     }
