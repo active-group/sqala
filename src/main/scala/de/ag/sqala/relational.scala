@@ -1,20 +1,20 @@
 package de.ag.sqala
 
-import de.ag.sqala.sql.{Label, Table}
+import de.ag.sqala.sql.{Attribute, Table}
 
 object relational {
 
-  class Schema(val schema:Seq[(Label, Domain)]) {
+  class Schema(val schema:Seq[(Attribute, Domain)]) {
     private lazy val schemaMap = schema.toMap
-    def dom(label:Label):Domain = schemaMap(label)
+    def dom(attribute:Attribute):Domain = schemaMap(attribute)
     def degree = schemaMap.size
     def difference(that:Schema):Schema = {
       val thatKeys = that.schemaMap.keySet
-      // keep order of labels
-      Schema(schema.filter(ld => !thatKeys.contains(ld._1)))
+      // keep order of attributes
+      Schema(schema.filter(tuple => !thatKeys.contains(tuple._1)))
     }
     def isUnary = degree == 1
-    def labels:Seq[Label] = schema.map(_._1)
+    def attributes:Seq[Attribute] = schema.map(_._1)
     def domains:Seq[Domain] = schema.map(_._2)
     // have own equals, etc. instead of case class to avoid construction of schemaMap
     override def equals(it:Any) = it match {
@@ -28,9 +28,9 @@ object relational {
   object Schema {
     // can have only one or the other apply, not both (same type after erasure);
     // settled for the one not requiring (...:*) for Seq arguments
-    // def apply(schema:(Label, Domain)*) =
+    // def apply(schema:(Attribute, Domain)*) =
     //   new Schema(schema)
-    def apply(schema:Seq[(Label, Domain)]) =
+    def apply(schema:Seq[(Attribute, Domain)]) =
       new Schema(schema)
     def unapply(schema:Schema) = Some(schema.schema)
   }
@@ -43,7 +43,7 @@ object relational {
   case class QueryBase(name:QueryName,
                           schema:Schema,
                           table:Option[Table]) extends Query
-  case class QueryProject(subset:Set[Label], query:Query) extends Query
+  case class QueryProject(subset:Set[Attribute], query:Query) extends Query
   case class QueryRestrict(expr:Any /*FIXME*/, query:Query) extends Query
   case class QueryProduct(query1:Query, query2:Query) extends Query
   case class QueryUnion(query1:Query, query2:Query) extends Query
@@ -55,7 +55,7 @@ object relational {
   ; the alist (hu? FIXME)
   */
   case class QueryGroupingProject(alist:Any /*FIXME*/, query:Query) extends Query
-  case class QueryOrder(by:Seq[(Label, Order)], query:Query) extends Query
+  case class QueryOrder(by:Seq[(Attribute, Order)], query:Query) extends Query
   case class QueryTop(n:Int) extends Query // top n entries
 
   //// Expressions

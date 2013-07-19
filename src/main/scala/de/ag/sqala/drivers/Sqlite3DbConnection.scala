@@ -59,7 +59,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   def insert(tableName: TableName, schema: Schema, values: Seq[AnyRef]): Int = {
     val sql = "INSERT INTO %s(%s) VALUES (%s)".format(
       tableName,
-      schema.labels.mkString(", "),
+      schema.attributes.mkString(", "),
       listToPlaceholders(values).mkString(", ")
     )
     val statement = connection.prepareStatement(sql)

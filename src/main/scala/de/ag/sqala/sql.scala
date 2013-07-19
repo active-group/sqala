@@ -9,7 +9,7 @@ object sql {
 
   type ColumnName = String
 
-  type Label = String
+  type Attribute = String
   case class ExprCaseBranch(condition: Expr, expr: Expr)
 
   sealed abstract class Expr {
