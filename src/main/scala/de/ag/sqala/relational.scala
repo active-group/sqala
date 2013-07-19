@@ -58,6 +58,69 @@ object relational {
       else if (that.env.size == 0) this
       else new Environment(this.env ++ that.env)
     }
+
+    def expressionDomain(expr:Expr, failProc:FailProc): Domain = {
+      def subqueryDomain: (relational.Query) => Domain = {
+        subquery =>
+          val schema = subquery.schema(this, failProc)
+          failProc match {
+            case None =>
+            case Some(fail) => if (!schema.isUnary) fail("unary-relation", FailedSchema(schema))
+          }
+          schema.schema.head._2
+
+      }
+      expr.fold(
+        onAttributeRef= {name => lookup(name)},
+        onConst= {(domain, value) => domain},
+        onNull= {domain => domain},
+        onApplication= {(rator:Operator, rands:Seq[Domain]) => rator.rangeType(failProc, rands)},
+        onTuple= {domains:Seq[Domain] => DBProduct(domains)},
+        onAggregation= {
+          (aggOpOrString:Either[AggregationOp, String], domain:Domain) =>
+            aggOpOrString match {
+              case Left(aggOp) => aggOp match {
+                case AggregationOpCount => DBInteger
+                case _ =>
+                  failProc match { // FIXME fail check stuff should go to op, shouldn't it?
+                    case None =>
+                    case Some(fail) => aggOp match {
+                      case AggregationOpSum
+                           | AggregationOpAvg
+                           | AggregationOpStdDev
+                           | AggregationOpStdDevP
+                           | AggregationOpVar
+                           | AggregationOpVarP =>
+                        if (!domain.isNumeric) fail("non-numeric", FailedDomain(domain))
+                      case AggregationOpMin
+                           | AggregationOpMax =>
+                        if (!domain.isOrdered) fail("non-ordered", FailedDomain(domain))
+                      case AggregationOpCount =>
+                    }
+                  }
+                  domain
+              }
+              case Right(otherOp) => domain /* FIXME that's certainly wrong, need type of op named via string! */
+            }},
+        onCase= {
+          (branches:Seq[(Domain, Domain)], default:Option[Domain]) =>
+            val domain = default match {
+              case None => branches.head._1
+              case Some(dom) => dom
+            }
+            failProc match {
+              case None =>
+              case Some(fail) =>
+                branches.foreach {
+                  case (condition, value) =>
+                    if (!condition.isInstanceOf[DBBoolean.type]) fail("non-boolean", FailedDomain(condition))
+                    if (!value.equals(domain)) fail(value.name, FailedDomain(domain)) // FIXME first arg of fail seems 'inverted', should be "non-" + value.name (?)
+                }
+            }
+            domain},
+        onScalarSubQuery= subqueryDomain,
+        onSetSubQuery= subqueryDomain)
+    }
   }
 
   object Environment {
