@@ -67,4 +67,22 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
         .toSet
     }
   }
+
+  test("delete") {
+    createTbl1()
+    val data = Seq(
+      ("test", 10),
+      ("foo", 12),
+      ("bar", -1),
+      ("filderstadt", 70794)
+    )
+    data.foreach { case (s,i) =>
+      conn.insert("tbl1", tbl1Schema, Seq(s, Integer.valueOf(i)))}
+
+    expectResult(1){conn.delete("tbl1", SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("test")))))}
+    expectResult(2){conn.delete("tbl1", SqlExprApp(SqlOperatorOr, Seq(
+        SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("foo")))),
+        SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("two"), SqlExprConst(SqlLiteralNumber(-1)))))))}
+    expectResult(0){conn.delete("tbl1", SqlExprApp(SqlOperatorEq, Seq(SqlExprColumn("one"), SqlExprConst(SqlLiteralString("test")))))}
+  }
 }
