@@ -19,7 +19,12 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
      * @param out: output sink
      * @param value: constant literal to write
      */
-    def writeLiteral(out: Writer, value: SqlLiteral) { /* FIXME */}
+    def writeLiteral(out: Writer, value: SqlLiteral) {
+      value match {
+        case SqlLiteralBoolean(b) => out.write(if (b) "1" else "0")
+        case _ => defaultSqlWriteParameterization.writeLiteral(out, value)
+      }
+    }
 
     /**
      * write SqlQueryCombine to output sink
