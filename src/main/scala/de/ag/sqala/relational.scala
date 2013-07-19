@@ -146,11 +146,11 @@ object relational {
   case class QueryDifference(query1:Query, query2:Query) extends Query
   /*
   ; the underlying query is grouped by the non-aggregate expressions in
-  ; the alist (hu? FIXME)
+  ; the grouping (hu? FIXME)
   */
-  case class QueryGroupingProject(alist:Any /*FIXME*/, query:Query) extends Query
-  case class QueryOrder(by:Seq[(Attribute, Order)], query:Query) extends Query
-  case class QueryTop(n:Int) extends Query // top n entries
+  case class QueryGroupingProject(grouping:Seq[(Attribute, Expr)], query:Query) extends Query
+  case class QueryOrder(by:Seq[(Expr, Order)], query:Query) extends Query
+  case class QueryTop(n:Int, query:Query) extends Query // top n entries
 
   // TODO add make-extend
 
