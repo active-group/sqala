@@ -93,7 +93,21 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     result
   }
 
-  def update(s: String, schema: Schema, expr: SqlExpr, a: Seq[(String, SqlExpr)]): Int = ???
+
+  def update(tableName: SqlTableName, schema: Schema, expr: SqlExpr, updates: Seq[(SqlColumnName, SqlExpr)]): Int = {
+    val clauses = updates.map {
+      case (columnName, value) => "%s = %s".format(columnName, value.toString(sqlWriteParameterization))
+    }
+    val sql = "UPDATE %s SET %s WHERE %s".format(
+      tableName,
+      clauses.mkString(", "),
+      expr.toString(sqlWriteParameterization)
+    )
+    val statement = connection.createStatement()
+    val result = statement.executeUpdate(sql)
+    statement.close()
+    result
+  }
 
   // FIXME structured?
   def execute(sql: String): Either[ResultSetIterator, Int] = {
