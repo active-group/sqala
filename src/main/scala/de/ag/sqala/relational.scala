@@ -27,6 +27,8 @@ object relational {
   }
 
   object Schema {
+    val empty: Schema = Schema(Seq())
+
     // can have only one or the other apply, not both (same type after erasure);
     // settled for the one not requiring (...:*) for Seq arguments
     // def apply(schema:(Attribute, Domain)*) =
