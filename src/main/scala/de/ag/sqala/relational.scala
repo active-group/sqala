@@ -23,6 +23,7 @@ object relational {
     }
     override def hashCode() = schema.hashCode()
     def isComparable(that:Any) = that.isInstanceOf[Schema]
+    def toEnvironment:Environment = new Environment(environment)
   }
 
   object Schema {
@@ -35,6 +36,25 @@ object relational {
     def unapply(schema:Schema) = Some(schema.schema)
   }
 
+  class Environment(val env: Map[Attribute, Domain]) {
+    def apply(key:Attribute):Domain = env(key)
+
+    /**
+     * compose two environments to one; environments must not use same attributes
+     * @param that  environment to add
+     * @return      environment that contains attributes and domains of both environments
+     */
+    def compose(that:Environment): Environment = {
+      // micro-optimize common cases
+      if (this.env.size == 0) that
+      else if (that.env.size == 0) this
+      else new Environment(this.env ++ that.env)
+    }
+  }
+
+  object Environment {
+    val empty = new Environment(Map())
+  }
 
   type QueryName = String
 
