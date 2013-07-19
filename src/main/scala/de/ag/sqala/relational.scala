@@ -44,7 +44,7 @@ object relational {
   case class FailedExpr(expr:Expr) extends FailedArg
   case class FailedAttribute(attr:Attribute) extends FailedArg
   case class FailedQuery(query:Query) extends FailedArg
-  type FailProc = Option[(String, FailedArg)=>Unit]
+  type FailProc = Option[(String, FailedArg)=>Unit] // FIXME type alias actual func type, not option
 
   class Environment(val env: Map[Attribute, Domain]) {
     def lookup(key:Attribute):Domain = env(key) // throws NoSuchElementException if no such key
