@@ -13,7 +13,7 @@ object relational {
       // keep order of attributes
       Schema(schema.filter(tuple => !thatKeys.contains(tuple._1)))
     }
-    def isUnary = degree == 1
+    def isUnary = !schema.isEmpty && schema.tail.isEmpty
     def attributes:Seq[Attribute] = schema.map(_._1)
     def domains:Seq[Domain] = schema.map(_._2)
     // have own equals, etc. instead of case class to avoid construction of schemaMap
