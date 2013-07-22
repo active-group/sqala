@@ -48,6 +48,7 @@ object relational {
 
   class Environment(val env: Map[Attribute, Domain]) {
     def lookup(key:Attribute):Domain = env(key) // throws NoSuchElementException if no such key
+    def get(attribute:Attribute):Option[Domain] = env.get(attribute)
 
     def contains(attribute:Attribute) = env.contains(attribute)
     /**
@@ -197,7 +198,13 @@ object relational {
           failProc match {
             case None =>
             case Some(fail) =>
-              ???  // TODO
+              val env1 = schema1.toEnvironment
+              schema2.schema.foreach{ case (attr2, domain2) =>
+                env1.get(attr2) match {
+                  case None => fail("%s: %s".format(attr2, domain2), FailedSchema(schema1))
+                  case Some(domain1) => if (!domain1.domainEquals(domain2)) fail(domain1.toString, FailedDomain(domain2)) // FIXME first fail param
+                }
+              }
           }
           schema1.difference(schema2)
         case QueryUnion(q1, q2) => uiq(q, q1, q2)
