@@ -70,12 +70,12 @@ object relational {
         onConst= {(domain, value) => domain},
         onNull= {domain => domain},
         onApplication= {(rator:Operator, rands:Seq[Domain]) => rator.rangeType(typecheck, rands)},
-        onTuple= {domains:Seq[Domain] => DBProduct(domains)},
+        onTuple= {domains:Seq[Domain] => Domain.Product(domains)},
         onAggregation= {
           (aggOpOrString:Either[AggregationOp, String], domain:Domain) =>
             aggOpOrString match {
               case Left(aggOp) => aggOp match {
-                case AggregationOpCount => DBInteger
+                case AggregationOpCount => Domain.Integer
                 case _ =>
                   typecheck { // FIXME fail check stuff should go to op, shouldn't it?
                     fail => aggOp match {
@@ -105,7 +105,7 @@ object relational {
             typecheck {fail =>
                 branches.foreach {
                   case (condition, value) =>
-                    if (!condition.isInstanceOf[DBBoolean.type]) fail(DBBoolean, condition)
+                    if (!condition.isInstanceOf[Domain.Boolean.type]) fail(Domain.Boolean, condition)
                     if (!value.equals(domain)) fail(domain, value)
                 }
             }
@@ -148,7 +148,7 @@ object relational {
           Schema(
             subset.map{case (attr, expr) =>
               val domain = toEnv(baseSchema).expressionDomain(expr, typecheck)
-              typecheck { fail => if (domain.isInstanceOf[DBProduct]) fail("non-product domain", domain) }
+              typecheck { fail => if (domain.isInstanceOf[Domain.Product]) fail("non-product domain", domain) }
               (attr, domain)
             }.toSeq
           )
@@ -156,7 +156,7 @@ object relational {
           val schema = rec(query)
           typecheck { fail =>
               val domain = toEnv(schema).expressionDomain(expr, typecheck)
-              if (!domain.isInstanceOf[DBBoolean.type]) fail("boolean", expr)
+              if (!domain.isInstanceOf[Domain.Boolean.type]) fail("boolean", expr)
           }
           schema
         case QueryProduct(query1, query2) =>
@@ -195,7 +195,7 @@ object relational {
           Schema(
             alist.map{case (attr, expr) =>
               val domain = environment.expressionDomain(expr, typecheck)
-              typecheck { fail => if (domain.isInstanceOf[DBProduct]) fail("non-product domain", domain) }
+              typecheck { fail => if (domain.isInstanceOf[Domain.Product]) fail("non-product domain", domain) }
               (attr, domain)
             }
           )

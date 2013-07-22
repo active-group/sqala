@@ -1,6 +1,7 @@
 package de.ag.sqala.drivers
 
 import de.ag.sqala.sql._
+import de.ag.sqala.Domain
 import java.io.{File, Writer}
 import org.sqlite.SQLiteConfig
 import java.util.Properties
@@ -69,12 +70,12 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
       .foreach {
       case ((value, domain), i) =>
         domain match {
-          case DBString => statement.setString(i, value.asInstanceOf[String])
-          case DBInteger => statement.setInt(i, value.asInstanceOf[Integer].intValue())
-          case DBDouble => statement.setDouble(i, value.asInstanceOf[Double])
-          case DBBoolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
-          case DBCalendarTime => throw new IllegalArgumentException("sqlite cannot handle date/time")
-          case DBBlob => statement.setBlob(i, value.asInstanceOf[java.io.InputStream])
+          case Domain.String => statement.setString(i, value.asInstanceOf[String])
+          case Domain.Integer => statement.setInt(i, value.asInstanceOf[Integer].intValue())
+          case Domain.Double => statement.setDouble(i, value.asInstanceOf[Double])
+          case Domain.Boolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
+          case Domain.CalendarTime => throw new IllegalArgumentException("sqlite cannot handle date/time")
+          case Domain.Blob => statement.setBlob(i, value.asInstanceOf[java.io.InputStream])
           case _ => throw new RuntimeException("unknown type " + domain)
         }
     }
