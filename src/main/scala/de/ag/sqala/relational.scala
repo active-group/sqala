@@ -38,13 +38,8 @@ object relational {
     def unapply(schema:Schema) = Some(schema.schema)
   }
 
-  sealed abstract class FailedArg // FIXME maybe just use Any
-  case class FailedSchema(schema:Schema) extends FailedArg
-  case class FailedDomain(domain:Domain) extends FailedArg
-  case class FailedExpr(expr:Expr) extends FailedArg
-  case class FailedAttribute(attr:Attribute) extends FailedArg
-  case class FailedQuery(query:Query) extends FailedArg
-  type FailProc = Option[(String, FailedArg)=>Unit] // FIXME type alias actual func type, not option
+  type FailProc = (Any, Any) => Unit // expected, actual => Unit
+  type TypecheckProc = (FailProc => Unit) => Unit
 
   class Environment(val env: Map[Attribute, Domain]) {
     def lookup(key:Attribute):Domain = env(key) // throws NoSuchElementException if no such key
@@ -63,22 +58,18 @@ object relational {
       else new Environment(this.env ++ that.env)
     }
 
-    def expressionDomain(expr:Expr, failProc:FailProc): Domain = {
+    def expressionDomain(expr:Expr, typecheck:TypecheckProc): Domain = {
       def subqueryDomain: (relational.Query) => Domain = {
         subquery =>
-          val schema = subquery.schema(this, failProc)
-          failProc match {
-            case None =>
-            case Some(fail) => if (!schema.isUnary) fail("unary-relation", FailedSchema(schema))
-          }
+          val schema = subquery.schema(this, typecheck)
+          typecheck { fail => if (!schema.isUnary) fail("unary-relation", schema) }
           schema.schema.head._2
-
       }
       expr.fold(
         onAttributeRef= {name => lookup(name)},
         onConst= {(domain, value) => domain},
         onNull= {domain => domain},
-        onApplication= {(rator:Operator, rands:Seq[Domain]) => rator.rangeType(failProc, rands)},
+        onApplication= {(rator:Operator, rands:Seq[Domain]) => rator.rangeType(typecheck, rands)},
         onTuple= {domains:Seq[Domain] => DBProduct(domains)},
         onAggregation= {
           (aggOpOrString:Either[AggregationOp, String], domain:Domain) =>
@@ -86,19 +77,18 @@ object relational {
               case Left(aggOp) => aggOp match {
                 case AggregationOpCount => DBInteger
                 case _ =>
-                  failProc match { // FIXME fail check stuff should go to op, shouldn't it?
-                    case None =>
-                    case Some(fail) => aggOp match {
+                  typecheck { // FIXME fail check stuff should go to op, shouldn't it?
+                    fail => aggOp match {
                       case AggregationOpSum
                            | AggregationOpAvg
                            | AggregationOpStdDev
                            | AggregationOpStdDevP
                            | AggregationOpVar
                            | AggregationOpVarP =>
-                        if (!domain.isNumeric) fail("non-numeric", FailedDomain(domain))
+                        if (!domain.isNumeric) fail("numeric", domain)
                       case AggregationOpMin
                            | AggregationOpMax =>
-                        if (!domain.isOrdered) fail("non-ordered", FailedDomain(domain))
+                        if (!domain.isOrdered) fail("ordered", domain)
                       case AggregationOpCount =>
                     }
                   }
@@ -112,13 +102,11 @@ object relational {
               case None => branches.head._1
               case Some(dom) => dom
             }
-            failProc match {
-              case None =>
-              case Some(fail) =>
+            typecheck {fail =>
                 branches.foreach {
                   case (condition, value) =>
-                    if (!condition.isInstanceOf[DBBoolean.type]) fail("non-boolean", FailedDomain(condition))
-                    if (!value.equals(domain)) fail(value.name, FailedDomain(domain)) // FIXME first arg of fail seems 'inverted', should be "non-" + value.name (?)
+                    if (!condition.isInstanceOf[DBBoolean.type]) fail(DBBoolean, condition)
+                    if (!value.equals(domain)) fail(domain, value)
                 }
             }
             domain},
@@ -136,16 +124,14 @@ object relational {
   sealed abstract class Query {
 
 
-    def schema(env:Environment, failProc:FailProc): Schema = { // FIXME failProc to be func, not Option
+    def schema(env:Environment, typecheck:TypecheckProc): Schema = {
       def toEnv(schema:Schema) =
         schema.toEnvironment.compose(env)
 
       def uiq(query: Query, query1: Query, query2: Query): relational.Schema = {
         val schema1 = rec(query1)
-        failProc match {
-          case None =>
-          case Some(fail) =>
-            if (!schema1.equals(rec(query2))) fail(schema1.toString, FailedQuery(query))
+        typecheck {fail =>
+            if (!schema1.equals(rec(query2))) fail(schema1.toString, query)
         }
         schema1
       }
@@ -155,54 +141,47 @@ object relational {
         case b:QueryBase => b.schema
         case QueryProject(subset, query) =>
           val baseSchema = rec(query)
-          failProc match {
-            case None =>
-            case Some(fail) => subset.foreach { case (attr, expr) => if (expr.isAggregate) fail("non-aggregate", FailedExpr(expr))}
+          typecheck { fail =>
+            subset.foreach {
+              case (attr, expr) => if (expr.isAggregate) fail("non-aggregate", expr)}
           }
           Schema(
             subset.map{case (attr, expr) =>
-              val domain = toEnv(baseSchema).expressionDomain(expr, failProc)
-              failProc match {
-                case None =>
-                case Some(fail) if domain.isInstanceOf[DBProduct] => fail("non-product type", FailedDomain(domain))
-              }
+              val domain = toEnv(baseSchema).expressionDomain(expr, typecheck)
+              typecheck { fail => if (domain.isInstanceOf[DBProduct]) fail("non-product domain", domain) }
               (attr, domain)
             }.toSeq
           )
         case QueryRestrict(expr, query) =>
           val schema = rec(query)
-          failProc match {
-            case None =>
-            case Some(fail) =>
-              val domain = toEnv(schema).expressionDomain(expr, failProc)
-              if (!domain.isInstanceOf[DBBoolean.type]) fail("boolean", FailedExpr(expr))
+          typecheck { fail =>
+              val domain = toEnv(schema).expressionDomain(expr, typecheck)
+              if (!domain.isInstanceOf[DBBoolean.type]) fail("boolean", expr)
           }
           schema
         case QueryProduct(query1, query2) =>
           val schema1 = rec(query1)
           val schema2 = rec(query2)
-          failProc match {
-            case None =>
-            case Some(fail) =>
+          typecheck { fail =>
               val env2 = schema2.toEnvironment
               // no two attributes with same name; avoid creating both environments
               schema1.schema.foreach {
                 case (attr, domain) =>
-                  if (env2.contains(attr)) fail("not '" + attr + "'", FailedAttribute(attr))
+                  if (env2.contains(attr)) fail("non-duplicate " + attr, attr)
               }
           }
           Schema(schema1.schema ++ schema2.schema)
         case QueryQuotient(query1, query2) =>
           val schema1 = rec(query1)
           val schema2 = rec(query2)
-          failProc match {
-            case None =>
-            case Some(fail) =>
+          typecheck { fail =>
               val env1 = schema1.toEnvironment
               schema2.schema.foreach{ case (attr2, domain2) =>
                 env1.get(attr2) match {
-                  case None => fail("%s: %s".format(attr2, domain2), FailedSchema(schema1))
-                  case Some(domain1) => if (!domain1.domainEquals(domain2)) fail(domain1.toString, FailedDomain(domain2)) // FIXME first fail param
+                  case None => fail("schema with attribute " + attr2, schema1)
+                  case Some(domain1) => if (!domain1.domainEquals(domain2))
+                    fail("environment where attribute %s is of domain %s".format(attr2, domain2),
+                         "environment where attribute %s is of domain %s". format(attr2, domain1))
                 }
               }
           }
@@ -212,29 +191,21 @@ object relational {
         case QueryDifference(q1, q2) => uiq(q, q1, q2)
         case QueryGroupingProject(alist, query) =>
           val schema = rec(query)
-          val environment = failProc match {
-            case None => Environment.empty
-            case Some(_) => toEnv(schema)
-          }
+          val environment = toEnv(schema)
           Schema(
             alist.map{case (attr, expr) =>
-              val domain = environment.expressionDomain(expr, failProc)
-              failProc match {
-                case None =>
-                case Some(fail) => if (domain.isInstanceOf[DBProduct]) fail("non-product domain", FailedDomain(domain))
-              }
+              val domain = environment.expressionDomain(expr, typecheck)
+              typecheck { fail => if (domain.isInstanceOf[DBProduct]) fail("non-product domain", domain) }
               (attr, domain)
             }
           )
         case QueryOrder(by, query) =>
           val schema = rec(query)
           val env = toEnv(schema)
-          failProc match {
-            case None =>
-            case Some(fail) =>
+          typecheck { fail =>
               by.foreach { case (expr, order) =>
-                val domain = env.expressionDomain(expr,failProc)
-                if (!domain.isOrdered) fail("not an ordered domain", FailedDomain(domain))} // FIXME fail first param maybe reversed ("not ...")?
+                val domain = env.expressionDomain(expr, typecheck)
+                if (!domain.isOrdered) fail("ordered domain", domain)}
           }
           schema
         case QueryTop(n, query) => rec(query)
@@ -339,7 +310,7 @@ object relational {
   case object AggregationOpVarP extends AggregationOp
 
   case class Operator(name: String,
-                         rangeType: (FailProc, Seq[Domain])=> Domain,
+                         rangeType: (TypecheckProc, Seq[Domain])=> Domain,
                          proc: Any, /* FIXME Scala implementation of operator (?) */
                          data:Any /* FIXME? domain-specific data for outside use (?)*/ )
 
