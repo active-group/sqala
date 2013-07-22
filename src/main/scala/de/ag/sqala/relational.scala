@@ -1,6 +1,6 @@
 package de.ag.sqala
 
-import de.ag.sqala.sql.{Attribute, Table}
+import de.ag.sqala.sql.Attribute
 
 object relational {
 
@@ -215,9 +215,9 @@ object relational {
   }
   case object QueryEmpty extends Query
   case class QueryBase(name:QueryName,
-                          schema:Schema,
-                          table:Option[Table]) extends Query
-  case class QueryProject(subset:Set[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
+                          schema:Schema
+                          /* TODO handle? */) extends Query
+  case class QueryProject(subset:Seq[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
   case class QueryRestrict(expr:Expr /*returning boolean*/, query:Query) extends Query
   case class QueryProduct(query1:Query, query2:Query) extends Query
   case class QueryUnion(query1:Query, query2:Query) extends Query
