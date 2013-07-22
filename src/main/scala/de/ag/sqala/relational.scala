@@ -125,6 +125,10 @@ object relational {
 
   sealed abstract class Query {
 
+    def schema(typecheck: Boolean = false): Schema = {
+      val selectedTypeChecker: Typechecker = if (typecheck) Query.typecheckerThrowingException else Query.ignoringTypeChecker
+      schema(Environment.empty, selectedTypeChecker)
+    }
 
     def schema(env:Environment, typecheck:Typechecker): Schema = {
       def toEnv(schema:Schema) =
