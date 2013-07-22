@@ -154,14 +154,14 @@ object relational {
         case QueryEmpty => Schema.empty
         case b:QueryBase => b.schema
         case QueryProject(subset, query) =>
-          val baseScheme = rec(query)
+          val baseSchema = rec(query)
           failProc match {
             case None =>
             case Some(fail) => subset.foreach { case (attr, expr) => if (expr.isAggregate) fail("non-aggregate", FailedExpr(expr))}
           }
           Schema(
             subset.map{case (attr, expr) =>
-              val domain = toEnv(baseScheme).expressionDomain(expr, failProc)
+              val domain = toEnv(baseSchema).expressionDomain(expr, failProc)
               failProc match {
                 case None =>
                 case Some(fail) if domain.isInstanceOf[DBProduct] => fail("non-product type", FailedDomain(domain))
