@@ -238,9 +238,13 @@ object relational {
   case class QueryOrder(by:Seq[(Expr, Order)], query:Query) extends Query
   case class QueryTop(n:Int, query:Query) extends Query // top n entries
 
+  class TypecheckException(expected:Any, actual:Any) extends Exception {
+    override def toString = "expected: %s, actual: %s".format(expected.toString, actual.toString)
+  }
+
   object Query {
     def failWithException(expected: Any, actual: Any) {
-      throw new AssertionError("expected: %s, actual: %s".format(expected.toString, actual.toString))
+      throw new TypecheckException(expected, actual)
       ()
     }
 
