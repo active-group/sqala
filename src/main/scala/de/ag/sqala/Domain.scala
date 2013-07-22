@@ -30,10 +30,7 @@ object Domain {
 
     def isOrdered: Boolean = true
 
-    def domainEquals(that: Domain): Boolean = that match {
-      case String => true
-      case _ => false
-    }
+    def domainEquals(that: Domain): Boolean = that.eq(this)
   }
 
   case object Integer extends Domain("integer") {
@@ -41,10 +38,7 @@ object Domain {
 
     def isOrdered: Boolean = true
 
-    def domainEquals(that: Domain): Boolean = that match {
-      case Integer => true
-      case _ => false
-    }
+    def domainEquals(that: Domain): Boolean = that.eq(this)
   }
 
   case object Double extends Domain("double") {
@@ -52,10 +46,7 @@ object Domain {
 
     def isOrdered: Boolean = true
 
-    def domainEquals(that: Domain): Boolean = that match {
-      case Double => true
-      case _ => false
-    }
+    def domainEquals(that: Domain): Boolean = that.eq(this)
   }
 
   case object Boolean extends Domain("boolean") {
@@ -63,10 +54,7 @@ object Domain {
 
     def isOrdered: Boolean = true
 
-    def domainEquals(that: Domain): Boolean = that match {
-      case Boolean => true
-      case _ => false
-    }
+    def domainEquals(that: Domain): Boolean = that.eq(this)
   }
 
   case object CalendarTime extends Domain("calendar time") {
@@ -74,10 +62,7 @@ object Domain {
 
     def isOrdered: Boolean = true
 
-    def domainEquals(that: Domain): Boolean = that match {
-      case CalendarTime => true
-      case _ => false
-    }
+    def domainEquals(that: Domain): Boolean = that.eq(this)
   }
 
   case object Blob extends Domain("blob") {
@@ -85,10 +70,7 @@ object Domain {
 
     def isOrdered: Boolean = false
 
-    def domainEquals(that: Domain): Boolean = that match {
-      case Blob => true
-      case _ => false
-    }
+    def domainEquals(that: Domain): Boolean = that.eq(this)
   }
 
   case class BoundedString(maxSize: Int) extends Domain("bounded string") {
