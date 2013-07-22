@@ -38,8 +38,10 @@ object relational {
     def unapply(schema:Schema) = Some(schema.schema)
   }
 
-  type FailProc = (Any, Any) => Unit // expected, actual => Unit
-  type TypecheckProc = (FailProc => Unit) => Unit
+  private type FailProc = (Any, Any) => Unit         // signals failure (throws exception, stderr output, etc.)
+                                                     // args: expected, actual => Unit;
+  private type TypecheckProc = FailProc => Unit      // proc that (maybe) checks types and calls FailProc if check failed
+  private type Typechecker = (TypecheckProc) => Unit // proc that (maybe) calls TypecheckProc
 
   class Environment(val env: Map[Attribute, Domain]) {
     def lookup(key:Attribute):Domain = env(key) // throws NoSuchElementException if no such key
@@ -58,7 +60,7 @@ object relational {
       else new Environment(this.env ++ that.env)
     }
 
-    def expressionDomain(expr:Expr, typecheck:TypecheckProc): Domain = {
+    def expressionDomain(expr:Expr, typecheck:Typechecker): Domain = {
       def subqueryDomain: (relational.Query) => Domain = {
         subquery =>
           val schema = subquery.schema(this, typecheck)
@@ -124,7 +126,7 @@ object relational {
   sealed abstract class Query {
 
 
-    def schema(env:Environment, typecheck:TypecheckProc): Schema = {
+    def schema(env:Environment, typecheck:Typechecker): Schema = {
       def toEnv(schema:Schema) =
         schema.toEnvironment.compose(env)
 
@@ -232,6 +234,20 @@ object relational {
   case class QueryOrder(by:Seq[(Expr, Order)], query:Query) extends Query
   case class QueryTop(n:Int, query:Query) extends Query // top n entries
 
+  object Query {
+    def failWithException(expected: Any, actual: Any) {
+      throw new AssertionError("expected: %s, actual: %s".format(expected.toString, actual.toString))
+      ()
+    }
+
+    def typecheckerThrowingException(actualTypeChecker: FailProc => Unit) {
+      actualTypeChecker(failWithException)
+    }
+
+    def ignoringTypeChecker(ignored: TypecheckProc) {}
+
+  }
+
   // TODO add make-extend
 
   //// Expressions
@@ -310,7 +326,7 @@ object relational {
   case object AggregationOpVarP extends AggregationOp
 
   case class Operator(name: String,
-                         rangeType: (TypecheckProc, Seq[Domain])=> Domain,
+                         rangeType: (Typechecker, Seq[Domain])=> Domain,
                          proc: Any, /* FIXME Scala implementation of operator (?) */
                          data:Any /* FIXME? domain-specific data for outside use (?)*/ )
 
