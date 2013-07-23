@@ -1,7 +1,6 @@
 package de.ag.sqala.drivers
 
 import de.ag.sqala.sql._
-import de.ag.sqala.Domain
 import java.io.{File, Writer}
 import org.sqlite.SQLiteConfig
 import java.util.Properties
