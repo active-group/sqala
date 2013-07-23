@@ -88,7 +88,7 @@ object relational {
             }
             domain},
         onScalarSubQuery= subqueryDomain,
-        onSetSubQuery= subqueryDomain)
+        onSetSubQuery= { query => Domain.Set(subqueryDomain(query)) })
     }
   }
 
