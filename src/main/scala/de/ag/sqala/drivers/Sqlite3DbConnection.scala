@@ -123,7 +123,6 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     result
   }
 
-  // FIXME structured?
   def execute(sql: String): Either[ResultSetIterator, Int] = {
     val statement = connection.createStatement()
     if (statement.execute(sql))
