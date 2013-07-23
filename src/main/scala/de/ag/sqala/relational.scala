@@ -1,6 +1,7 @@
 package de.ag.sqala
 
 import de.ag.sqala.sql.Attribute
+import de.ag.sqala.Operator.{Typechecker, TypecheckProc, FailProc}
 
 object relational {
 
@@ -38,11 +39,6 @@ object relational {
     def unapply(schema:Schema) = Some(schema.schema)
   }
 
-  private type FailProc = (Any, Any) => Unit         // signals failure (throws exception, stderr output, etc.)
-                                                     // args: expected, actual => Unit;
-  private type TypecheckProc = FailProc => Unit      // proc that (maybe) checks types and calls FailProc if check failed
-  private type Typechecker = (TypecheckProc) => Unit // proc that (maybe) calls TypecheckProc
-
   class Environment(val env: Map[Attribute, Domain]) {
     def lookup(key:Attribute):Domain = env(key) // throws NoSuchElementException if no such key
     def get(attribute:Attribute):Option[Domain] = env.get(attribute)
@@ -71,7 +67,7 @@ object relational {
         onAttributeRef= {name => lookup(name)},
         onConst= {(domain, value) => domain},
         onNull= {domain => domain},
-        onApplication= {(rator:Operator, rands:Seq[Domain]) => rator.rangeType(typecheck, rands)},
+        onApplication= {(rator:Operator, rands:Seq[Domain]) => rator.rangeDomain(typecheck, rands)},
         onTuple= {domains:Seq[Domain] => Domain.Product(domains)},
         onAggregation= {
           (aggOpOrString:Either[AggregationOp, String], domain:Domain) =>
@@ -126,7 +122,7 @@ object relational {
   sealed abstract class Query {
 
     def schema(typecheck: Boolean = false): Schema = {
-      val selectedTypeChecker: Typechecker = if (typecheck) Query.typecheckerThrowingException else Query.ignoringTypeChecker
+      val selectedTypeChecker: Typechecker = if (typecheck) Operator.typecheckerThrowingException else Operator.ignoringTypeChecker
       schema(Environment.empty, selectedTypeChecker)
     }
 
@@ -238,23 +234,6 @@ object relational {
   case class QueryOrder(by:Seq[(Expr, Order)], query:Query) extends Query
   case class QueryTop(n:Int, query:Query) extends Query // top n entries
 
-  class TypecheckException(expected:Any, actual:Any) extends Exception {
-    override def toString = "expected: %s, actual: %s".format(expected.toString, actual.toString)
-  }
-
-  object Query {
-    def failWithException(expected: Any, actual: Any) {
-      throw new TypecheckException(expected, actual)
-      ()
-    }
-
-    def typecheckerThrowingException(actualTypeChecker: FailProc => Unit) {
-      actualTypeChecker(failWithException)
-    }
-
-    def ignoringTypeChecker(ignored: TypecheckProc) {}
-
-  }
 
   // TODO add make-extend
 
@@ -332,11 +311,6 @@ object relational {
   case object AggregationOpStdDevP extends AggregationOp
   case object AggregationOpVar extends AggregationOp
   case object AggregationOpVarP extends AggregationOp
-
-  case class Operator(name: String,
-                         rangeType: (Typechecker, Seq[Domain])=> Domain,
-                         proc: Any, /* FIXME Scala implementation of operator (?) */
-                         data:Any /* FIXME? domain-specific data for outside use (?)*/ )
 
   case class CaseBranch(condition:Expr, value:Expr)
 }

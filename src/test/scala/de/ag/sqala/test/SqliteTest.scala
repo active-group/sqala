@@ -5,6 +5,7 @@ import de.ag.sqala.drivers.ite3DbConnection
 import de.ag.sqala.sql._
 import de.ag.sqala.{Domain, DbConnection}
 import de.ag.sqala.relational.Schema
+import de.ag.sqala.Operator
 
 /**
  *
@@ -78,24 +79,24 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   test("delete") {
     createAndFillTbl1()
 
-    expectResult(1){conn.delete("tbl1", ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
-    expectResult(2){conn.delete("tbl1", ExprApp(OperatorOr, Seq(
-        ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("foo")))),
-        ExprApp(OperatorEq, Seq(ExprColumn("two"), ExprConst(LiteralNumber(-1)))))))}
-    expectResult(0){conn.delete("tbl1", ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
+    expectResult(1){conn.delete("tbl1", ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
+    expectResult(2){conn.delete("tbl1", ExprApp(Operator.Or, Seq(
+        ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("foo")))),
+        ExprApp(Operator.Eq, Seq(ExprColumn("two"), ExprConst(LiteralNumber(-1)))))))}
+    expectResult(0){conn.delete("tbl1", ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
   }
 
   test("update") {
     createAndFillTbl1()
 
     expectResult(1){conn.update("tbl1", null, /* FIXME update does not need scheme (?) */
-      ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("bar")))),
+      ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("bar")))),
       Seq(("two", ExprConst(LiteralNumber(12)))))}
     expectResult(0){conn.update("tbl1", null,
-      ExprApp(OperatorEq, Seq(ExprColumn("one"), ExprConst(LiteralString("not there")))),
+      ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("not there")))),
       Seq(("two", ExprConst(LiteralNumber(12)))))}
     expectResult(2){conn.update("tbl1", null,
-      ExprApp(OperatorEq, Seq(ExprColumn("two"), ExprConst(LiteralNumber(12)))),
+      ExprApp(Operator.Eq, Seq(ExprColumn("two"), ExprConst(LiteralNumber(12)))),
       Seq(("two", ExprConst(LiteralNull))))}
   }
 }

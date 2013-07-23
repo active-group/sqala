@@ -96,52 +96,6 @@ object sql {
   case object LiteralNull extends Literal
   case class LiteralBoolean(b:Boolean) extends Literal
 
-  sealed abstract class Operator(val name: String, val arity: Int)
-  case class PrefixOperator(override val name: String) extends Operator(name, 1)
-  case class InfixOperator(override val name: String) extends Operator(name, 2)
-  case class PostfixOperator(override val name: String) extends Operator(name, 1)
-
-  object OperatorEq extends InfixOperator("=")
-  object OperatorLt extends InfixOperator("<")
-  object OperatorGt extends InfixOperator(">")
-  object OperatorLe extends InfixOperator("<=")
-  object OperatorGe extends InfixOperator(">=")
-  object OperatorNe extends InfixOperator("<>")
-  object OperatorNLt extends InfixOperator("!<")
-  object OperatorNGt extends InfixOperator("!>")
-
-  object OperatorAnd extends InfixOperator("AND")
-  object OperatorOr extends InfixOperator("OR")
-  object OperatorLike extends InfixOperator("LIKE")
-  object OperatorIn extends InfixOperator("IN")
-  object OperatorCat extends InfixOperator("+")
-  object OperatorPlus extends InfixOperator("+")
-  object OperatorMinus extends InfixOperator("-")
-  object OperatorMul extends InfixOperator("*")
-  object OperatorDiv extends InfixOperator("/")
-  object OperatorMod extends InfixOperator("MOD")
-  object OperatorBitNot extends PrefixOperator("~")
-  object OperatorBitAnd extends InfixOperator("&")
-  object OperatorBitOr extends InfixOperator("|")
-  object OperatorBitXor extends InfixOperator("^")
-  object OperatorAsg extends InfixOperator("=")
-
-  object OperatorNot extends PrefixOperator("NOT")
-  object OperatorIsNull extends PostfixOperator("IS NULL")
-  object OperatorIsNotNull extends PostfixOperator("IS NOT NULL")
-  object OperatorLength extends PrefixOperator("LENGTH")
-
-  object OperatorCount extends PrefixOperator("COUNT")
-  object OperatorSum extends PrefixOperator("SUM")
-  object OperatorAvg extends PrefixOperator("AVG")
-  object OperatorMin extends PrefixOperator("MIN")
-  object OperatorMax extends PrefixOperator("MAX")
-  object OperatorStdDev extends PrefixOperator("StdDev")
-  object OperatorStdDevP extends PrefixOperator("StdDevP")
-  object OperatorVar extends PrefixOperator("Var")
-  object OperatorVarP extends PrefixOperator("VarP")
-
-
   case class Table(name: TableName,
                       schema: Schema)
 
