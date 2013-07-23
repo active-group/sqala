@@ -3,7 +3,7 @@ package de.ag.sqala
 /**
  * Operators in relational algebra and SQL
  */
-sealed abstract
+abstract
 class Operator(val name: String, val arity: Int) {
   def rangeDomain(domainCheck:DomainChecker, operands:Seq[Domain]): Domain
 }
