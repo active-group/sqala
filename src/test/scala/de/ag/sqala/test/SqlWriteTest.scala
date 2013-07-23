@@ -11,7 +11,7 @@ import de.ag.sqala.Operator
 class SqlWriteTest extends FunSuite {
   val tbl1 = QueryTable("tbl1")
 
-  val baseQuery = Query.makeSelect(from = Seq(QuerySelectFrom(tbl1, None)))
+  val baseQuery = Query.makeSelect(from = Seq(QuerySelectFromQuery(tbl1, None)))
   Seq(
     (Some("QueryTable"), "SELECT * FROM tbl1", tbl1),
     (None, "SELECT * FROM tbl1", baseQuery),
@@ -58,7 +58,7 @@ class SqlWriteTest extends FunSuite {
       baseQuery.copy(
         attributes = Seq(QuerySelectAttribute(ExprColumn("id"), None)),
         where = Seq(ExprApp(Operator.In, Seq(ExprColumn("company"), ExprSubQuery(
-          Query.makeSelect(from = Seq(QuerySelectFrom(QueryTable("companies"), None)),
+          Query.makeSelect(from = Seq(QuerySelectFromQuery(QueryTable("companies"), None)),
             attributes = Seq(QuerySelectAttribute(ExprColumn("id"), None)),
             where = Seq(ExprApp(Operator.Like, Seq(ExprColumn("name"), ExprConst(LiteralString("% Inc."))))))
         ))))
@@ -66,12 +66,12 @@ class SqlWriteTest extends FunSuite {
     (None, "SELECT id FROM tbl1 AS t1",
       Query.makeSelect(
       attributes=Seq(QuerySelectAttribute(ExprColumn("id"), None)),
-      from=Seq(QuerySelectFrom(tbl1, Some("t1"))))
+      from=Seq(QuerySelectFromQuery(tbl1, Some("t1"))))
       ),
     (None, "SELECT id FROM tbl1, tbl2",
       Query.makeSelect(
         attributes = Seq(QuerySelectAttribute(ExprColumn("id"), None)),
-        from = Seq(QuerySelectFrom(tbl1, None), QuerySelectFrom(QueryTable("tbl2"), None))
+        from = Seq(QuerySelectFromQuery(tbl1, None), QuerySelectFromQuery(QueryTable("tbl2"), None))
       ))
   ).foreach(s => s._1 match {
     case None => testWriteSql(s._2, s._2, s._3)

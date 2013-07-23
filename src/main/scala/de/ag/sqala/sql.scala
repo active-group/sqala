@@ -138,10 +138,9 @@ object sql {
       }
     }
 
-    // TODO rename 'from' to 'tableRef' or similar
-    protected def writeFrom(out: Writer, param: WriteParameterization, from: Seq[QuerySelectFrom]) {
+    protected def writeFrom(out: Writer, param: WriteParameterization, from: Seq[QuerySelectFromQuery]) {
       out.write("FROM ")
-      writeJoined[QuerySelectFrom](out, from, ", ", {
+      writeJoined[QuerySelectFromQuery](out, from, ", ", {
         (out, from) => from.query match {
           case q: QueryTable => out.write(q.name)
           case q =>
@@ -222,7 +221,7 @@ object sql {
   case class QuerySelect(options: Seq[String], // DISTINCT, ALL, etc.
                             attributes: Seq[QuerySelectAttribute], // selected fields (expr + alias), empty seq for '*'
                             //                     isNullary: Boolean, // true if select represents nullary relation (?); in this case attributes should contain single dummy attribute (?)
-                            from: Seq[QuerySelectFrom], // FROM (
+                            from: Seq[QuerySelectFromQuery], // FROM (
                             where: Seq[Expr], // WHERE; Seq constructed from relational algebra
                             groupBy: Seq[Expr], // GROUP BY
                             having: Option[Expr], // HAVING
@@ -237,7 +236,7 @@ object sql {
   case object QueryEmpty extends Query // FIXME used when?
 
   case class QuerySelectAttribute(expr:Expr, alias:Option[ColumnName])
-  case class QuerySelectFrom(query:Query, alias:Option[TableName])
+  case class QuerySelectFromQuery(query:Query, alias:Option[TableName])
   case class QuerySelectOrderBy(expr:Expr, order:Order)
 
   object Query {
@@ -273,7 +272,7 @@ object sql {
 
     def makeSelect(options:Seq[String]=Seq(),
                            attributes:Seq[QuerySelectAttribute]=Seq(),
-                            from:Seq[QuerySelectFrom],
+                            from:Seq[QuerySelectFromQuery],
                             where: Seq[Expr]=Seq(),
                             groupBy: Seq[Expr]=Seq(),
                             having: Option[Expr]=None,

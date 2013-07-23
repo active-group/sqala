@@ -55,7 +55,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
 
     val results = conn.query(Query.makeSelect(
       attributes = Seq(QuerySelectAttribute(ExprColumn("one"), None), QuerySelectAttribute(ExprColumn("two"), None)),
-      from = Seq(QuerySelectFrom(QueryTable("tbl1"), None))
+      from = Seq(QuerySelectFromQuery(QueryTable("tbl1"), None))
     ),
       new Schema(Seq(("one", Domain.String), ("two", Domain.Integer))))
       .toArray
