@@ -98,8 +98,8 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     })
   }
 
-  def delete(tableName: TableName, expr: Expr): Int = {
-    val sql = "DELETE FROM %s WHERE %s".format(tableName, expr.toString(sqlWriteParameterization))
+  def delete(tableName: TableName, condition: Expr): Int = {
+    val sql = "DELETE FROM %s WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
     val statement = connection.createStatement()
     val result = statement.executeUpdate(sql)
     statement.close()
@@ -107,14 +107,14 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
 
-  def update(tableName: TableName, expr: Expr, updates: Seq[(ColumnName, Expr)]): Int = {
+  def update(tableName: TableName, condition: Expr, updates: Seq[(ColumnName, Expr)]): Int = {
     val clauses = updates.map {
       case (columnName, value) => "%s = %s".format(columnName, value.toString(sqlWriteParameterization))
     }
     val sql = "UPDATE %s SET %s WHERE %s".format(
       tableName,
       clauses.mkString(", "),
-      expr.toString(sqlWriteParameterization)
+      condition.toString(sqlWriteParameterization)
     )
     val statement = connection.createStatement()
     val result = statement.executeUpdate(sql)
