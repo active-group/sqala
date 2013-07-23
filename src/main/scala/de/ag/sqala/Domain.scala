@@ -8,6 +8,8 @@ package de.ag.sqala
 abstract class Domain(val name: String) {
   def isNumeric: Boolean
 
+  def isStringLike: Boolean
+
   def isOrdered: Boolean
 
   override def equals(other: Any) = other match {
@@ -28,6 +30,8 @@ object Domain {
   case object String extends Domain("string") {
     def isNumeric: Boolean = false
 
+    def isStringLike: Boolean = true
+
     def isOrdered: Boolean = true
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
@@ -35,6 +39,8 @@ object Domain {
 
   case object Integer extends Domain("integer") {
     def isNumeric: Boolean = true
+
+    def isStringLike: Boolean = false
 
     def isOrdered: Boolean = true
 
@@ -44,6 +50,8 @@ object Domain {
   case object Double extends Domain("double") {
     def isNumeric: Boolean = true
 
+    def isStringLike: Boolean = false
+
     def isOrdered: Boolean = true
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
@@ -51,6 +59,8 @@ object Domain {
 
   case object Boolean extends Domain("boolean") {
     def isNumeric: Boolean = false
+
+    def isStringLike: Boolean = false
 
     def isOrdered: Boolean = true
 
@@ -60,6 +70,8 @@ object Domain {
   case object CalendarTime extends Domain("calendar time") {
     def isNumeric: Boolean = false
 
+    def isStringLike: Boolean = false
+
     def isOrdered: Boolean = true
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
@@ -68,6 +80,8 @@ object Domain {
   case object Blob extends Domain("blob") {
     def isNumeric: Boolean = false
 
+    def isStringLike: Boolean = false
+
     def isOrdered: Boolean = false
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
@@ -75,6 +89,8 @@ object Domain {
 
   case class BoundedString(maxSize: Int) extends Domain("bounded string") {
     def isNumeric: Boolean = false
+
+    def isStringLike: Boolean = false
 
     def isOrdered: Boolean = true
 
@@ -86,6 +102,8 @@ object Domain {
 
   case class Nullable(underlying: Domain) extends Domain("nullable '" + underlying.name + "'") {
     def isNumeric: Boolean = false
+
+    def isStringLike: Boolean = false
 
     def isOrdered: Boolean = underlying.isOrdered
 
@@ -99,6 +117,8 @@ object Domain {
     _.name
   } + "'") {
     def isNumeric: Boolean = false
+
+    def isStringLike: Boolean = false
 
     def isOrdered: Boolean = components.forall(_.isOrdered) // then can order component-wise
 
@@ -114,6 +134,8 @@ object Domain {
 
   case class Set(member: Domain) extends Domain("set of '" + member.name + "'") {
     def isNumeric: Boolean = false
+
+    def isStringLike: Boolean = false
 
     def isOrdered: Boolean = false // per definition
 
