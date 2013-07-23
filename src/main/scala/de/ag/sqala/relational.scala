@@ -24,6 +24,9 @@ object relational {
     override def hashCode() = schema.hashCode()
     def isComparable(that:Any) = that.isInstanceOf[Schema]
     def toEnvironment:Environment = new Environment(environment)
+    override def toString = "Schema(%s)".format(
+      schema.map{case (attr, domain) => "%s -> %s".format(attr, domain)}.mkString(", ")
+    )
   }
 
   object Schema {
