@@ -1,7 +1,6 @@
 package de.ag.sqala
 
 import de.ag.sqala.sql.Attribute
-import de.ag.sqala.Operator.{Typechecker, TypecheckProc, FailProc}
 
 object relational {
 
@@ -57,18 +56,18 @@ object relational {
       else new Environment(this.env ++ that.env)
     }
 
-    def expressionDomain(expr:Expr, typecheck:Typechecker): Domain = {
+    def expressionDomain(expr:Expr, domainCheck:DomainChecker): Domain = {
       def subqueryDomain: (relational.Query) => Domain = {
         subquery =>
-          val schema = subquery.schema(this, typecheck)
-          typecheck { fail => if (!schema.isUnary) fail("unary-relation", schema) }
+          val schema = subquery.schema(this, domainCheck)
+          domainCheck { fail => if (!schema.isUnary) fail("unary-relation", schema) }
           schema.schema.head._2
       }
       expr.fold(
         onAttributeRef= {name => lookup(name)},
         onConst= {(domain, value) => domain},
         onNull= {domain => domain},
-        onApplication= {(rator:Operator, rands:Seq[Domain]) => rator.rangeDomain(typecheck, rands)},
+        onApplication= {(rator:Operator, rands:Seq[Domain]) => rator.rangeDomain(domainCheck, rands)},
         onTuple= {domains:Seq[Domain] => Domain.Product(domains)},
         onAggregation= {
           (aggOpOrString:Either[AggregationOp, String], domain:Domain) =>
@@ -76,7 +75,7 @@ object relational {
               case Left(aggOp) => aggOp match {
                 case AggregationOpCount => Domain.Integer
                 case _ =>
-                  typecheck { // FIXME fail check stuff should go to op, shouldn't it?
+                  domainCheck { // FIXME fail check stuff should go to op, shouldn't it?
                     fail => aggOp match {
                       case AggregationOpSum
                            | AggregationOpAvg
@@ -101,7 +100,7 @@ object relational {
               case None => branches.head._2
               case Some(dom) => dom
             }
-            typecheck {fail =>
+            domainCheck {fail =>
                 branches.foreach {
                   case (condition, value) =>
                     if (!condition.isInstanceOf[Domain.Boolean.type]) fail(Domain.Boolean, condition)
@@ -122,18 +121,18 @@ object relational {
 
   sealed abstract class Query {
 
-    def schema(typecheck: Boolean = false): Schema = {
-      val selectedTypeChecker: Typechecker = if (typecheck) Operator.typecheckerThrowingException else Operator.ignoringTypeChecker
-      schema(Environment.empty, selectedTypeChecker)
+    def schema(checkDomain: Boolean = false): Schema = {
+      val selectedDomainChecker: DomainChecker = if (checkDomain) ExceptionThrowingDomainChecker else IgnoringDomainChecker
+      schema(Environment.empty, selectedDomainChecker)
     }
 
-    def schema(env:Environment, typecheck:Typechecker): Schema = {
+    def schema(env:Environment, domainCheck:DomainChecker): Schema = {
       def toEnv(schema:Schema) =
         schema.toEnvironment.compose(env)
 
       def uiq(query: Query, query1: Query, query2: Query): relational.Schema = {
         val schema1 = rec(query1)
-        typecheck {fail =>
+        domainCheck {fail =>
             if (!schema1.equals(rec(query2))) fail(schema1.toString, query)
         }
         schema1
@@ -144,28 +143,28 @@ object relational {
         case b:QueryBase => b.schema
         case QueryProject(subset, query) =>
           val baseSchema = rec(query)
-          typecheck { fail =>
+          domainCheck { fail =>
             subset.foreach {
               case (attr, expr) => if (expr.isAggregate) fail("non-aggregate", expr)}
           }
           Schema(
             subset.map{case (attr, expr) =>
-              val domain = toEnv(baseSchema).expressionDomain(expr, typecheck)
-              typecheck { fail => if (domain.isInstanceOf[Domain.Product]) fail("non-product domain", domain) }
+              val domain = toEnv(baseSchema).expressionDomain(expr, domainCheck)
+              domainCheck { fail => if (domain.isInstanceOf[Domain.Product]) fail("non-product domain", domain) }
               (attr, domain)
             }.toSeq
           )
         case QueryRestrict(expr, query) =>
           val schema = rec(query)
-          typecheck { fail =>
-              val domain = toEnv(schema).expressionDomain(expr, typecheck)
+          domainCheck { fail =>
+              val domain = toEnv(schema).expressionDomain(expr, domainCheck)
               if (!domain.isInstanceOf[Domain.Boolean.type]) fail("boolean", expr)
           }
           schema
         case QueryProduct(query1, query2) =>
           val schema1 = rec(query1)
           val schema2 = rec(query2)
-          typecheck { fail =>
+          domainCheck { fail =>
               val env2 = schema2.toEnvironment
               // no two attributes with same name; avoid creating both environments
               schema1.schema.foreach {
@@ -177,7 +176,7 @@ object relational {
         case QueryQuotient(query1, query2) =>
           val schema1 = rec(query1)
           val schema2 = rec(query2)
-          typecheck { fail =>
+          domainCheck { fail =>
               val env1 = schema1.toEnvironment
               schema2.schema.foreach{ case (attr2, domain2) =>
                 env1.get(attr2) match {
@@ -197,17 +196,17 @@ object relational {
           val environment = toEnv(schema)
           Schema(
             alist.map{case (attr, expr) =>
-              val domain = environment.expressionDomain(expr, typecheck)
-              typecheck { fail => if (domain.isInstanceOf[Domain.Product]) fail("non-product domain", domain) }
+              val domain = environment.expressionDomain(expr, domainCheck)
+              domainCheck { fail => if (domain.isInstanceOf[Domain.Product]) fail("non-product domain", domain) }
               (attr, domain)
             }
           )
         case QueryOrder(by, query) =>
           val schema = rec(query)
           val env = toEnv(schema)
-          typecheck { fail =>
+          domainCheck { fail =>
               by.foreach { case (expr, order) =>
-                val domain = env.expressionDomain(expr, typecheck)
+                val domain = env.expressionDomain(expr, domainCheck)
                 if (!domain.isOrdered) fail("ordered domain", domain)}
           }
           schema

@@ -5,51 +5,31 @@ package de.ag.sqala
  */
 sealed abstract
 class Operator(val name: String, val arity: Int) {
-  def rangeDomain(typecheck:Operator.Typechecker, operands:Seq[Domain]): Domain
+  def rangeDomain(domainCheck:DomainChecker, operands:Seq[Domain]): Domain
 }
 
 abstract case class InfixOperator(override val name:String) extends Operator(name, 2) {
-  def rangeDomain(typecheck:Operator.Typechecker, operand1:Domain, operand2:Domain):Domain
+  def rangeDomain(domainCheck:DomainChecker, operand1:Domain, operand2:Domain):Domain
   
-  override def rangeDomain(typecheck:Operator.Typechecker, operands:Seq[Domain]) =
-    rangeDomain(typecheck, operands(0), operands(1))
+  override def rangeDomain(domainCheck:DomainChecker, operands:Seq[Domain]) =
+    rangeDomain(domainCheck, operands(0), operands(1))
 }
 
 abstract case class PrefixOperator(override val name:String) extends Operator(name, 1) {
-  def rangeDomain(typecheck:Operator.Typechecker, operand1:Domain):Domain
+  def rangeDomain(domainCheck:DomainChecker, operand1:Domain):Domain
 
-  override def rangeDomain(typecheck:Operator.Typechecker, operands:Seq[Domain]) =
-    rangeDomain(typecheck, operands(0))
+  override def rangeDomain(domainCheck:DomainChecker, operands:Seq[Domain]) =
+    rangeDomain(domainCheck, operands(0))
 }
 
 abstract case class PostfixOperator(override val name:String) extends Operator(name, 1) {
-  def rangeDomain(typecheck:Operator.Typechecker, operand1:Domain):Domain
+  def rangeDomain(domainCheck:DomainChecker, operand1:Domain):Domain
 
-  override def rangeDomain(typecheck:Operator.Typechecker, operands:Seq[Domain]) =
-    rangeDomain(typecheck, operands(0))
+  override def rangeDomain(domainCheck:DomainChecker, operands:Seq[Domain]) =
+    rangeDomain(domainCheck, operands(0))
 }
 
 object Operator {
-  type FailProc = (Any, Any) => Unit         // signals failure (throws exception, stderr output, etc.)
-  // args: expected, actual => Unit;
-  type TypecheckProc = FailProc => Unit      // proc that (maybe) checks types and calls FailProc if check failed
-  type Typechecker = (TypecheckProc) => Unit // proc that (maybe) calls TypecheckProc
-
-  class TypecheckException(expected:Any, actual:Any) extends Exception {
-    override def toString = "expected: %s, actual: %s".format(expected.toString, actual.toString)
-  }
-
-  def failWithException(expected: Any, actual: Any) {
-    throw new TypecheckException(expected, actual)
-    ()
-  }
-
-  def typecheckerThrowingException(actualTypeChecker: FailProc => Unit) {
-    actualTypeChecker(failWithException)
-  }
-
-  def ignoringTypeChecker(ignored: TypecheckProc) {}
-
   abstract class Notation
   case object Prefix extends Notation
   case object Infix extends Notation
@@ -68,8 +48,8 @@ object Operator {
   object Or extends InfixOperator("OR") with RangeType.InfixEndomorphic{ val domain = Domain.Boolean }
   object Like extends InfixOperator("LIKE") with RangeType.InfixEndomorphic{ val domain = Domain.String }
   object In extends InfixOperator("IN") {
-    def rangeDomain(typecheck: Operator.Typechecker, operand1:Domain, operand2:Domain): Domain = {
-      typecheck{ fail =>
+    def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain): Domain = {
+      domainCheck{ fail =>
         val operand1Set = Domain.Set(operand1)
         if (!operand2.domainEquals(operand1Set)) fail(operand1Set, operand2)
       }
@@ -77,8 +57,8 @@ object Operator {
     }
   }
   object Cat extends InfixOperator("+"){
-    def rangeDomain(typecheck: Operator.Typechecker, operand1:Domain, operand2:Domain): Domain = {
-      typecheck{ fail =>
+    def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain): Domain = {
+      domainCheck{ fail =>
         RangeType.checkIsStringLike(fail, operand1)
         RangeType.checkIsStringLike(fail, operand2)
         RangeType.checkIsSameDomain(fail, operand1, operand2)
@@ -101,15 +81,15 @@ object Operator {
   object IsNotNull extends PostfixOperator("IS NOT NULL") with RangeType.Nullable
   object Length extends PrefixOperator("LENGTH") {
     /* A => Int where A is string-like */
-    def rangeDomain(typecheck:Typechecker, operand1:Domain): Domain = {
-      typecheck{ fail => RangeType.checkIsStringLike(fail, operand1)}
+    def rangeDomain(domainCheck:DomainChecker, operand1:Domain): Domain = {
+      domainCheck{ fail => RangeType.checkIsStringLike(fail, operand1)}
       Domain.Integer
     }
   }
 
   object Count extends PrefixOperator("COUNT") {
     /* A => Int */
-    def rangeDomain(typecheck:Typechecker, operand1:Domain): Domain = {
+    def rangeDomain(domainCheck:DomainChecker, operand1:Domain): Domain = {
       Domain.Integer
     }
   }
@@ -124,31 +104,31 @@ object Operator {
 }
 
 object RangeType {
-  def checkIsOrdered(fail: Operator.FailProc, d:Domain) {
+  def checkIsOrdered(fail: DomainChecker.FailProc, d:Domain) {
     if(!d.isOrdered) fail("ordered", d)
   }
 
-  def checkIsSameDomain(fail: Operator.FailProc, d1:Domain, d2:Domain) {
+  def checkIsSameDomain(fail: DomainChecker.FailProc, d1:Domain, d2:Domain) {
     if (!d1.domainEquals(d2)) fail("same domain", (d1, d2))
   }
 
-  def checkIsNullable(fail: Operator.FailProc, d: Domain) {
+  def checkIsNullable(fail: DomainChecker.FailProc, d: Domain) {
     if (!d.isInstanceOf[Domain.Nullable]) fail("nullable", d)
   }
 
-  def checkIsStringLike(fail: Operator.FailProc, d: Domain) {
+  def checkIsStringLike(fail: DomainChecker.FailProc, d: Domain) {
     if (!d.isStringLike) fail("string-like", d)
   }
 
-  def checkIsNumeric(fail: Operator.FailProc, d: Domain) {
+  def checkIsNumeric(fail: DomainChecker.FailProc, d: Domain) {
     if (!d.isNumeric) fail("numeric", d)
   }
 
   /** Range type A, A => A  */
   trait InfixEndomorphic {
     val domain:Domain
-    def rangeDomain(typecheck: Operator.Typechecker, operand1:Domain, operand2:Domain):Domain = {
-      typecheck { fail =>
+    def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain):Domain = {
+      domainCheck { fail =>
         checkIsSameDomain(fail, domain, operand1)
         checkIsSameDomain(fail, operand1, operand2)
       }
@@ -158,16 +138,16 @@ object RangeType {
   /** A => A  */
   trait PrefixEndomorphic {
     val domain:Domain
-    def rangeDomain(typecheck: Operator.Typechecker, operand1:Domain):Domain = {
-      typecheck { fail => checkIsSameDomain(fail, domain, operand1)}
+    def rangeDomain(domainCheck: DomainChecker, operand1:Domain):Domain = {
+      domainCheck { fail => checkIsSameDomain(fail, domain, operand1)}
       domain
     }
   }
 
   /** Range type: A, A => Boolean where A is ordered*/
   trait ComparatorRangeType {
-    def rangeDomain(typecheck: Operator.Typechecker, operand1:Domain, operand2:Domain):Domain = {
-      typecheck { fail =>
+    def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain):Domain = {
+      domainCheck { fail =>
         checkIsSameDomain(fail, operand1, operand2)
         checkIsOrdered(fail, operand1)
         checkIsOrdered(fail, operand2)
@@ -178,24 +158,24 @@ object RangeType {
 
   /** Range type: A, A => Boolean */
   trait Equality {
-    def rangeDomain(typecheck: Operator.Typechecker, operand1:Domain, operand2:Domain):Domain = {
-      typecheck{ fail => checkIsSameDomain(fail, operand1, operand2) }
+    def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain):Domain = {
+      domainCheck{ fail => checkIsSameDomain(fail, operand1, operand2) }
       Domain.Boolean
     }
   }
 
   /** Range type: Nullable => Boolean */
   trait Nullable {
-    def rangeDomain(typecheck: Operator.Typechecker, operand:Domain): Domain = {
-      typecheck{ fail => checkIsNullable(fail, operand) }
+    def rangeDomain(domainCheck: DomainChecker, operand:Domain): Domain = {
+      domainCheck{ fail => checkIsNullable(fail, operand) }
       Domain.Boolean
     }
   }
 
   /** Range type: A, A => A where A is numeric */
   trait InfixNumeric {
-    def rangeDomain(typecheck: Operator.Typechecker, operand1:Domain, operand2:Domain):Domain = {
-      typecheck{ fail =>
+    def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain):Domain = {
+      domainCheck{ fail =>
         checkIsNumeric(fail, operand1)
         checkIsNumeric(fail, operand2)
         checkIsSameDomain(fail, operand1, operand2)
@@ -206,16 +186,16 @@ object RangeType {
 
   /** Range type: A => A where A is numeric */
   trait PrefixNumeric {
-    def rangeDomain(typecheck: Operator.Typechecker, operand1:Domain):Domain = {
-      typecheck{ fail => checkIsNumeric(fail, operand1) }
+    def rangeDomain(domainCheck: DomainChecker, operand1:Domain):Domain = {
+      domainCheck{ fail => checkIsNumeric(fail, operand1) }
       operand1
     }
   }
 
   /** Range type: A => Double where A is numeric */
   trait Statistics {
-    def rangeDomain(typecheck: Operator.Typechecker, operand1:Domain):Domain = {
-      typecheck{ fail => checkIsNumeric(fail, operand1) }
+    def rangeDomain(domainCheck: DomainChecker, operand1:Domain):Domain = {
+      domainCheck{ fail => checkIsNumeric(fail, operand1) }
       Domain.Double
     }
   }
