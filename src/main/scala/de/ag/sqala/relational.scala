@@ -98,7 +98,7 @@ object relational {
         onCase= {
           (branches:Seq[(Domain, Domain)], default:Option[Domain]) =>
             val domain = default match {
-              case None => branches.head._1
+              case None => branches.head._2
               case Some(dom) => dom
             }
             typecheck {fail =>
