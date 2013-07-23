@@ -82,7 +82,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
     expectResult(1){conn.delete("tbl1", ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
     expectResult(2){conn.delete("tbl1", ExprApp(Operator.Or, Seq(
         ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("foo")))),
-        ExprApp(Operator.Eq, Seq(ExprColumn("two"), ExprConst(LiteralNumber(-1)))))))}
+        ExprApp(Operator.Eq, Seq(ExprColumn("two"), ExprConst(LiteralInteger(-1)))))))}
     expectResult(0){conn.delete("tbl1", ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
   }
 
@@ -91,12 +91,12 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
 
     expectResult(1){conn.update("tbl1",
       ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("bar")))),
-      Seq(("two", ExprConst(LiteralNumber(12)))))}
+      Seq(("two", ExprConst(LiteralInteger(12)))))}
     expectResult(0){conn.update("tbl1",
       ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("not there")))),
-      Seq(("two", ExprConst(LiteralNumber(12)))))}
+      Seq(("two", ExprConst(LiteralInteger(12)))))}
     expectResult(2){conn.update("tbl1",
-      ExprApp(Operator.Eq, Seq(ExprColumn("two"), ExprConst(LiteralNumber(12)))),
+      ExprApp(Operator.Eq, Seq(ExprColumn("two"), ExprConst(LiteralInteger(12)))),
       Seq(("two", ExprConst(LiteralNull))))}
   }
 }

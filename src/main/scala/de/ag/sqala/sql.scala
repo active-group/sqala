@@ -91,7 +91,9 @@ object sql {
   case class ExprSubQuery(query: Query) extends Expr
 
   sealed abstract class Literal
-  case class LiteralNumber(n:BigDecimal) extends Literal // FIXME other type than BigDecimal?
+  case class LiteralInteger(i:Int) extends Literal
+  case class LiteralDouble(d:Double) extends Literal
+  case class LiteralDecimal(d:BigDecimal) extends Literal
   case class LiteralString(s:String) extends Literal
   case object LiteralNull extends Literal
   case class LiteralBoolean(b:Boolean) extends Literal
@@ -257,7 +259,9 @@ object sql {
       literal match {
         case LiteralBoolean(b) => out.write(if (b) "TRUE" else "FALSE")
         case LiteralNull => out.write("NULL")
-        case LiteralNumber(n) => out.write(n.toString())
+        case LiteralInteger(n) => out.write(n.toString)
+        case LiteralDouble(d) => out.write(d.toString)
+        case LiteralDecimal(d) => out.write(d.toString())
         case LiteralString(s) => out.write('\'')
           for(c <- s) {
             if (c == '\'') out.write('\'')

@@ -20,7 +20,7 @@ class SqlWriteTest extends FunSuite {
       baseQuery.copy(attributes = Seq(QuerySelectAttribute(ExprColumn("id"), None)))),
     (Some("infix operator"), "SELECT (id = 0) FROM tbl1",
       baseQuery.copy(attributes = Seq(QuerySelectAttribute(
-        ExprApp(Operator.Eq, Seq(ExprColumn("id"), ExprConst(LiteralNumber(0)))), None)))),
+        ExprApp(Operator.Eq, Seq(ExprColumn("id"), ExprConst(LiteralInteger(0)))), None)))),
     (Some("postfix operator"), "SELECT (id IS NULL) FROM tbl1",
       baseQuery.copy(attributes = Seq(QuerySelectAttribute(
         ExprApp(Operator.IsNull, Seq(ExprColumn("id"))), None)))),
@@ -34,7 +34,7 @@ class SqlWriteTest extends FunSuite {
       baseQuery.copy(orderBy = Seq(QuerySelectOrderBy(ExprColumn("id"), Ascending)))),
     (None, "SELECT * FROM tbl1 HAVING (id = 0)",
       baseQuery.copy(having = Some(ExprApp(Operator.Eq,
-        Seq(ExprColumn("id"), ExprConst(LiteralNumber(0))))))),
+        Seq(ExprColumn("id"), ExprConst(LiteralInteger(0))))))),
     (None, "SELECT * FROM tbl1 WHERE (id IS NULL)",
       baseQuery.copy(where = Seq(ExprApp(Operator.IsNull, Seq(ExprColumn("id")))))),
     (None, "SELECT * FROM tbl1 WHERE (id IS NULL) AND (company IS NOT NULL)",
@@ -45,9 +45,9 @@ class SqlWriteTest extends FunSuite {
         attributes = Seq(QuerySelectAttribute(ExprColumn("id"), None),
           QuerySelectAttribute(ExprColumn("company"), None),
           QuerySelectAttribute(ExprApp(Operator.Count, Seq(ExprColumn("employee"))), Some("employees"))),
-        where = Seq(ExprApp(Operator.Gt, Seq(ExprColumn("id"), ExprConst(LiteralNumber(12))))),
+        where = Seq(ExprApp(Operator.Gt, Seq(ExprColumn("id"), ExprConst(LiteralInteger(12))))),
         groupBy = Seq(ExprColumn("company")),
-        having = Some(ExprApp(Operator.Lt, Seq(ExprColumn("employees"), ExprConst(LiteralNumber(10.2))))),
+        having = Some(ExprApp(Operator.Lt, Seq(ExprColumn("employees"), ExprConst(LiteralDouble(10.2))))),
         orderBy = Seq(QuerySelectOrderBy(ExprColumn("company"), Ascending))
       )),
     (None, "SELECT 'Guns N'' Roses' FROM tbl1",
