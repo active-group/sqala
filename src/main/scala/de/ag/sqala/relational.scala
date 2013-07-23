@@ -69,31 +69,7 @@ object relational {
         onNull= {domain => domain},
         onApplication= {(rator:Operator, rands:Seq[Domain]) => rator.rangeDomain(domainCheck, rands)},
         onTuple= {domains:Seq[Domain] => Domain.Product(domains)},
-        onAggregation= {
-          (aggOpOrString:Either[AggregationOp, String], domain:Domain) =>
-            aggOpOrString match {
-              case Left(aggOp) => aggOp match {
-                case AggregationOpCount => Domain.Integer
-                case _ =>
-                  domainCheck { // FIXME fail check stuff should go to op, shouldn't it?
-                    fail => aggOp match {
-                      case AggregationOpSum
-                           | AggregationOpAvg
-                           | AggregationOpStdDev
-                           | AggregationOpStdDevP
-                           | AggregationOpVar
-                           | AggregationOpVarP =>
-                        if (!domain.isNumeric) fail("numeric", domain)
-                      case AggregationOpMin
-                           | AggregationOpMax =>
-                        if (!domain.isOrdered) fail("ordered", domain)
-                      case AggregationOpCount =>
-                    }
-                  }
-                  domain
-              }
-              case Right(otherOp) => domain /* FIXME that's certainly wrong, need type of op named via string! */
-            }},
+        onAggregation= {(aggOp: AggregationOperator, operand: Domain) => aggOp.rangeDomain(domainCheck, operand)},
         onCase= {
           (branches:Seq[(Domain, Domain)], default:Option[Domain]) =>
             val domain = default match {
@@ -295,7 +271,7 @@ object relational {
                 onNull: (Domain) => T,
                 onApplication: (Operator, Seq[T]) => T,
                 onTuple: (Seq[T]) => T,
-                onAggregation: (Either[AggregationOp, String], T) => T,
+                onAggregation: (AggregationOperator, T) => T,
                 onCase: (Seq[(T, T)], Option[T]) => T,
                 onScalarSubQuery: (Query) => T,
                 onSetSubQuery: (Query) => T):T = {
@@ -319,22 +295,10 @@ object relational {
   case class ExprNull(typ:Domain) extends Expr
   case class ExprApplication(operator:Operator /*FIXME?*/, operands:Seq[Expr]) extends Expr
   case class ExprTuple(expressions:Seq[Expr]) extends Expr
-  case class ExprAggregation(op:Either[AggregationOp, String], expr:Expr) extends Expr
+  case class ExprAggregation(op:AggregationOperator, expr:Expr) extends Expr
   case class ExprCase(branches:Seq[CaseBranch], default:Option[Expr]) extends Expr
   case class ExprScalarSubQuery(query:Query /*FIXME*/) extends Expr
   case class ExprSetSubQuery(query:Query /*FIXME*/) extends Expr
-
-
-  sealed abstract class AggregationOp
-  case object AggregationOpCount extends AggregationOp
-  case object AggregationOpSum extends AggregationOp
-  case object AggregationOpAvg extends AggregationOp
-  case object AggregationOpMin extends AggregationOp
-  case object AggregationOpMax extends AggregationOp
-  case object AggregationOpStdDev extends AggregationOp
-  case object AggregationOpStdDevP extends AggregationOp
-  case object AggregationOpVar extends AggregationOp
-  case object AggregationOpVarP extends AggregationOp
 
   case class CaseBranch(condition:Expr, value:Expr)
 }

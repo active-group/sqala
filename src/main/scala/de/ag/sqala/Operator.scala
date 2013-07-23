@@ -29,6 +29,13 @@ abstract case class PostfixOperator(override val name:String) extends Operator(n
     rangeDomain(domainCheck, operands(0))
 }
 
+abstract class AggregationOperator(name:String) extends PrefixOperator(name) {
+  def rangeDomain(domainCheck:DomainChecker, operand:Domain):Domain
+
+  override def rangeDomain(domainCheck:DomainChecker, operands:Seq[Domain]):Domain =
+    rangeDomain(domainCheck, operands(0))
+}
+
 object Operator {
   abstract class Notation
   case object Prefix extends Notation
@@ -87,18 +94,18 @@ object Operator {
     }
   }
 
-  object Count extends PrefixOperator("COUNT") {
+  object Count extends AggregationOperator("COUNT") {
     /* A => Int */
     def rangeDomain(domainCheck:DomainChecker, operand1:Domain): Domain = {
       Domain.Integer
     }
   }
-  object Sum extends PrefixOperator("SUM") with RangeDomain.PrefixNumeric
-  object Avg extends PrefixOperator("AVG") with RangeDomain.PrefixNumeric
-  object Min extends PrefixOperator("MIN") with RangeDomain.PrefixNumeric
-  object Max extends PrefixOperator("MAX") with RangeDomain.PrefixNumeric
-  object StdDev extends PrefixOperator("StdDev") with RangeDomain.Statistics
-  object StdDevP extends PrefixOperator("StdDevP") with RangeDomain.Statistics
-  object Var extends PrefixOperator("Var") with RangeDomain.Statistics
-  object VarP extends PrefixOperator("VarP") with RangeDomain.Statistics
+  object Sum extends AggregationOperator("SUM") with RangeDomain.PrefixNumeric
+  object Avg extends AggregationOperator("AVG") with RangeDomain.PrefixNumeric
+  object Min extends AggregationOperator("MIN") with RangeDomain.PrefixNumeric
+  object Max extends AggregationOperator("MAX") with RangeDomain.PrefixNumeric
+  object StdDev extends AggregationOperator("StdDev") with RangeDomain.Statistics
+  object StdDevP extends AggregationOperator("StdDevP") with RangeDomain.Statistics
+  object Var extends AggregationOperator("Var") with RangeDomain.Statistics
+  object VarP extends AggregationOperator("VarP") with RangeDomain.Statistics
 }
