@@ -296,12 +296,12 @@ object relational {
   case class ExprAttributeRef(name:String) extends Expr
   case class ExprConst(domain:Domain, value:String /*FIXME?*/) extends Expr
   case class ExprNull(typ:Domain) extends Expr
-  case class ExprApplication(operator:Operator /*FIXME?*/, operands:Seq[Expr]) extends Expr
+  case class ExprApplication(operator:Operator, operands:Seq[Expr]) extends Expr
   case class ExprTuple(expressions:Seq[Expr]) extends Expr
   case class ExprAggregation(op:AggregationOperator, expr:Expr) extends Expr
   case class ExprCase(branches:Seq[CaseBranch], default:Option[Expr]) extends Expr
-  case class ExprScalarSubQuery(query:Query /*FIXME*/) extends Expr
-  case class ExprSetSubQuery(query:Query /*FIXME*/) extends Expr
+  case class ExprScalarSubQuery(query:Query) extends Expr
+  case class ExprSetSubQuery(query:Query) extends Expr
 
   case class CaseBranch(condition:Expr, value:Expr)
 }
