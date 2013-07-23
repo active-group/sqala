@@ -53,6 +53,6 @@ trait DbConnection {
   def query(Query:Query, schema:Schema): ResultSetIterator
   def insert(table:TableName, schema:Schema, values:Seq[AnyRef/*FIXME*/]): Int /*FIXME*/ // FIXME structured?
   def delete(table:TableName, expr:Expr): Any /*FIXME*/ // FIXME structured?
-  def update(table:TableName, schema:Schema, expr:Expr, a:Seq[(String, Expr)]): Int // FIXME structured?
+  def update(table:TableName, expr:Expr, a:Seq[(String, Expr)]): Int // FIXME structured?
   def execute(sql:String):Any /*FIXME*/ // run raw , for emergencies
 }

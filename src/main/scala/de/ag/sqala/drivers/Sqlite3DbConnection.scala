@@ -108,7 +108,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
 
-  def update(tableName: TableName, schema: Schema, expr: Expr, updates: Seq[(ColumnName, Expr)]): Int = {
+  def update(tableName: TableName, expr: Expr, updates: Seq[(ColumnName, Expr)]): Int = {
     val clauses = updates.map {
       case (columnName, value) => "%s = %s".format(columnName, value.toString(sqlWriteParameterization))
     }

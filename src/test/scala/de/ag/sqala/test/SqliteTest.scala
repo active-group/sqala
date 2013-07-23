@@ -89,13 +89,13 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   test("update") {
     createAndFillTbl1()
 
-    expectResult(1){conn.update("tbl1", null, /* FIXME update does not need scheme (?) */
+    expectResult(1){conn.update("tbl1",
       ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("bar")))),
       Seq(("two", ExprConst(LiteralNumber(12)))))}
-    expectResult(0){conn.update("tbl1", null,
+    expectResult(0){conn.update("tbl1",
       ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("not there")))),
       Seq(("two", ExprConst(LiteralNumber(12)))))}
-    expectResult(2){conn.update("tbl1", null,
+    expectResult(2){conn.update("tbl1",
       ExprApp(Operator.Eq, Seq(ExprColumn("two"), ExprConst(LiteralNumber(12)))),
       Seq(("two", ExprConst(LiteralNull))))}
   }
