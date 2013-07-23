@@ -131,7 +131,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 }
 
-object ite3DbConnection {
+object Sqlite3DbConnection {
   def open(file:File): Sqlite3DbConnection =
     open(file.getPath, new Properties())
 

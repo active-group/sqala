@@ -1,7 +1,7 @@
 package de.ag.sqala.test
 
 import org.scalatest.{BeforeAndAfter, FunSuite}
-import de.ag.sqala.drivers.ite3DbConnection
+import de.ag.sqala.drivers.Sqlite3DbConnection
 import de.ag.sqala.sql._
 import de.ag.sqala.{Domain, DbConnection}
 import de.ag.sqala.relational.Schema
@@ -14,7 +14,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   var conn:DbConnection = _
 
   before {
-    conn = ite3DbConnection.openInMemory()
+    conn = Sqlite3DbConnection.openInMemory()
   }
 
   val tbl1Schema: Schema = new Schema(Seq(("one", Domain.String), ("two", Domain.Integer)))
