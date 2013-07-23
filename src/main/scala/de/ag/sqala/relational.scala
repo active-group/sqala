@@ -276,7 +276,7 @@ object relational {
                 onCase: (Seq[(T, T)], Option[T]) => T,
                 onScalarSubQuery: (Query) => T,
                 onSetSubQuery: (Query) => T):T = {
-      def rec(expr:Expr):T = this match {
+      def rec(expr:Expr):T = expr match {
         case ExprAttributeRef(name) => onAttributeRef(name)
         case ExprConst(domain, value) => onConst(domain, value)
         case ExprNull(typ) => onNull(typ)
