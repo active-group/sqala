@@ -253,7 +253,7 @@ object relational {
       case ExprTuple(exprs) => exprs.exists(_.isAggregate)
       case ExprCase(branches, default) =>
         branches.exists{b => b.condition.isAggregate || b.value.isAggregate} ||
-          default.map(_.isAggregate).getOrElse(true)
+          default.exists(_.isAggregate)
     }
 
     /*
