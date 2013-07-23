@@ -121,10 +121,34 @@ object relational {
 
   sealed abstract class Query {
 
-    def schema(checkDomain: Boolean = false): Schema = {
-      val selectedDomainChecker: DomainChecker = if (checkDomain) ExceptionThrowingDomainChecker else IgnoringDomainChecker
-      schema(Environment.empty, selectedDomainChecker)
+    /**
+     * Schema of query
+     * @return Schema of query.  No checks are performed, but may throw NoSuchElementException
+     *         if attribute reference refers to an unknown attribute.
+     */
+    def schema(): Schema = {
+      schema(Environment.empty, IgnoringDomainChecker)
     }
+
+    /**
+     * Check domains of underlying schema. Throws DomainCheckException if there are domain
+     * mismatches and NoSuchElementException if an attribute reference refers to an unknown attribute.
+     */
+    def checkDomains() {
+      schema(Environment.empty, ExceptionThrowingDomainChecker)
+    }
+
+    /**
+     * Schema of query, after checkDomains() is called.
+     *
+     * This is faster than calling checkDomains() and schema() in succession.
+     *
+     * @return Schema of query. See checkDomains() for exceptions that may be thrown.
+     */
+    def checkedSchema(): Schema = {
+      schema(Environment.empty, ExceptionThrowingDomainChecker)
+    }
+
 
     def schema(env:Environment, domainCheck:DomainChecker): Schema = {
       def toEnv(schema:Schema) =
@@ -140,7 +164,7 @@ object relational {
 
       def rec(q:Query): Schema = q match {
         case QueryEmpty => Schema.empty
-        case b:QueryBase => b.schema
+        case b:QueryBase => b.base
         case QueryProject(subset, query) =>
           val baseSchema = rec(query)
           domainCheck { fail =>
@@ -217,7 +241,7 @@ object relational {
   }
   case object QueryEmpty extends Query
   case class QueryBase(name:QueryName,
-                          schema:Schema
+                          base:Schema
                           /* TODO handle? */) extends Query
   case class QueryProject(subset:Seq[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
   case class QueryRestrict(expr:Expr /*returning boolean*/, query:Query) extends Query
