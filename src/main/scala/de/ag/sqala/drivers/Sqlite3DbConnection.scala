@@ -2,7 +2,6 @@ package de.ag.sqala.drivers
 
 import de.ag.sqala.sql._
 import java.io.{File, Writer}
-import org.sqlite.SQLiteConfig
 import java.util.Properties
 import de.ag.sqala._
 import de.ag.sqala.JDBCHandle
@@ -142,8 +141,9 @@ object Sqlite3DbConnection {
     open(file.getPath, props)
   }
 
-  def open(file:File, config:SQLiteConfig): Sqlite3DbConnection =
-    open(file.getPath, config.toProperties)
+  // use SQLiteConfig.toProperties to generate sqlite properties
+  def open(file:File, properties:Properties): Sqlite3DbConnection =
+    open(file.getPath, properties)
 
   def openInMemory(): Sqlite3DbConnection =
     open(":memory:", new Properties())
