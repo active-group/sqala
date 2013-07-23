@@ -40,7 +40,15 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
      * @param sqlCombine left sql query, combine operator, right sql query
      */
     def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: QueryCombine) {
-      /* FIXME */
+      out.write("SELECT * FROM (")
+      sqlCombine.left.write(out, param)
+      sqlCombine.op match {
+        case CombineOpIntersect => " INTERSECT "
+        case CombineOpExcept => " EXCEPT "
+        case CombineOpUnion => " UNION "
+      }
+      sqlCombine.right.write(out, param)
+      out.write(")")
     }
   }
 
