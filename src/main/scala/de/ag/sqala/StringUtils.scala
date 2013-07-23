@@ -12,7 +12,6 @@ object StringUtils {
    * @param strings sequence of things to write
    * @param sep     separator to write between two consecutive things
    */
-  // FIXME that's a util method to be put elsewhere
   def writeJoined(out: Writer, strings:Seq[String], sep:String) {
     if (!strings.isEmpty) {
       out.write(strings.head)
@@ -27,7 +26,6 @@ object StringUtils {
    * @param writeProc write method to be called for each string in turn
    * @param sep     separator to write between two consecutive things
    */
-  // FIXME that's a util method to be put elsewhere
   def writeJoined[T](out: Writer, things:Seq[T], sep:String, writeProc:(Writer, T) => Unit) {
     if (!things.isEmpty) {
       writeProc(out, things.head)
