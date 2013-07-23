@@ -76,7 +76,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
           case Domain.Boolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
           case Domain.CalendarTime => throw new IllegalArgumentException("sqlite cannot handle date/time")
           case Domain.Blob => statement.setBlob(i, value.asInstanceOf[java.io.InputStream])
-          case _ => throw new RuntimeException("unknown type " + domain)
+          case _ => throw new RuntimeException("unknown domain " + domain)
         }
     }
     val result = statement.executeUpdate()
