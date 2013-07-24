@@ -10,7 +10,7 @@ import de.ag.sqala.sql.QueryCombine
 import de.ag.sqala.relational.Schema
 
 /**
- *
+ * Driver for sqlite3 database
  */
 class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   val kind: Symbol = 'sqlite3
