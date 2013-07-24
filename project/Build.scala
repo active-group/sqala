@@ -35,7 +35,7 @@ lazy val sqalaTestProject = Project(id = "sqala-testkit", base = file("sqala-tes
     name := "sqala-testkit",
     description := "Testing sqala",
     libraryDependencies ++= Seq(
-        "org.scalatest" %% "scalatest" % "1.9.1",
+        "org.scalatest" % "scalatest_2.10" % "1.9.1",
         "org.xerial" % "sqlite-jdbc" % "3.7.2",
         "org.scalacheck" %% "scalacheck" % "1.10.1" % "test")
   )) dependsOn(sqalaProject)
