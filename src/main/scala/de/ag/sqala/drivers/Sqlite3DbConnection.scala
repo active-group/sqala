@@ -14,7 +14,7 @@ import de.ag.sqala.relational.Schema
  */
 class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   val kind: Symbol = 'sqlite3
-  val name: String = "ite3"
+  val name: String = "sqlite3"
   val handle: Handle = JDBCHandle(connection)
   val sqlWriteParameterization: WriteParameterization = new WriteParameterization {
     /**
