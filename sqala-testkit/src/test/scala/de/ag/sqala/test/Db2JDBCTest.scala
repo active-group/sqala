@@ -8,7 +8,19 @@ import java.sql._
  */
 object Db2JDBCTest extends App {
   System.out.println("Hello world!")
-  testDb2Sample("192.168.1.138", "50001", "db2inst2", "db2inst2")
+
+  val (host, port) = args.size match {
+    case 0 => ("192.168.1.138", "50001")
+    case 2 => (args(0), args(1))
+    case _ => System.err.println("cmdline args missing: host port")
+      System.exit(1)
+      ("","") //keep type inference happy
+  }
+
+  // make configurable later, if necessary
+  val user = "db2inst2"
+  val password = "db2inst2"
+  testDb2Sample(host, port, user, password)
 
   def testDb2Sample(host: String, port: String, user: String, pass: String) {
     val database: String = "sample"
