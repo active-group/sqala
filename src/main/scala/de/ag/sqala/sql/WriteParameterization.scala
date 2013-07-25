@@ -3,11 +3,11 @@ package de.ag.sqala.sql
 import java.io.Writer
 
 /**
- *
+ * Write parameterization for DB-specific outputs
  */
 trait WriteParameterization {
   /**
-   * write QueryCombine to output sink
+   * Write SQL Query.Combine to output sink in a DB-specific way (eg. parentheses, key words, etc.)
    *
    * @param out output sink
    * @param param this object for recursive calls
@@ -16,7 +16,7 @@ trait WriteParameterization {
   def writeCombine(out:Writer, param:WriteParameterization, Combine:Query.Combine):Unit
 
   /**
-   * write constant  expression (literal) to output sink
+   * Write constant expression (literal) to output sink in a DB-specific way (e.g. map types, etc.)
    *
    * @param out: output sink
    * @param literal: constant literal to write
@@ -26,10 +26,10 @@ trait WriteParameterization {
 
 object defaultSqlWriteParameterization extends WriteParameterization {
   /**
-   * write QueryCombine to output sink
+   * Write "(Q1) UNION (Q2)" where Q1 and Q2 are the written queries.
    *
    * @param out     output sink
-   * @param param   this object for recursive calls
+   * @param param   write parameterization
    * @param combine Query.combine to write
    */
   def writeCombine(out:Writer, param:WriteParameterization, combine:Query.Combine) {
@@ -46,7 +46,12 @@ object defaultSqlWriteParameterization extends WriteParameterization {
     out.write(")")
   }
   /**
-   * write constant  expression (literal) to output sink
+   * Write literals
+   *
+   * Boolean: "TRUE"/"FALSE"
+   * Null: "NULL"
+   * Strings: quote "'" as "\'\'"
+   * others: .toString
    *
    * @param out     output sink
    * @param literal Expr.Literal  to write
