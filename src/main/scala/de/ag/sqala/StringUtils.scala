@@ -33,6 +33,13 @@ object StringUtils {
     }
   }
 
+  /**
+   * Write space + sequence of object using specified procedure, but only if sequence of object is not empty.
+   * @param out      output sink
+   * @param things   sequence of objects to write
+   * @param proc     procedure to use to write thins
+   * @tparam T       type of objects
+   */
   def writeWithSpaceIfNotEmpty[T](out:Writer, things:Seq[T])(proc:(Seq[T]) => Unit) {
     if (!things.isEmpty) {
       out.write(" ")
@@ -40,6 +47,10 @@ object StringUtils {
     }
   }
 
+  /**
+   * Write single space to output sink
+   * @param out  output sink
+   */
   def writeSpace(out:Writer) {
     out.write(' ')
   }
