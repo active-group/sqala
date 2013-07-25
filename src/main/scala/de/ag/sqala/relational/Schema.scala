@@ -1,6 +1,5 @@
 package de.ag.sqala.relational
 
-import de.ag.sqala.sql._
 import de.ag.sqala.Domain
 
 /**
