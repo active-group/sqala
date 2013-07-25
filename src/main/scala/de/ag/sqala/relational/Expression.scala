@@ -7,16 +7,16 @@ import de.ag.sqala.{AggregationOperator, Operator, Domain}
  */
 sealed abstract class Expr {
   def isAggregate:Boolean = this match {
-    case _:ExprAttributeRef
-         | _:ExprConst
-         | _:ExprNull
-         | _:ExprScalarSubQuery
-         | _:ExprSetSubQuery => false
-    case _:ExprAggregation => true
-    case ExprApplication(rator, rands) =>
+    case _:Expr.AttributeRef
+         | _:Expr.Const
+         | _:Expr.Null
+         | _:Expr.ScalarSubQuery
+         | _:Expr.SetSubQuery => false
+    case _:Expr.Aggregation => true
+    case Expr.Application(rator, rands) =>
       rands.exists(_.isAggregate)
-    case ExprTuple(exprs) => exprs.exists(_.isAggregate)
-    case ExprCase(branches, default) =>
+    case Expr.Tuple(exprs) => exprs.exists(_.isAggregate)
+    case Expr.Case(branches, default) =>
       branches.exists{b => b.condition.isAggregate || b.value.isAggregate} ||
         default.exists(_.isAggregate)
   }
@@ -42,28 +42,30 @@ sealed abstract class Expr {
               onScalarSubQuery: (Query) => T,
               onSetSubQuery: (Query) => T):T = {
     def rec(expr:Expr):T = expr match {
-      case ExprAttributeRef(name) => onAttributeRef(name)
-      case ExprConst(domain, value) => onConst(domain, value)
-      case ExprNull(typ) => onNull(typ)
-      case ExprAggregation(op, exp) => onAggregation(op, rec(exp))
-      case ExprApplication(rator, rands) => onApplication(rator, rands.map(rec))
-      case ExprTuple(exprs) => onTuple(exprs.map(rec))
-      case ExprCase(branches, default) => onCase(branches.map{case CaseBranch(condition, value) => (rec(condition), rec(value))}, default.map(rec))
-      case ExprScalarSubQuery(query) => onScalarSubQuery(query)
-      case ExprSetSubQuery(query) => onSetSubQuery(query)
+      case Expr.AttributeRef(name) => onAttributeRef(name)
+      case Expr.Const(domain, value) => onConst(domain, value)
+      case Expr.Null(typ) => onNull(typ)
+      case Expr.Aggregation(op, exp) => onAggregation(op, rec(exp))
+      case Expr.Application(rator, rands) => onApplication(rator, rands.map(rec))
+      case Expr.Tuple(exprs) => onTuple(exprs.map(rec))
+      case Expr.Case(branches, default) => onCase(branches.map{case Expr.CaseBranch(condition, value) => (rec(condition), rec(value))}, default.map(rec))
+      case Expr.ScalarSubQuery(query) => onScalarSubQuery(query)
+      case Expr.SetSubQuery(query) => onSetSubQuery(query)
     }
     rec(this)
   }
 }
 
-case class ExprAttributeRef(name:String) extends Expr
-case class ExprConst(domain:Domain, value:String /*FIXME?*/) extends Expr
-case class ExprNull(typ:Domain) extends Expr
-case class ExprApplication(operator:Operator, operands:Seq[Expr]) extends Expr
-case class ExprTuple(expressions:Seq[Expr]) extends Expr
-case class ExprAggregation(op:AggregationOperator, expr:Expr) extends Expr
-case class ExprCase(branches:Seq[CaseBranch], default:Option[Expr]) extends Expr
-case class ExprScalarSubQuery(query:Query) extends Expr
-case class ExprSetSubQuery(query:Query) extends Expr
+object Expr {
+  case class AttributeRef(name:String) extends Expr
+  case class Const(domain:Domain, value:String /*FIXME?*/) extends Expr
+  case class Null(typ:Domain) extends Expr
+  case class Application(operator:Operator, operands:Seq[Expr]) extends Expr
+  case class Tuple(expressions:Seq[Expr]) extends Expr
+  case class Aggregation(op:AggregationOperator, expr:Expr) extends Expr
+  case class Case(branches:Seq[CaseBranch], default:Option[Expr]) extends Expr
+  case class ScalarSubQuery(query:Query) extends Expr
+  case class SetSubQuery(query:Query) extends Expr
 
-case class CaseBranch(condition:Expr, value:Expr)
+  case class CaseBranch(condition:Expr, value:Expr)
+}

@@ -15,8 +15,8 @@ class relationalTest extends FunSuite {
 
   test("trivial") {
     val q = QueryProject(Seq(
-      "two" -> ExprAttributeRef("two"),
-      "one" -> ExprAttributeRef("one")),
+      "two" -> Expr.AttributeRef("two"),
+      "one" -> Expr.AttributeRef("one")),
       tbl1)
     expectResult(Schema(Seq("two" -> Domain.Integer, "one" -> Domain.String))) {
       q.checkedSchema()
@@ -25,13 +25,13 @@ class relationalTest extends FunSuite {
 
   test("trivial-checkDomain") {
     val q1 = QueryProject(Seq(
-      "eq" -> ExprApplication(Operator.Eq, Seq(ExprAttributeRef("two"), ExprAttributeRef("two")))
+      "eq" -> Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("two"), Expr.AttributeRef("two")))
     ),
       tbl1)
     q1.checkDomains() // should not throw DomainCheckException (or any other, that is)
     info("checked domains of q1 schema")
     val q2 = QueryProject(Seq(
-      "eq" -> ExprApplication(Operator.Eq, Seq(ExprAttributeRef("one"), ExprAttributeRef("two")))
+      "eq" -> Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("one"), Expr.AttributeRef("two")))
     ),
       tbl1)
     intercept[DomainCheckException]{q2.checkDomains()}
@@ -53,20 +53,20 @@ class relationalTest extends FunSuite {
 
   test("case") {
     val q1 = QueryProject(Seq("foo" ->
-      ExprCase(Seq(
-        CaseBranch(ExprApplication(Operator.Eq, Seq(ExprAttributeRef("two"), ExprAttributeRef("two"))),
-          ExprAttributeRef("one"))),
+      Expr.Case(Seq(
+        Expr.CaseBranch(Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("two"), Expr.AttributeRef("two"))),
+          Expr.AttributeRef("one"))),
         None)),
       tbl1)
     val q2 = QueryProject(Seq("foo" ->
-      ExprCase(Seq(CaseBranch(ExprApplication(Operator.Eq, Seq(ExprAttributeRef("two"), ExprAttributeRef("two"))),
-        ExprAttributeRef("one"))),
-        Some(ExprAttributeRef("one")))),
+      Expr.Case(Seq(Expr.CaseBranch(Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("two"), Expr.AttributeRef("two"))),
+        Expr.AttributeRef("one"))),
+        Some(Expr.AttributeRef("one")))),
       tbl1)
     val q3 = QueryProject(Seq("foo" ->
-      ExprCase(Seq(CaseBranch(ExprApplication(Operator.Eq, Seq(ExprAttributeRef("two"), ExprAttributeRef("two"))),
-        ExprAttributeRef("one"))),
-        Some(ExprAttributeRef("two")))),
+      Expr.Case(Seq(Expr.CaseBranch(Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("two"), Expr.AttributeRef("two"))),
+        Expr.AttributeRef("one"))),
+        Some(Expr.AttributeRef("two")))),
       tbl1)
     val q1Schema = Schema(Seq("foo" -> Domain.String))
     expectResult(q1Schema) { q1.checkedSchema()}
@@ -75,21 +75,21 @@ class relationalTest extends FunSuite {
   }
 
   test("ordered") {
-    val q1 = QueryOrder(Seq(ExprAttributeRef("one") -> Ascending), tbl1)
+    val q1 = QueryOrder(Seq(Expr.AttributeRef("one") -> Ascending), tbl1)
     expectResult(tbl1.base) { q1.checkedSchema() }
     intercept[NoSuchElementException] {
-      QueryOrder(Seq(ExprAttributeRef("three") -> Ascending), tbl1).checkDomains()
+      QueryOrder(Seq(Expr.AttributeRef("three") -> Ascending), tbl1).checkDomains()
     }
   }
 
   test("aggregation") {
-    val q1 = QueryProject(Seq("foo" -> ExprAttributeRef("foo")),
-      QueryGroupingProject(Seq("one" -> ExprAttributeRef("one"), "foo" -> ExprAggregation(Operator.Avg, ExprAttributeRef("two"))), tbl1))
-    val q2 = QueryProject(Seq("foo" -> ExprAttributeRef("foo")),
-      QueryGroupingProject(Seq("two" -> ExprAttributeRef("two"), "foo" -> ExprAggregation(Operator.Count, ExprAttributeRef("one"))), tbl1))
+    val q1 = QueryProject(Seq("foo" -> Expr.AttributeRef("foo")),
+      QueryGroupingProject(Seq("one" -> Expr.AttributeRef("one"), "foo" -> Expr.Aggregation(Operator.Avg, Expr.AttributeRef("two"))), tbl1))
+    val q2 = QueryProject(Seq("foo" -> Expr.AttributeRef("foo")),
+      QueryGroupingProject(Seq("two" -> Expr.AttributeRef("two"), "foo" -> Expr.Aggregation(Operator.Count, Expr.AttributeRef("one"))), tbl1))
     expectResult(Schema(Seq("foo" -> Domain.Integer))) { q1.checkedSchema() }
     intercept[DomainCheckException]{
-      QueryGroupingProject(Seq("two" -> ExprAttributeRef("two"), "foo" -> ExprAggregation(Operator.Avg, ExprAttributeRef("one"))), tbl1).checkedSchema()
+      QueryGroupingProject(Seq("two" -> Expr.AttributeRef("two"), "foo" -> Expr.Aggregation(Operator.Avg, Expr.AttributeRef("one"))), tbl1).checkedSchema()
     }
     expectResult(Schema(Seq("foo" -> Domain.Integer))) { q2.checkedSchema() }
   }
@@ -98,37 +98,37 @@ class relationalTest extends FunSuite {
     expectResult(Schema(Seq("a" -> Domain.Integer))) {
       QueryQuotient(
         QueryProject(Seq(
-          "a" -> ExprNull(Domain.Integer),
-          "b" -> ExprNull(Domain.Integer)
+          "a" -> Expr.Null(Domain.Integer),
+          "b" -> Expr.Null(Domain.Integer)
         ),
           QueryEmpty),
-        QueryProject(Seq("b" -> ExprNull(Domain.Integer)), QueryEmpty)
+        QueryProject(Seq("b" -> Expr.Null(Domain.Integer)), QueryEmpty)
       )
         .checkedSchema()
     }
     expectResult(Schema(Seq("a" -> Domain.Integer, "c" -> Domain.Integer))) {
       QueryQuotient(
         QueryProject(Seq(
-          "a" -> ExprNull(Domain.Integer),
-          "b" -> ExprNull(Domain.Integer),
-          "c" -> ExprNull(Domain.Integer)
+          "a" -> Expr.Null(Domain.Integer),
+          "b" -> Expr.Null(Domain.Integer),
+          "c" -> Expr.Null(Domain.Integer)
         ),
           QueryEmpty
         ),
-        QueryProject(Seq("b" -> ExprNull(Domain.Integer)), QueryEmpty)
+        QueryProject(Seq("b" -> Expr.Null(Domain.Integer)), QueryEmpty)
       )
       .checkedSchema()
     }
     intercept[DomainCheckException] {
       QueryQuotient(
         QueryProject(Seq(
-          "a" -> ExprNull(Domain.Integer),
-          "b" -> ExprNull(Domain.Integer)
+          "a" -> Expr.Null(Domain.Integer),
+          "b" -> Expr.Null(Domain.Integer)
         ),
           QueryEmpty),
         QueryProject(Seq(
-          "a" -> ExprNull(Domain.Integer),
-          "c" -> ExprNull(Domain.Integer)
+          "a" -> Expr.Null(Domain.Integer),
+          "c" -> Expr.Null(Domain.Integer)
         ),
           QueryEmpty)
       )
@@ -140,12 +140,12 @@ class relationalTest extends FunSuite {
     val SUBA = QueryBase("SUBA", Schema(Seq("C" -> Domain.String)))
     val SUBB = QueryBase("SUBB", Schema(Seq("C" -> Domain.String)))
     expectResult(Schema(Seq("C" -> Domain.String))) {
-      QueryProject(Seq("C" -> ExprAttributeRef("C")),
+      QueryProject(Seq("C" -> Expr.AttributeRef("C")),
         QueryRestrict(
-          ExprApplication(
-            Operator.Eq, Seq(ExprScalarSubQuery(QueryProject(Seq("C" -> ExprAttributeRef("C")),
+          Expr.Application(
+            Operator.Eq, Seq(Expr.ScalarSubQuery(QueryProject(Seq("C" -> Expr.AttributeRef("C")),
               SUBB)),
-              ExprAttributeRef("C"))),
+              Expr.AttributeRef("C"))),
           SUBA))
         .checkedSchema()
     }
@@ -153,8 +153,8 @@ class relationalTest extends FunSuite {
 
   test("set sub-query") {
     expectResult(Schema(Seq("S" -> Domain.Set(Domain.Integer)))) {
-      QueryProject(Seq("S" -> ExprSetSubQuery(
-        QueryProject(Seq("two" -> ExprAttributeRef("two")), tbl1))), QueryEmpty)
+      QueryProject(Seq("S" -> Expr.SetSubQuery(
+        QueryProject(Seq("two" -> Expr.AttributeRef("two")), tbl1))), QueryEmpty)
         .checkedSchema()
     }
   }
