@@ -1,7 +1,7 @@
 package de.ag.sqala
 
 /**
- *
+ * Traits and helper methods to define rangeDomain methods
  */
 object RangeDomain {
   def checkIsOrdered(fail: DomainChecker.FailProc, d:Domain) {
