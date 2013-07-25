@@ -133,6 +133,163 @@ sealed abstract class Query {
     }
     rec(this)
   }
+
+  // FIXME consider this being part of sql.Query
+  def xToSqlSelect(query: sql.Query): sql.Query.Select = {
+    query match {
+      case sql.Query.Empty => sql.Query.makeSelect(from=Seq())
+      case select:sql.Query.Select if select.attributes.isEmpty => select
+      case _ => sql.Query.makeSelect(from=Seq(sql.Query.SelectFromQuery(query, None)))
+    }
+  }
+
+  // FIXME consider this being part of relational.Expr?
+  def expressionToSql(expr: relational.Expr): sql.Expr = expr match {
+    case Expr.AttributeRef(name) => sql.Expr.Column(name)
+    case Expr.Const(domain, value) =>  // FIXME value should be Any or choose other representation
+      val sqlVal:sql.Expr.Literal = domain match {
+        // FIXME conversion should happen in Domain
+        case Domain.String => sql.Expr.Literal.String(value.asInstanceOf[String])
+        case Domain.Integer => sql.Expr.Literal.Integer(value.asInstanceOf[Integer])
+        case Domain.Boolean => sql.Expr.Literal.Boolean(value.asInstanceOf[Boolean])
+        // etc.
+      }
+      sql.Expr.Const(sqlVal)
+    case Expr.Null(_) => sql.Expr.Const(sql.Expr.Literal.Null)
+    case Expr.Application(operator, operands) =>
+      /* FIXME what about `(apply make-sql-expr-app (rator-data (application-rator expr))
+                                (map expression->sql (application-rands expr)))`? */
+      val sqlOperator:Operator = operator
+      sql.Expr.App(sqlOperator, operands.map(expressionToSql))
+    case Expr.Tuple(exprs) => sql.Expr.Tuple(exprs.map(expressionToSql))
+    case Expr.Aggregation(op, aggrExpr) => sql.Expr.App(op, Seq(expressionToSql(aggrExpr))) // FIXME consider Aggregation being Application
+    case Expr.Case(branches, default) =>
+      sql.Expr.Case(branches.map { case Expr.CaseBranch(condition, value) =>
+          sql.Expr.CaseBranch(expressionToSql(condition), expressionToSql(value)) },
+        default.map(expressionToSql))
+    case Expr.ScalarSubQuery(q) =>
+      sql.Expr.SubQuery(q.toSqlQuery)
+    case Expr.SetSubQuery(q) =>
+      sql.Expr.SubQuery(q.toSqlQuery) // FIXME consider dropping this branch from relational.Expr
+  }
+
+  def toSqlQuery:sql.Query = {
+    def product(query1: relational.Query, query2: relational.Query): sql.Query = {
+      val sqlQuery1 = query1.toSqlQuery
+      val sqlQuery2 = query2.toSqlQuery
+      sqlQuery1 match { // micro-optimizing 'SELECT *' queries
+        case select1:sql.Query.Select if select1.attributes.isEmpty => addTable(select1, sqlQuery2)
+        case _ => sqlQuery2 match {
+          case select2:sql.Query.Select if select2.attributes.isEmpty => addTable(select2, sqlQuery1)
+          case _ => sql.Query.makeSelect(from=Seq(sql.Query.SelectFromQuery(sqlQuery1, None),
+            sql.Query.SelectFromQuery(sqlQuery2, None)))
+        }
+      }
+    }
+
+    def addTable(sqlQuery1:sql.Query.Select, sqlQuery2:sql.Query):sql.Query =
+      sqlQuery1.copy(from = sqlQuery1.from ++ Seq(sql.Query.SelectFromQuery(sqlQuery2, None)))
+
+    def quotient(query1: relational.Query, query2: relational.Query): sql.Query = {
+      val schema1 = query1.schema()
+      val schema2 = query2.schema()
+      val diffSchema = schema1.difference(schema2)
+      if (schema2.isUnary) {
+        /*
+        ;; from Matos, Grasser: A Simpler (and Better) SQL Approach to Relational Division
+        ;; SELECT A
+        ;; FROM T1
+        ;; WHERE B IN ( SELECT B FROM T2 )
+        ;; GROUP BY A
+        ;; HAVING COUNT(*) =
+        ;; ( SELECT COUNT (*) FROM T2 );
+        */
+        val sqlQuery1 = query1.toSqlQuery
+        val sqlQuery2 = query2.toSqlQuery
+        val name2 = schema2.schema.head._1
+        sql.Query.makeSelect(
+          from = Seq(sql.Query.SelectFromQuery(sqlQuery1, None)),
+          attributes = diffSchema.schema.map{case (attr, domain) => sql.Query.SelectAttribute(sql.Expr.Column(attr), Some(attr))},
+          where = Seq(sql.Expr.App(Operator.In, Seq(sql.Expr.Column(name2), sql.Expr.SubQuery(sqlQuery2)))),
+          groupBy = diffSchema.schema.map{case (attr, domain) => sql.Expr.Column(attr)},
+          having = Some(sql.Expr.App(Operator.Eq, Seq(
+            sql.Expr.App(Operator.Count, Seq(sql.Expr.Column(diffSchema.schema.head._1))),
+            sql.Expr.SubQuery(
+              sql.Query.makeSelect(from = Seq(sql.Query.SelectFromQuery(sqlQuery2, None)),
+                attributes = Seq(sql.Query.SelectAttribute(sql.Expr.App(Operator.Count, Seq(sql.Expr.Column(name2))), None)))
+            )
+          )))
+        )
+      } else {
+        val diffProjectAlist = diffSchema.schema.map{case (attr, domain) => (attr, relational.Expr.AttributeRef(attr))}
+        val q1ProjectAlist = schema1.schema.map{case (attr, domain) => (attr, relational.Expr.AttributeRef(attr))}
+        val pruned = relational.Query.Project(diffProjectAlist, query1)
+        relational.Query.Difference(pruned,
+          relational.Query.Project(diffProjectAlist,
+            relational.Query.Difference(
+              relational.Query.Project(q1ProjectAlist,
+                relational.Query.Product(query2, pruned)),
+              query1
+            ))).toSqlQuery
+      }
+    }
+
+    def alistToSql(tuples: Seq[(Schema.Attribute, Expr)]): Seq[sql.Query.SelectAttribute] = {
+      tuples.map{case (attr, expr) => sql.Query.SelectAttribute(alias=Some(attr), expr=expressionToSql(expr))}
+    }
+
+    this match {
+      case Query.Empty => sql.Query.Empty
+      case Query.Base(name, base) => // FIXME what about handle?
+        /* schemeql2 has this:
+          (if (not (sql-table? (base-relation-handle q)))
+              (assertion-violation 'query->sql
+                                    "base relation not an SQL table"
+                                    q))
+         */
+        sql.Query.makeSelect(from = Seq(sql.Query.SelectFromQuery(sql.Query.Table(name), None)))
+      case Query.Project(subset, query) =>
+        val sqlQuery = query.toSqlQuery
+        val select: sql.Query.Select = xToSqlSelect(sqlQuery)
+        val attributes: Seq[sql.Query.SelectAttribute] = if (subset.isEmpty) {
+          Seq(sql.Query.SelectAttribute(sql.Expr.Const(sql.Expr.Literal.String("dummy")), None))
+        } else {
+          alistToSql(subset)
+        }
+        // FIXME what about `(set-sql-nullary? sql #t)` ?
+        select.copy(attributes = attributes)
+      case Query.Restrict(expr, query) =>
+        val sqlQuery = query.toSqlQuery
+        val select = xToSqlSelect(sqlQuery)
+        select.copy(where = expressionToSql(expr) +: select.where)
+      case Query.Product(query1, query2) => product(query1, query2)
+      case Query.Quotient(query1, query2) => quotient(query1, query2)
+      case Query.Union(q1, q2) => sql.Query.Combine(sql.Expr.CombineOp.Union, q1.toSqlQuery, q2.toSqlQuery)
+      case Query.Intersection(q1, q2) => sql.Query.Combine(sql.Expr.CombineOp.Intersect, q1.toSqlQuery, q2.toSqlQuery)
+      case Query.Difference(q1, q2) => sql.Query.Combine(sql.Expr.CombineOp.Except, q1.toSqlQuery, q2.toSqlQuery)
+      case Query.GroupingProject(alist, query) => // FIXME consider merging GroupingProject with Project (keeping isAggregate filter)
+        val sqlQuery = query.toSqlQuery
+        val select = xToSqlSelect(sqlQuery)
+        val groupByClauses = alist
+          .map(_._2)
+          .filterNot(_.isAggregate)
+          .map(expressionToSql)
+        select.copy(attributes = alistToSql(alist),
+          groupBy = groupByClauses ++ select.groupBy)
+      case Query.Order(by, query) =>
+        val sqlQuery = query.toSqlQuery
+        val select = xToSqlSelect(sqlQuery)
+        val newOrder = by.map {
+          case (expr, direction) => sql.Query.SelectOrderBy(expressionToSql(expr), direction)
+        }
+        select.copy(orderBy = newOrder ++ select.orderBy)
+      case Query.Top(n, query) =>
+        val sqlQuery = query.toSqlQuery
+        val select = xToSqlSelect(sqlQuery) // FIXME combine to method: relational.Query -> sql.Query.Select
+        select.copy(extra = " LIMIT %d ".format(n) +: select.extra)
+    }
+  }
+
 }
 
 object Query {
