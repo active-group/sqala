@@ -54,7 +54,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
     assert(1 == conn.insert("tbl1", tbl1Schema, Seq("test", Integer.valueOf(10))))
 
     val results = conn.query(Query.makeSelect(
-      attributes = Seq(Query.SelectAttribute(ExprColumn("one"), None), Query.SelectAttribute(ExprColumn("two"), None)),
+      attributes = Seq(Query.SelectAttribute(Expr.Column("one"), None), Query.SelectAttribute(Expr.Column("two"), None)),
       from = Seq(Query.SelectFromQuery(Query.Table("tbl1"), None))
     ),
       new Schema(Seq(("one", Domain.String), ("two", Domain.Integer))))
@@ -79,24 +79,24 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   test("delete") {
     createAndFillTbl1()
 
-    expectResult(1){conn.delete("tbl1", ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
-    expectResult(2){conn.delete("tbl1", ExprApp(Operator.Or, Seq(
-        ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("foo")))),
-        ExprApp(Operator.Eq, Seq(ExprColumn("two"), ExprConst(LiteralInteger(-1)))))))}
-    expectResult(0){conn.delete("tbl1", ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("test")))))}
+    expectResult(1){conn.delete("tbl1", Expr.App(Operator.Eq, Seq(Expr.Column("one"), Expr.Const(Expr.Literal.String("test")))))}
+    expectResult(2){conn.delete("tbl1", Expr.App(Operator.Or, Seq(
+        Expr.App(Operator.Eq, Seq(Expr.Column("one"), Expr.Const(Expr.Literal.String("foo")))),
+        Expr.App(Operator.Eq, Seq(Expr.Column("two"), Expr.Const(Expr.Literal.Integer(-1)))))))}
+    expectResult(0){conn.delete("tbl1", Expr.App(Operator.Eq, Seq(Expr.Column("one"), Expr.Const(Expr.Literal.String("test")))))}
   }
 
   test("update") {
     createAndFillTbl1()
 
     expectResult(1){conn.update("tbl1",
-      ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("bar")))),
-      Seq(("two", ExprConst(LiteralInteger(12)))))}
+      Expr.App(Operator.Eq, Seq(Expr.Column("one"), Expr.Const(Expr.Literal.String("bar")))),
+      Seq(("two", Expr.Const(Expr.Literal.Integer(12)))))}
     expectResult(0){conn.update("tbl1",
-      ExprApp(Operator.Eq, Seq(ExprColumn("one"), ExprConst(LiteralString("not there")))),
-      Seq(("two", ExprConst(LiteralInteger(12)))))}
+      Expr.App(Operator.Eq, Seq(Expr.Column("one"), Expr.Const(Expr.Literal.String("not there")))),
+      Seq(("two", Expr.Const(Expr.Literal.Integer(12)))))}
     expectResult(2){conn.update("tbl1",
-      ExprApp(Operator.Eq, Seq(ExprColumn("two"), ExprConst(LiteralInteger(12)))),
-      Seq(("two", ExprConst(LiteralNull))))}
+      Expr.App(Operator.Eq, Seq(Expr.Column("two"), Expr.Const(Expr.Literal.Integer(12)))),
+      Seq(("two", Expr.Const(Expr.Literal.Null))))}
   }
 }

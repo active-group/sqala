@@ -16,7 +16,7 @@ sealed abstract class Query {
     } else {
       writeJoined[Query.SelectAttribute](out, attributes, ", ", {
         (out, attr) => attr.expr match {
-          case ExprColumn(alias) if alias == attr.alias =>
+          case Expr.Column(alias) if alias == attr.alias =>
             out.write(alias)
           case expr =>
             expr.write(out, param)
@@ -134,7 +134,7 @@ object Query {
                          extra: Seq[String] // TOP n, etc.
                           ) extends Query
 
-  case class Combine(op: CombineOp,
+  case class Combine(op: Expr.CombineOp,
                           left: Query,
                           right: Query) extends Query
 
@@ -149,23 +149,23 @@ object Query {
     Combine.left.write(out, param)
     out.write(") ")
     out.write(Combine.op match {
-      case CombineOpUnion => "UNION"
-      case CombineOpIntersect => "INTERSECT"
-      case CombineOpExcept => "EXCEPT"
+      case Expr.CombineOp.Union => "UNION"
+      case Expr.CombineOp.Intersect => "INTERSECT"
+      case Expr.CombineOp.Except => "EXCEPT"
     })
     out.write(" (")
     Combine.right.write(out, param)
     out.write(")")
   }
 
-  def defaultWriteLiteral(out:Writer, literal:Literal) {
+  def defaultWriteLiteral(out:Writer, literal:Expr.Literal) {
     literal match {
-      case LiteralBoolean(b) => out.write(if (b) "TRUE" else "FALSE")
-      case LiteralNull => out.write("NULL")
-      case LiteralInteger(n) => out.write(n.toString)
-      case LiteralDouble(d) => out.write(d.toString)
-      case LiteralDecimal(d) => out.write(d.toString())
-      case LiteralString(s) => out.write('\'')
+      case Expr.Literal.Boolean(b) => out.write(if (b) "TRUE" else "FALSE")
+      case Expr.Literal.Null => out.write("NULL")
+      case Expr.Literal.Integer(n) => out.write(n.toString)
+      case Expr.Literal.Double(d) => out.write(d.toString)
+      case Expr.Literal.Decimal(d) => out.write(d.toString())
+      case Expr.Literal.String(s) => out.write('\'')
         for(c <- s) {
           if (c == '\'') out.write('\'')
           out.write(c)

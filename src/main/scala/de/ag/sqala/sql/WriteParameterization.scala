@@ -21,7 +21,7 @@ trait WriteParameterization {
    * @param out: output sink
    * @param literal: constant literal to write
    */
-  def writeLiteral(out:Writer, literal:Literal): Unit
+  def writeLiteral(out:Writer, literal:Expr.Literal): Unit
 }
 
 object defaultSqlWriteParameterization extends WriteParameterization {
@@ -42,7 +42,7 @@ object defaultSqlWriteParameterization extends WriteParameterization {
    * @param out: output sink
    * @param literal: constant literal to write
    */
-  def writeLiteral(out: Writer, literal: Literal) {
+  def writeLiteral(out: Writer, literal: Expr.Literal) {
     Query.defaultWriteLiteral(out, literal)
   }
 }

@@ -8,21 +8,18 @@ import de.ag.sqala.{Operator, InfixOperator, PrefixOperator, PostfixOperator}
 /**
  *
  */
-
-case class ExprCaseBranch(condition: Expr, expr: Expr)
-
 sealed abstract class Expr {
   def write(out:Writer, param:WriteParameterization) {
     this match {
-      case ExprConst(value) =>
+      case Expr.Const(value) =>
         param.writeLiteral(out, value)
-      case ExprTuple(exprs) =>
+      case Expr.Tuple(exprs) =>
         out.write("(")
         writeJoined[Expr](out, exprs, ", ", {
           (out, expr) => expr.write(out, param)})
-      case ExprColumn(columnName) =>
+      case Expr.Column(columnName) =>
         out.write(columnName)
-      case ExprApp(operator, operands) =>
+      case Expr.App(operator, operands) =>
         operator match {
           case PostfixOperator(opName) =>
             out.write("(")
@@ -44,7 +41,7 @@ sealed abstract class Expr {
             operands.tail.head.write(out, param)
             out.write(")")
         }
-      case ExprCase(branches, default) =>
+      case Expr.Case(branches, default) =>
         out.write("(CASE ")
         branches.foreach(writeBranch(out, param, _))
         default match {
@@ -54,18 +51,18 @@ sealed abstract class Expr {
             expr.write(out, param)
         }
         out.write(")")
-      case ExprExists(query) =>
+      case Expr.Exists(query) =>
         out.write("EXISTS (")
         query.write(out, param)
         out.write(")")
-      case ExprSubQuery(query) =>
+      case Expr.SubQuery(query) =>
         out.write("(")
         query.write(out, param)
         out.write(")")
     }
   }
 
-  protected def writeBranch(out:Writer, param:WriteParameterization, branch:ExprCaseBranch) {
+  protected def writeBranch(out:Writer, param:WriteParameterization, branch:Expr.CaseBranch) {
     out.write("WHEN ")
     branch.condition.write(out, param)
     out.write(" THEN ")
@@ -81,25 +78,31 @@ sealed abstract class Expr {
   override def toString = toString(defaultSqlWriteParameterization)
 }
 
-case class ExprConst(value: Literal) extends Expr
-case class ExprTuple(exprs: Seq[Expr]) extends Expr
-case class ExprColumn(name: Query.ColumnName) extends Expr
-case class ExprApp(operator: Operator, operands: Seq[Expr]) extends Expr
-case class ExprCase(branches: Seq[ExprCaseBranch], default: Option[Expr]) extends Expr
-case class ExprExists(query: Query) extends Expr
-case class ExprSubQuery(query: Query) extends Expr
+object Expr {
+  case class Const(value: Literal) extends Expr
+  case class Tuple(exprs: Seq[Expr]) extends Expr
+  case class Column(name: Query.ColumnName) extends Expr
+  case class App(operator: Operator, operands: Seq[Expr]) extends Expr
+  case class Case(branches: Seq[CaseBranch], default: Option[Expr]) extends Expr
+  case class Exists(query: Query) extends Expr
+  case class SubQuery(query: Query) extends Expr
 
-sealed abstract class Literal
-case class LiteralInteger(i:Int) extends Literal
-case class LiteralDouble(d:Double) extends Literal
-case class LiteralDecimal(d:BigDecimal) extends Literal
-case class LiteralString(s:String) extends Literal
-case object LiteralNull extends Literal
-case class LiteralBoolean(b:Boolean) extends Literal
+  sealed abstract class Literal
+  object Literal {
+    case class Integer(i:scala.Int) extends Literal
+    case class Double(d:scala.Double) extends Literal
+    case class Decimal(d:scala.BigDecimal) extends Literal
+    case class String(s:scala.Predef.String) extends Literal
+    case object Null extends Literal
+    case class Boolean(b:scala.Boolean) extends Literal
+  }
 
-sealed abstract class CombineOp
-case object CombineOpUnion extends CombineOp
-case object CombineOpIntersect extends CombineOp
-case object CombineOpExcept extends CombineOp
+  sealed abstract class CombineOp
+  object CombineOp {
+    case object Union extends CombineOp
+    case object Intersect extends CombineOp
+    case object Except extends CombineOp
+  }
 
-
+  case class CaseBranch(condition: Expr, expr: Expr)
+}

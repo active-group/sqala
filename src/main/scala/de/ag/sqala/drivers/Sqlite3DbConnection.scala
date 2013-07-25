@@ -5,7 +5,6 @@ import java.io.{File, Writer}
 import java.util.Properties
 import de.ag.sqala._
 import de.ag.sqala.JDBCHandle
-import de.ag.sqala.sql.LiteralBoolean
 import de.ag.sqala.relational.Schema
 
 /**
@@ -22,9 +21,9 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
      * @param out: output sink
      * @param value: constant literal to write
      */
-    def writeLiteral(out: Writer, value: Literal) {
+    def writeLiteral(out: Writer, value: Expr.Literal) {
       value match {
-        case LiteralBoolean(b) => out.write(if (b) "1" else "0")
+        case Expr.Literal.Boolean(b) => out.write(if (b) "1" else "0")
         case _ => defaultSqlWriteParameterization.writeLiteral(out, value)
       }
     }
@@ -40,9 +39,9 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
       out.write("SELECT * FROM (")
       sqlCombine.left.write(out, param)
       sqlCombine.op match {
-        case CombineOpIntersect => " INTERSECT "
-        case CombineOpExcept => " EXCEPT "
-        case CombineOpUnion => " UNION "
+        case Expr.CombineOp.Intersect => " INTERSECT "
+        case Expr.CombineOp.Except => " EXCEPT "
+        case Expr.CombineOp.Union => " UNION "
       }
       sqlCombine.right.write(out, param)
       out.write(")")
