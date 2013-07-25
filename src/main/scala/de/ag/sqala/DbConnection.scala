@@ -49,8 +49,8 @@ trait DbConnection {
 
   def close():Unit
   def query(Query:Query, schema:Schema): ResultSetIterator
-  def insert(table:TableName, schema:Schema, values:Seq[AnyRef]): Int
-  def delete(table:TableName, condition:Expr): Int
-  def update(table:TableName, condition:Expr, updates:Seq[(String, Expr)]): Int
+  def insert(table:Query.TableName, schema:Schema, values:Seq[AnyRef]): Int
+  def delete(table:Query.TableName, condition:Expr): Int
+  def update(table:Query.TableName, condition:Expr, updates:Seq[(String, Expr)]): Int
   def execute(sql:String):Any // run raw , for emergencies
 }
