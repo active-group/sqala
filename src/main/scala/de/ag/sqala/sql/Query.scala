@@ -214,53 +214,6 @@ object Query {
   case class SelectOrderBy(expr:Expr, order:OrderDirection)
 
   /**
-   * Default writeCombine method of write parameterization
-   *
-   * @param out     output sink
-   * @param param   write parameterization
-   * @param Combine Query.Combine to write
-   *
-   * FIXME move to WriteParameterization, rename Combine
-   */
-  def defaultWriteCombine(out:Writer, param:WriteParameterization, Combine:Combine) {
-    out.write('(')
-    Combine.left.write(out, param)
-    out.write(") ")
-    out.write(Combine.op match {
-      case Expr.CombineOp.Union => "UNION"
-      case Expr.CombineOp.Intersect => "INTERSECT"
-      case Expr.CombineOp.Except => "EXCEPT"
-    })
-    out.write(" (")
-    Combine.right.write(out, param)
-    out.write(")")
-  }
-
-  /**
-   * Default writeLiteral method of write parameterization
-   *
-   * @param out     output sink
-   * @param literal Expr.Literal to write
-   *
-   * FIXME move to WriteParameterization
-   */
-  def defaultWriteLiteral(out:Writer, literal:Expr.Literal) {
-    literal match {
-      case Expr.Literal.Boolean(b) => out.write(if (b) "TRUE" else "FALSE")
-      case Expr.Literal.Null => out.write("NULL")
-      case Expr.Literal.Integer(n) => out.write(n.toString)
-      case Expr.Literal.Double(d) => out.write(d.toString)
-      case Expr.Literal.Decimal(d) => out.write(d.toString())
-      case Expr.Literal.String(s) => out.write('\'')
-        for(c <- s) {
-          if (c == '\'') out.write('\'')
-          out.write(c)
-        }
-        out.write('\'')
-    }
-  }
-
-  /**
    * Helper method with defaults to create Query.Select
    * @param options     options (DISTINCT, etc.), defaults to Seq()
    * @param attributes  attributes (columns, expressions, etc.), defaults to Seq() ("*")
