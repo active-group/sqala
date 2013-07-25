@@ -6,11 +6,30 @@ import de.ag.sqala.relational.Schema.Attribute
  *
  */
 class Environment(val env: Map[Schema.Attribute, Domain]) {
-  def lookup(key:Attribute):Domain = env(key) // throws NoSuchElementException if no such key
+  /**
+   * Lookup attribute's domain
+   * @param key  attribute to lookup
+   * @return     domain of attribute; throws NoSuchElementException if there is no such attribute
+   */
+  def lookup(key:Attribute):Domain = env(key)
+
+  /**
+   * Lookup attribute's domain, if any
+   *
+   * @param attribute attribute to lookup
+   * @return          domain of attribute, if any
+   */
   def get(attribute:Attribute):Option[Domain] = env.get(attribute)
+
   override def toString = env.toString()
 
+  /**
+   * Check if there is a certain attribute
+   * @param attribute attribute to lookup
+   * @return          true iff there is such an attribute, false otherwise
+   */
   def contains(attribute:Attribute) = env.contains(attribute)
+
   /**
    * compose two environments to one; environments must not use same attributes
    * @param that  environment to add
@@ -23,6 +42,14 @@ class Environment(val env: Map[Schema.Attribute, Domain]) {
     else new Environment(this.env ++ that.env)
   }
 
+  /**
+   * Domain of an expression under this environment
+   * @param expr         expression
+   * @param domainCheck  DomainChecker to apply; use DomainChecker.IgnoringDomainChecker to not check at all
+   * @return             Domain of expression; may throw DomainCheckException if DomainChecker is used,
+   *                     NoSuchElementException if an non-existing attribute is referred,
+   *                     or other exceptions if no domain check is performed, but the expression is not sound.
+   */
   def expressionDomain(expr:Expr, domainCheck:DomainChecker): Domain = {
     def subqueryDomain: (Query) => Domain = {
       subquery =>
@@ -57,5 +84,6 @@ class Environment(val env: Map[Schema.Attribute, Domain]) {
 }
 
 object Environment {
+  /** The empty environment */
   val empty = new Environment(Map())
 }
