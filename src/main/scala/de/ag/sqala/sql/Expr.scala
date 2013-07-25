@@ -6,9 +6,15 @@ import scala.Some
 import de.ag.sqala.{Operator, InfixOperator, PrefixOperator, PostfixOperator}
 
 /**
- *
+ * Expressions in SQL
  */
 sealed abstract class Expr {
+  /**
+   * Serialize string to output sink, using write parameterization for some clauses.
+   *
+   * @param out    output sink
+   * @param param  (database specific) write parameterization
+   */
   def write(out:Writer, param:WriteParameterization) {
     this match {
       case Expr.Const(value) =>
@@ -79,30 +85,50 @@ sealed abstract class Expr {
 }
 
 object Expr {
+  /** constant value */
   case class Const(value: Literal) extends Expr
+  /** tuple */
   case class Tuple(exprs: Seq[Expr]) extends Expr
+  /** column reference */
   case class Column(name: Query.ColumnName) extends Expr
+  /** function application */
   case class App(operator: Operator, operands: Seq[Expr]) extends Expr
+  /** case (aka 'switch') */
   case class Case(branches: Seq[CaseBranch], default: Option[Expr]) extends Expr
+  /** 'EXISTS' clause */
   case class Exists(query: Query) extends Expr
+  /** sub-select */
   case class SubQuery(query: Query) extends Expr
 
+  /** Literal in SQL expression */
   sealed abstract class Literal
   object Literal {
+    /** An integer */
     case class Integer(i:scala.Int) extends Literal
+    /** A double */
     case class Double(d:scala.Double) extends Literal
+    /** A arbitrary precision decimal */
     case class Decimal(d:scala.BigDecimal) extends Literal
+    /** A String */
     case class String(s:scala.Predef.String) extends Literal
+    /** The database 'NULL' */
     case object Null extends Literal
+    /** A boolean */
     case class Boolean(b:scala.Boolean) extends Literal
   }
 
+  /** Combine operator in SQL expression.
+    * Could have been enumeration. */
   sealed abstract class CombineOp
   object CombineOp {
+    /** Union */
     case object Union extends CombineOp
+    /** Intersection */
     case object Intersect extends CombineOp
+    /** Except */
     case object Except extends CombineOp
   }
 
+  /** branch in SQL case expression */
   case class CaseBranch(condition: Expr, expr: Expr)
 }
