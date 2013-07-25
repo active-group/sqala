@@ -24,7 +24,7 @@ object RangeDomain {
     if (!d.isNumeric) fail("numeric", d)
   }
 
-  /** Range type A, A => A  */
+  /** Range domain A, A => A  */
   trait InfixEndomorphic {
     val domain:Domain
     def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain):Domain = {
@@ -44,7 +44,7 @@ object RangeDomain {
     }
   }
 
-  /** Range type: A, A => Boolean where A is ordered*/
+  /** Range domain: A, A => Boolean where A is ordered*/
   trait ComparatorRangeDomain {
     def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain):Domain = {
       domainCheck { fail =>
@@ -56,7 +56,7 @@ object RangeDomain {
     }
   }
 
-  /** Range type: A, A => Boolean */
+  /** Range domain: A, A => Boolean */
   trait Equality {
     def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain):Domain = {
       domainCheck{ fail => checkIsSameDomain(fail, operand1, operand2) }
@@ -64,7 +64,7 @@ object RangeDomain {
     }
   }
 
-  /** Range type: Nullable => Boolean */
+  /** Range domain: Nullable => Boolean */
   trait Nullable {
     def rangeDomain(domainCheck: DomainChecker, operand:Domain): Domain = {
       domainCheck{ fail => checkIsNullable(fail, operand) }
@@ -72,7 +72,7 @@ object RangeDomain {
     }
   }
 
-  /** Range type: A, A => A where A is numeric */
+  /** Range domain: A, A => A where A is numeric */
   trait InfixNumeric {
     def rangeDomain(domainCheck: DomainChecker, operand1:Domain, operand2:Domain):Domain = {
       domainCheck{ fail =>
@@ -84,7 +84,7 @@ object RangeDomain {
     }
   }
 
-  /** Range type: A => A where A is numeric */
+  /** Range domain: A => A where A is numeric */
   trait PrefixNumeric {
     def rangeDomain(domainCheck: DomainChecker, operand1:Domain):Domain = {
       domainCheck{ fail => checkIsNumeric(fail, operand1) }
@@ -92,7 +92,7 @@ object RangeDomain {
     }
   }
 
-  /** Range type: A => Double where A is numeric */
+  /** Range domain: A => Double where A is numeric */
   trait Statistics {
     def rangeDomain(domainCheck: DomainChecker, operand1:Domain):Domain = {
       domainCheck{ fail => checkIsNumeric(fail, operand1) }
