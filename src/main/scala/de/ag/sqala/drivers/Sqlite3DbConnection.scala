@@ -6,7 +6,6 @@ import java.util.Properties
 import de.ag.sqala._
 import de.ag.sqala.JDBCHandle
 import de.ag.sqala.sql.LiteralBoolean
-import de.ag.sqala.sql.QueryCombine
 import de.ag.sqala.relational.Schema
 
 /**
@@ -37,7 +36,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
      * @param param this object for recursive calls
      * @param sqlCombine left sql query, combine operator, right sql query
      */
-    def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: QueryCombine) {
+    def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: Query.Combine) {
       out.write("SELECT * FROM (")
       sqlCombine.left.write(out, param)
       sqlCombine.op match {

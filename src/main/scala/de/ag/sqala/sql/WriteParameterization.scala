@@ -13,7 +13,7 @@ trait WriteParameterization {
    * @param param this object for recursive calls
    * @param Combine combining  query
    */
-  def writeCombine(out:Writer, param:WriteParameterization, Combine:QueryCombine):Unit
+  def writeCombine(out:Writer, param:WriteParameterization, Combine:Query.Combine):Unit
 
   /**
    * write constant  expression (literal) to output sink
@@ -30,10 +30,10 @@ object defaultSqlWriteParameterization extends WriteParameterization {
    *
    * @param out output sink
    * @param param this object for recursive calls
-   * @param Combine combining  query
+   * @param combine combining  query
    */
-  def writeCombine(out: Writer, param: WriteParameterization, Combine: QueryCombine) {
-    Query.defaultWriteCombine(out, param, Combine)
+  def writeCombine(out: Writer, param: WriteParameterization, combine: Query.Combine) {
+    Query.defaultWriteCombine(out, param, combine)
   }
 
   /**

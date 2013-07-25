@@ -10,11 +10,11 @@ import de.ag.sqala.relational.Schema
  */
 sealed abstract class Query {
 
-  protected def writeAttributes(out: Writer, param: WriteParameterization, attributes: Seq[QuerySelectAttribute]) {
+  protected def writeAttributes(out: Writer, param: WriteParameterization, attributes: Seq[Query.SelectAttribute]) {
     if (attributes.isEmpty) {
       out.write("*")
     } else {
-      writeJoined[QuerySelectAttribute](out, attributes, ", ", {
+      writeJoined[Query.SelectAttribute](out, attributes, ", ", {
         (out, attr) => attr.expr match {
           case ExprColumn(alias) if alias == attr.alias =>
             out.write(alias)
@@ -38,11 +38,11 @@ sealed abstract class Query {
     }
   }
 
-  protected def writeFrom(out: Writer, param: WriteParameterization, from: Seq[QuerySelectFromQuery]) {
+  protected def writeFrom(out: Writer, param: WriteParameterization, from: Seq[Query.SelectFromQuery]) {
     out.write("FROM ")
-    writeJoined[QuerySelectFromQuery](out, from, ", ", {
+    writeJoined[Query.SelectFromQuery](out, from, ", ", {
       (out, from) => from.query match {
-        case q: QueryTable => out.write(q.name)
+        case q: Query.Table => out.write(q.name)
         case q =>
           out.write("(")
           q.write(out, param)
@@ -71,9 +71,9 @@ sealed abstract class Query {
     having.write(out, param)
   }
 
-  protected def writeOrderBy(out: Writer, param: WriteParameterization, orderBys: Seq[QuerySelectOrderBy]) {
+  protected def writeOrderBy(out: Writer, param: WriteParameterization, orderBys: Seq[Query.SelectOrderBy]) {
     out.write("ORDER BY ")
-    writeJoined[QuerySelectOrderBy](out, orderBys, ", ", {
+    writeJoined[Query.SelectOrderBy](out, orderBys, ", ", {
       (out, orderBy) =>
         orderBy.expr.write(out, param)
         out.write(orderBy.order match {
@@ -85,10 +85,10 @@ sealed abstract class Query {
 
   def write(out:Writer, param:WriteParameterization) {
     this match {
-      case QueryTable(name) =>
+      case Query.Table(name) =>
         out.write("SELECT * FROM ")
         out.write(name)
-      case s:QuerySelect =>
+      case s:Query.Select =>
         out.write("SELECT")
         writeWithSpaceIfNotEmpty(out, s.options)(writeJoined(out, _, " "))
         writeSpace(out); writeAttributes(out, param, s.attributes)
@@ -101,9 +101,9 @@ sealed abstract class Query {
         }
         writeWithSpaceIfNotEmpty(out, s.orderBy)(writeOrderBy(out, param, _))
         writeWithSpaceIfNotEmpty(out, s.extra)(writeJoined(out, _, " "))
-      case s:QueryCombine =>
+      case s:Query.Combine =>
         param.writeCombine(out, param, s)
-      case QueryEmpty =>
+      case Query.Empty =>
     }
   }
 
@@ -116,38 +116,35 @@ sealed abstract class Query {
   override def toString = toString(defaultSqlWriteParameterization)
 }
 
-case class QueryTable(name: Query.TableName) extends Query
-
-case class QuerySelect(options: Seq[String], // DISTINCT, ALL, etc.
-                       attributes: Seq[QuerySelectAttribute], // selected fields (expr + alias), empty seq for '*'
-                       //                     isNullary: Boolean, // true if select represents nullary relation (?); in this case attributes should contain single dummy attribute (?)
-                       from: Seq[QuerySelectFromQuery], // FROM (
-                       where: Seq[Expr], // WHERE; Seq constructed from relational algebra
-                       groupBy: Seq[Expr], // GROUP BY
-                       having: Option[Expr], // HAVING
-                       orderBy: Seq[QuerySelectOrderBy], // ORDER BY
-                       extra: Seq[String] // TOP n, etc.
-                        ) extends Query
-
-case class QueryCombine(op: CombineOp,
-                        left: Query,
-                        right: Query) extends Query
-
-case object QueryEmpty extends Query // FIXME used when?
-
-case class QuerySelectAttribute(expr:Expr, alias:Option[Query.ColumnName])
-case class QuerySelectFromQuery(query:Query, alias:Option[Query.TableName])
-case class QuerySelectOrderBy(expr:Expr, order:OrderDirection)
-
 object Query {
   type ColumnName = String
 
   type TableName = String
 
-  case class Table(name: TableName,
-                   schema: Schema)
+  case class Table(name: Query.TableName) extends Query
 
-  def defaultWriteCombine(out:Writer, param:WriteParameterization, Combine:QueryCombine) {
+  case class Select(options: Seq[String], // DISTINCT, ALL, etc.
+                         attributes: Seq[SelectAttribute], // selected fields (expr + alias), empty seq for '*'
+                         //                     isNullary: Boolean, // true if select represents nullary relation (?); in this case attributes should contain single dummy attribute (?)
+                         from: Seq[SelectFromQuery], // FROM (
+                         where: Seq[Expr], // WHERE; Seq constructed from relational algebra
+                         groupBy: Seq[Expr], // GROUP BY
+                         having: Option[Expr], // HAVING
+                         orderBy: Seq[SelectOrderBy], // ORDER BY
+                         extra: Seq[String] // TOP n, etc.
+                          ) extends Query
+
+  case class Combine(op: CombineOp,
+                          left: Query,
+                          right: Query) extends Query
+
+  case object Empty extends Query // FIXME used when?
+
+  case class SelectAttribute(expr:Expr, alias:Option[Query.ColumnName])
+  case class SelectFromQuery(query:Query, alias:Option[Query.TableName])
+  case class SelectOrderBy(expr:Expr, order:OrderDirection)
+
+  def defaultWriteCombine(out:Writer, param:WriteParameterization, Combine:Combine) {
     out.write('(')
     Combine.left.write(out, param)
     out.write(") ")
@@ -178,13 +175,13 @@ object Query {
   }
 
   def makeSelect(options:Seq[String]=Seq(),
-                 attributes:Seq[QuerySelectAttribute]=Seq(),
-                 from:Seq[QuerySelectFromQuery],
+                 attributes:Seq[SelectAttribute]=Seq(),
+                 from:Seq[SelectFromQuery],
                  where: Seq[Expr]=Seq(),
                  groupBy: Seq[Expr]=Seq(),
                  having: Option[Expr]=None,
-                 orderBy: Seq[QuerySelectOrderBy]=Seq(),
+                 orderBy: Seq[SelectOrderBy]=Seq(),
                  extra:Seq[String]=Seq()) = {
-    QuerySelect(options, attributes, from, where, groupBy, having, orderBy, extra)
+    Select(options, attributes, from, where, groupBy, having, orderBy, extra)
   }
 }
