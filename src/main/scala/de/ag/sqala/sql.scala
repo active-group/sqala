@@ -236,7 +236,7 @@ object sql {
 
   case class QuerySelectAttribute(expr:Expr, alias:Option[ColumnName])
   case class QuerySelectFromQuery(query:Query, alias:Option[TableName])
-  case class QuerySelectOrderBy(expr:Expr, order:Order)
+  case class QuerySelectOrderBy(expr:Expr, order:OrderDirection)
 
   object Query {
     def defaultWriteCombine(out:Writer, param:WriteParameterization, Combine:QueryCombine) {

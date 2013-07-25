@@ -50,9 +50,9 @@ sealed abstract class Query {
     }
 
     def rec(q:Query): Schema = q match {
-      case QueryEmpty => Schema.empty
-      case b:QueryBase => b.base
-      case QueryProject(subset, query) =>
+      case Query.Empty => Schema.empty
+      case b:Query.Base => b.base
+      case Query.Project(subset, query) =>
         val baseSchema = rec(query)
         domainCheck { fail =>
           subset.foreach {
@@ -65,14 +65,14 @@ sealed abstract class Query {
             (attr, domain)
           }.toSeq
         )
-      case QueryRestrict(expr, query) =>
+      case Query.Restrict(expr, query) =>
         val schema = rec(query)
         domainCheck { fail =>
           val domain = toEnv(schema).expressionDomain(expr, domainCheck)
           if (!domain.isInstanceOf[Domain.Boolean.type]) fail("boolean", expr)
         }
         schema
-      case QueryProduct(query1, query2) =>
+      case Query.Product(query1, query2) =>
         val schema1 = rec(query1)
         val schema2 = rec(query2)
         domainCheck { fail =>
@@ -84,7 +84,7 @@ sealed abstract class Query {
           }
         }
         Schema(schema1.schema ++ schema2.schema)
-      case QueryQuotient(query1, query2) =>
+      case Query.Quotient(query1, query2) =>
         val schema1 = rec(query1)
         val schema2 = rec(query2)
         domainCheck { fail =>
@@ -99,10 +99,10 @@ sealed abstract class Query {
           }
         }
         schema1.difference(schema2)
-      case QueryUnion(q1, q2) => uiq(q, q1, q2)
-      case QueryIntersection(q1, q2) => uiq(q, q1, q2)
-      case QueryDifference(q1, q2) => uiq(q, q1, q2)
-      case QueryGroupingProject(alist, query) =>
+      case Query.Union(q1, q2) => uiq(q, q1, q2)
+      case Query.Intersection(q1, q2) => uiq(q, q1, q2)
+      case Query.Difference(q1, q2) => uiq(q, q1, q2)
+      case Query.GroupingProject(alist, query) =>
         val schema = rec(query)
         val environment = toEnv(schema)
         Schema(
@@ -112,7 +112,7 @@ sealed abstract class Query {
             (attr, domain)
           }
         )
-      case QueryOrder(by, query) =>
+      case Query.Order(by, query) =>
         val schema = rec(query)
         val env = toEnv(schema)
         domainCheck { fail =>
@@ -121,34 +121,32 @@ sealed abstract class Query {
             if (!domain.isOrdered) fail("ordered domain", domain)}
         }
         schema
-      case QueryTop(n, query) => rec(query)
+      case Query.Top(n, query) => rec(query)
     }
     rec(this)
   }
 }
-case object QueryEmpty extends Query
-case class QueryBase(name:Query.Name,
-                     base:Schema
-                     /* TODO handle? */) extends Query
-case class QueryProject(subset:Seq[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
-case class QueryRestrict(expr:Expr /*returning boolean*/, query:Query) extends Query
-case class QueryProduct(query1:Query, query2:Query) extends Query
-case class QueryUnion(query1:Query, query2:Query) extends Query
-case class QueryIntersection(query1:Query, query2:Query) extends Query
-case class QueryQuotient(query1:Query, query2:Query) extends Query
-case class QueryDifference(query1:Query, query2:Query) extends Query
-/*
-; the underlying query is grouped by the non-aggregate expressions in
-; the grouping (hu? FIXME)
-*/
-case class QueryGroupingProject(grouping:Seq[(Attribute, Expr)], query:Query) extends Query
-case class QueryOrder(by:Seq[(Expr, Order)], query:Query) extends Query
-case class QueryTop(n:Int, query:Query) extends Query // top n entries
-
-
-// TODO add make-extend
-
 
 object Query {
   type Name = String
+  case object Empty extends Query
+  case class Base(name:Query.Name,
+                       base:Schema
+                       /* TODO handle? */) extends Query
+  case class Project(subset:Seq[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
+  case class Restrict(expr:Expr /*returning boolean*/, query:Query) extends Query
+  case class Product(query1:Query, query2:Query) extends Query
+  case class Union(query1:Query, query2:Query) extends Query
+  case class Intersection(query1:Query, query2:Query) extends Query
+  case class Quotient(query1:Query, query2:Query) extends Query
+  case class Difference(query1:Query, query2:Query) extends Query
+  /*
+  ; the underlying query is grouped by the non-aggregate expressions in
+  ; the grouping (hu? FIXME)
+  */
+  case class GroupingProject(grouping:Seq[(Attribute, Expr)], query:Query) extends Query
+  case class Order(by:Seq[(Expr, OrderDirection)], query:Query) extends Query
+  case class Top(n:Int, query:Query) extends Query // top n entries
+
+  // TODO add make-extend
 }
