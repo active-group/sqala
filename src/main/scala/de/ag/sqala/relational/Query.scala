@@ -4,7 +4,7 @@ import de.ag.sqala._
 import de.ag.sqala.relational.Schema.Attribute
 
 /**
- *
+ * Query in a relational algebra.
  */
 sealed abstract class Query {
 
@@ -36,11 +36,19 @@ sealed abstract class Query {
     schema(Environment.empty, ExceptionThrowingDomainChecker)
   }
 
-
+  /**
+   * Schema of the query in a certain environment.
+   * @param env           environment
+   * @param domainCheck   DomainChecker; use DomainChecker.IgnoringDomainChecker to not perform domain checking
+   * @return              Schema of the query in the given environment.
+   *                      Throws DomainCheckException if a domain check fails,
+   *                      or other exceptions if no domain check is performed but the query is not sound.
+   */
   def schema(env:Environment, domainCheck:DomainChecker): Schema = {
     def toEnv(schema:Schema) =
       schema.toEnvironment.compose(env)
 
+    /** common for Query.{Union,Intersection,Difference} */
     def uiq(query: Query, query1: Query, query2: Query): Schema = {
       val schema1 = rec(query1)
       domainCheck {fail =>
@@ -129,24 +137,43 @@ sealed abstract class Query {
 
 object Query {
   type Name = String
+  /** an empty query */
   case object Empty extends Query
+  /** named schema */
   case class Base(name:Query.Name,
                        base:Schema
                        /* TODO handle? */) extends Query
+  /** Projection (select and alias columns) */
   case class Project(subset:Seq[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
+  /** Restriction (select rows) */
   case class Restrict(expr:Expr /*returning boolean*/, query:Query) extends Query
+  /** (Cross-) Product */
   case class Product(query1:Query, query2:Query) extends Query
+  /** Union (contents of both queries, "vertical cat") */
   case class Union(query1:Query, query2:Query) extends Query
+  /** Intersection (rows common to both queries) */
   case class Intersection(query1:Query, query2:Query) extends Query
+  /**
+   * Quotient (aka 'division')
+   *
+   * keep columns of query1 not in query2, and rows of query1 that contain all rows of query2).
+   * If Y = Z - X (ie. Z = X `union` Y), then
+   * R(Z) / S(X) = T1 - T2 where
+   * T1 = Project(Y, R) and
+   * T2 = Project(Y, Product(S, T1) - R)
+   */
   case class Quotient(query1:Query, query2:Query) extends Query
+  /* Difference (rows in query1 not in query2) */
   case class Difference(query1:Query, query2:Query) extends Query
-  /*
-  ; the underlying query is grouped by the non-aggregate expressions in
-  ; the grouping (hu? FIXME)
-  */
+  /**
+   * Like Project, but the underlying query is grouped by the non-aggregate expressions in
+   * the grouping (hu? FIXME)
+   */
   case class GroupingProject(grouping:Seq[(Attribute, Expr)], query:Query) extends Query
+  /** Order rows */
   case class Order(by:Seq[(Expr, OrderDirection)], query:Query) extends Query
-  case class Top(n:Int, query:Query) extends Query // top n entries
+  /** Top n entries */
+  case class Top(n:Int, query:Query) extends Query
 
   // TODO add make-extend
 }
