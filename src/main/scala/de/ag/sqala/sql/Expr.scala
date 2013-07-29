@@ -121,6 +121,7 @@ object Expr {
     * Could have been enumeration. */
   sealed abstract class CombineOp
   object CombineOp {
+    //FIXME what about UNION ALL?
     /** Union */
     case object Union extends CombineOp
     /** Intersection */
