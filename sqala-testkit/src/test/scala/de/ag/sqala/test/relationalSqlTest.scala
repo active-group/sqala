@@ -4,7 +4,7 @@ import org.scalatest.FunSuite
 import de.ag.sqala.relational.Schema
 import de.ag.sqala.sql.Table
 import de.ag.sqala.relational.{Query => RQuery, Expr => RExpr}
-import de.ag.sqala.{Operator, Domain}
+import de.ag.sqala.{Ascending, Operator, Domain}
 
 /**
  *
@@ -63,6 +63,23 @@ class relationalSqlTest extends FunSuite {
         .toSqlTable
         .toString()
     }
-
   }
+
+  test("order") {
+    expectResult("SELECT * FROM tbl1 ORDER BY one ASC") {
+      RQuery.Order(Seq(RExpr.AttributeRef("one") -> Ascending), query1)
+      .toSqlTable
+      .toString
+    }
+  }
+
+  test("subquery") {
+    expectResult("SELECT * FROM tbl2 WHERE (SELECT * FROM tbl1)") {
+      RQuery.Restrict(RExpr.ScalarSubQuery(query1), query2)
+      .toSqlTable
+      .toString
+    }
+  }
+
+
 }
