@@ -199,6 +199,9 @@ sealed abstract class Query {
       tuples.map{case (attr, expr) => sql.Table.SelectAttribute(alias=Some(attr), expr=expr.toSqlExpr)}
     }
 
+    def queryToSelect(query:Query): sql.Table.Select =
+      query.toSqlTable.toSelect
+
     this match {
       case Query.Empty => sql.Table.Empty
       case base:Query.Base => // FIXME what about handle?
@@ -210,8 +213,7 @@ sealed abstract class Query {
          */
         sql.Table.Base(base)
       case Query.Project(subset, query) =>
-        val table = query.toSqlTable
-        val select: sql.Table.Select = table.toSelect
+        val select = queryToSelect(query)
         val attributes: Seq[sql.Table.SelectAttribute] = if (subset.isEmpty) {
           Seq(sql.Table.SelectAttribute(sql.Expr.Const(sql.Expr.Literal.String("dummy")), None))
         } else {
@@ -220,8 +222,7 @@ sealed abstract class Query {
         // FIXME what about `(set-sql-nullary? sql #t)` ?
         select.copy(attributes = attributes)
       case Query.Restrict(expr, query) =>
-        val sqlQuery = query.toSqlTable
-        val select = sqlQuery.toSelect
+        val select = queryToSelect(query)
         select.copy(where = expr.toSqlExpr +: select.where)
       case Query.Product(query1, query2) => product(query1, query2)
       case Query.Quotient(query1, query2) => quotient(query1, query2)
@@ -229,8 +230,7 @@ sealed abstract class Query {
       case Query.Intersection(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Intersect, q1.toSqlTable, q2.toSqlTable)
       case Query.Difference(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Except, q1.toSqlTable, q2.toSqlTable)
       case Query.GroupingProject(alist, query) => // FIXME consider merging GroupingProject with Project (keeping isAggregate filter)
-        val sqlQuery = query.toSqlTable
-        val select = sqlQuery.toSelect
+        val select = queryToSelect(query)
         val groupByClauses = alist
           .map(_._2)
           .filterNot(_.isAggregate)
@@ -238,15 +238,13 @@ sealed abstract class Query {
         select.copy(attributes = alistToSql(alist),
           groupBy = groupByClauses ++ select.groupBy)
       case Query.Order(by, query) =>
-        val sqlQuery = query.toSqlTable
-        val select = sqlQuery.toSelect
+        val select = queryToSelect(query)
         val newOrder = by.map {
           case (expr, direction) => sql.Table.SelectOrderBy(expr.toSqlExpr, direction)
         }
         select.copy(orderBy = newOrder ++ select.orderBy)
       case Query.Top(n, query) =>
-        val sqlQuery = query.toSqlTable
-        val select = sqlQuery.toSelect // FIXME combine to method: relational.Query -> sql.Table.Select
+        val select = queryToSelect(query)
         select.copy(extra = " LIMIT %d ".format(n) +: select.extra)
     }
   }
