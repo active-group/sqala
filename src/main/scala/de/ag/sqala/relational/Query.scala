@@ -134,7 +134,12 @@ sealed abstract class Query {
     rec(this)
   }
 
+  /**
+   * Convert this query to an SQL Table (query)
+   * @return SQL table (query) equivalent to this relational query
+   */
   def toSqlTable:sql.Table = {
+    /** helper method for product case */
     def product(query1: relational.Query, query2: relational.Query): sql.Table = {
       val table1 = query1.toSqlTable
       val table2 = query2.toSqlTable
@@ -148,9 +153,11 @@ sealed abstract class Query {
       }
     }
 
+    /** Append table2 to FROM-clause of sql-Select table1 */
     def addTable(table1:sql.Table.Select, table2:sql.Table):sql.Table =
       table1.copy(from = table1.from ++ Seq(sql.Table.SelectFromTable(table2, None)))
 
+    /** helper method for quotient case */
     def quotient(query1: relational.Query, query2: relational.Query): sql.Table = {
       val schema1 = query1.schema()
       val schema2 = query2.schema()
@@ -195,10 +202,12 @@ sealed abstract class Query {
       }
     }
 
+    /** Convert sequence of (Attribute, Expr) to sequence of attributes of a sql table-select */
     def alistToSql(tuples: Seq[(Schema.Attribute, Expr)]): Seq[sql.Table.SelectAttribute] = {
       tuples.map{case (attr, expr) => sql.Table.SelectAttribute(alias=Some(attr), expr=expr.toSqlExpr)}
     }
 
+    /** helper method converting relational query to sql table-select */
     def queryToSelect(query:Query): sql.Table.Select =
       query.toSqlTable.toSelect
 
