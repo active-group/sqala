@@ -86,12 +86,12 @@ sealed abstract class Expr {
       sql.Expr.Const(sqlVal)
     case Expr.Null(_) => sql.Expr.Const(sql.Expr.Literal.Null)
     case Expr.Application(operator, operands) =>
-      /* FIXME what about `(apply make-sql-expr-app (rator-data (application-rator expr))
+      /* TODO what about `(apply make-sql-expr-app (rator-data (application-rator expr))
                                 (map expression->sql (application-rands expr)))`? */
       val sqlOperator:Operator = operator
       sql.Expr.App(sqlOperator, operands.map(_.toSqlExpr))
     case Expr.Tuple(exprs) => sql.Expr.Tuple(exprs.map(_.toSqlExpr))
-    case Expr.Aggregation(op, aggrExpr) => sql.Expr.App(op, Seq(aggrExpr.toSqlExpr)) // FIXME consider Aggregation being Application
+    case Expr.Aggregation(op, aggrExpr) => sql.Expr.App(op, Seq(aggrExpr.toSqlExpr)) // TODO consider Aggregation being Application
     case Expr.Case(branches, default) =>
       sql.Expr.Case(branches.map { case Expr.CaseBranch(condition, value) =>
         sql.Expr.CaseBranch(condition.toSqlExpr, value.toSqlExpr) },
@@ -99,7 +99,7 @@ sealed abstract class Expr {
     case Expr.ScalarSubQuery(q) =>
       sql.Expr.SubTable(q.toSqlTable)
     case Expr.SetSubQuery(q) =>
-      sql.Expr.SubTable(q.toSqlTable) // FIXME consider dropping this branch from relational.Expr
+      sql.Expr.SubTable(q.toSqlTable) // TODO consider dropping this branch from relational.Expr
   }
 
 }

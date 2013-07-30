@@ -204,7 +204,7 @@ sealed abstract class Query {
 
     this match {
       case Query.Empty => sql.Table.Empty
-      case base:Query.Base => // FIXME what about handle?
+      case base:Query.Base => // TODO what about handle?
         /* schemeql2 has this:
           (if (not (sql-table? (base-relation-handle q)))
               (assertion-violation 'query->sql
@@ -219,7 +219,7 @@ sealed abstract class Query {
         } else {
           alistToSql(subset)
         }
-        // FIXME what about `(set-sql-nullary? sql #t)` ?
+        // TODO what about `(set-sql-nullary? sql #t)` ?
         select.copy(attributes = attributes)
       case Query.Restrict(expr, query) =>
         val select = queryToSelect(query)
@@ -229,7 +229,7 @@ sealed abstract class Query {
       case Query.Union(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Union, q1.toSqlTable, q2.toSqlTable)
       case Query.Intersection(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Intersect, q1.toSqlTable, q2.toSqlTable)
       case Query.Difference(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Except, q1.toSqlTable, q2.toSqlTable)
-      case Query.GroupingProject(alist, query) => // FIXME consider merging GroupingProject with Project (keeping isAggregate filter)
+      case Query.GroupingProject(alist, query) => // TODO consider merging GroupingProject with Project (keeping isAggregate filter)
         val select = queryToSelect(query)
         val groupByClauses = alist
           .map(_._2)

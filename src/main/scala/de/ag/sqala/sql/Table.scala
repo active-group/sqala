@@ -196,7 +196,7 @@ object Table {
   type TableName = String
 
   /** plain ref to table */
-  case class Base(base:de.ag.sqala.relational.Query.Base) extends Table  // FIXME smart constructor creating Base
+  case class Base(base:de.ag.sqala.relational.Query.Base) extends Table  // TODO smart constructor creating Base
 
   /** select from with all clauses + options + extra */
   case class Select(options: Seq[String], // DISTINCT, ALL, etc.
