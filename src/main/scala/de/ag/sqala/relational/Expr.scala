@@ -54,7 +54,7 @@ sealed abstract class Expr {
       onSetSubQuery= {query => ???})
   */
   def fold[T](onAttributeRef: (String) => T,
-              onConst: (Domain, String) => T,
+              onConst: (Domain, Any) => T,
               onNull: (Domain) => T,
               onApplication: (Operator, Seq[T]) => T,
               onTuple: (Seq[T]) => T,
@@ -78,7 +78,7 @@ sealed abstract class Expr {
 
   def toSqlExpr: sql.Expr = this match {
     case Expr.AttributeRef(name) => sql.Expr.Column(name)
-    case Expr.Const(domain, value) =>  // FIXME value should be Any or choose other representation
+    case Expr.Const(domain, value) =>
       val sqlVal:sql.Expr.Literal = domain match {
         // FIXME conversion should happen in Domain
         case Domain.String => sql.Expr.Literal.String(value.asInstanceOf[String])
@@ -111,7 +111,7 @@ object Expr {
   /** attribute reference */
   case class AttributeRef(name:String) extends Expr
   /** constant value */
-  case class Const(domain:Domain, value:String /*FIXME?*/) extends Expr
+  case class Const(domain:Domain, value:Any) extends Expr
   /** a nullable domain */
   case class Null(typ:Domain) extends Expr
   /** application (but not with aggregate op FIXME) */
