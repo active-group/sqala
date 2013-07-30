@@ -247,7 +247,7 @@ sealed abstract class Query {
                                     "base relation not an SQL table"
                                     q))
          */
-        sql.Table.makeSelect(from = Seq(sql.Table.SelectFromTable(sql.Table.Base(base), None)))
+        sql.Table.Base(base)
       case Query.Project(subset, query) =>
         val table = query.toSqlTable
         val select: sql.Table.Select = xToSqlSelect(table)
