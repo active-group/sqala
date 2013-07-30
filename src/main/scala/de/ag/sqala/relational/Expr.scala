@@ -1,6 +1,6 @@
 package de.ag.sqala.relational
 
-import de.ag.sqala.{AggregationOperator, Operator, Domain}
+import de.ag.sqala._
 
 /**
  * Expression in a relational algebra
@@ -75,6 +75,36 @@ sealed abstract class Expr {
     }
     rec(this)
   }
+
+  def toSqlExpr: sql.Expr = this match {
+    case Expr.AttributeRef(name) => sql.Expr.Column(name)
+    case Expr.Const(domain, value) =>  // FIXME value should be Any or choose other representation
+      val sqlVal:sql.Expr.Literal = domain match {
+        // FIXME conversion should happen in Domain
+        case Domain.String => sql.Expr.Literal.String(value.asInstanceOf[String])
+        case Domain.Integer => sql.Expr.Literal.Integer(value.asInstanceOf[Integer])
+        case Domain.Boolean => sql.Expr.Literal.Boolean(value.asInstanceOf[Boolean])
+        // etc.
+      }
+      sql.Expr.Const(sqlVal)
+    case Expr.Null(_) => sql.Expr.Const(sql.Expr.Literal.Null)
+    case Expr.Application(operator, operands) =>
+      /* FIXME what about `(apply make-sql-expr-app (rator-data (application-rator expr))
+                                (map expression->sql (application-rands expr)))`? */
+      val sqlOperator:Operator = operator
+      sql.Expr.App(sqlOperator, operands.map(_.toSqlExpr))
+    case Expr.Tuple(exprs) => sql.Expr.Tuple(exprs.map(_.toSqlExpr))
+    case Expr.Aggregation(op, aggrExpr) => sql.Expr.App(op, Seq(aggrExpr.toSqlExpr)) // FIXME consider Aggregation being Application
+    case Expr.Case(branches, default) =>
+      sql.Expr.Case(branches.map { case Expr.CaseBranch(condition, value) =>
+        sql.Expr.CaseBranch(condition.toSqlExpr, value.toSqlExpr) },
+        default.map(_.toSqlExpr))
+    case Expr.ScalarSubQuery(q) =>
+      sql.Expr.SubTable(q.toSqlTable)
+    case Expr.SetSubQuery(q) =>
+      sql.Expr.SubTable(q.toSqlTable) // FIXME consider dropping this branch from relational.Expr
+  }
+
 }
 
 object Expr {

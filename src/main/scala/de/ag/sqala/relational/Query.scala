@@ -134,36 +134,6 @@ sealed abstract class Query {
     rec(this)
   }
 
-  // FIXME consider this being part of relational.Expr?
-  def expressionToSql(expr: relational.Expr): sql.Expr = expr match {
-    case Expr.AttributeRef(name) => sql.Expr.Column(name)
-    case Expr.Const(domain, value) =>  // FIXME value should be Any or choose other representation
-      val sqlVal:sql.Expr.Literal = domain match {
-        // FIXME conversion should happen in Domain
-        case Domain.String => sql.Expr.Literal.String(value.asInstanceOf[String])
-        case Domain.Integer => sql.Expr.Literal.Integer(value.asInstanceOf[Integer])
-        case Domain.Boolean => sql.Expr.Literal.Boolean(value.asInstanceOf[Boolean])
-        // etc.
-      }
-      sql.Expr.Const(sqlVal)
-    case Expr.Null(_) => sql.Expr.Const(sql.Expr.Literal.Null)
-    case Expr.Application(operator, operands) =>
-      /* FIXME what about `(apply make-sql-expr-app (rator-data (application-rator expr))
-                                (map expression->sql (application-rands expr)))`? */
-      val sqlOperator:Operator = operator
-      sql.Expr.App(sqlOperator, operands.map(expressionToSql))
-    case Expr.Tuple(exprs) => sql.Expr.Tuple(exprs.map(expressionToSql))
-    case Expr.Aggregation(op, aggrExpr) => sql.Expr.App(op, Seq(expressionToSql(aggrExpr))) // FIXME consider Aggregation being Application
-    case Expr.Case(branches, default) =>
-      sql.Expr.Case(branches.map { case Expr.CaseBranch(condition, value) =>
-          sql.Expr.CaseBranch(expressionToSql(condition), expressionToSql(value)) },
-        default.map(expressionToSql))
-    case Expr.ScalarSubQuery(q) =>
-      sql.Expr.SubTable(q.toSqlTable)
-    case Expr.SetSubQuery(q) =>
-      sql.Expr.SubTable(q.toSqlTable) // FIXME consider dropping this branch from relational.Expr
-  }
-
   def toSqlTable:sql.Table = {
     def product(query1: relational.Query, query2: relational.Query): sql.Table = {
       val table1 = query1.toSqlTable
@@ -226,7 +196,7 @@ sealed abstract class Query {
     }
 
     def alistToSql(tuples: Seq[(Schema.Attribute, Expr)]): Seq[sql.Table.SelectAttribute] = {
-      tuples.map{case (attr, expr) => sql.Table.SelectAttribute(alias=Some(attr), expr=expressionToSql(expr))}
+      tuples.map{case (attr, expr) => sql.Table.SelectAttribute(alias=Some(attr), expr=expr.toSqlExpr)}
     }
 
     this match {
@@ -252,7 +222,7 @@ sealed abstract class Query {
       case Query.Restrict(expr, query) =>
         val sqlQuery = query.toSqlTable
         val select = sqlQuery.toSelect
-        select.copy(where = expressionToSql(expr) +: select.where)
+        select.copy(where = expr.toSqlExpr +: select.where)
       case Query.Product(query1, query2) => product(query1, query2)
       case Query.Quotient(query1, query2) => quotient(query1, query2)
       case Query.Union(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Union, q1.toSqlTable, q2.toSqlTable)
@@ -264,14 +234,14 @@ sealed abstract class Query {
         val groupByClauses = alist
           .map(_._2)
           .filterNot(_.isAggregate)
-          .map(expressionToSql)
+          .map(_.toSqlExpr)
         select.copy(attributes = alistToSql(alist),
           groupBy = groupByClauses ++ select.groupBy)
       case Query.Order(by, query) =>
         val sqlQuery = query.toSqlTable
         val select = sqlQuery.toSelect
         val newOrder = by.map {
-          case (expr, direction) => sql.Table.SelectOrderBy(expressionToSql(expr), direction)
+          case (expr, direction) => sql.Table.SelectOrderBy(expr.toSqlExpr, direction)
         }
         select.copy(orderBy = newOrder ++ select.orderBy)
       case Query.Top(n, query) =>
