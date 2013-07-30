@@ -40,6 +40,7 @@ object defaultSqlWriteParameterization extends WriteParameterization {
       case Expr.CombineOp.Union => "UNION"
       case Expr.CombineOp.Intersect => "INTERSECT"
       case Expr.CombineOp.Except => "EXCEPT"
+      case Expr.CombineOp.UnionAll => " UNION ALL "
     })
     out.write(" (")
     combine.right.write(out, param)

@@ -45,6 +45,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
         case Expr.CombineOp.Intersect => " INTERSECT "
         case Expr.CombineOp.Except => " EXCEPT "
         case Expr.CombineOp.Union => " UNION "
+        case Expr.CombineOp.UnionAll => " UNION ALL "
       }
       sqlCombine.right.write(out, param)
       out.write(")")
