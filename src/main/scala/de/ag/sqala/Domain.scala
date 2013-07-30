@@ -18,7 +18,7 @@ abstract class Domain(val name: String) {
   def isOrdered: Boolean
 
   /** Convert value to SQL Literal, if possible */
-  def sqlLiteralValueOf(value:Any): sql.Expr.Literal  // FIXME should be option
+  def sqlLiteralValueOf(value:Any): Option[sql.Expr.Literal]
 
   /** Equality: is the same domain */
   override def equals(other: Any) = other match {
@@ -46,9 +46,9 @@ object Domain {
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
-      case s:String => sql.Expr.Literal.String(s)
-      case _ => throw new IllegalArgumentException("not a string: " + value)
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
+      case s:String => Some(sql.Expr.Literal.String(s))
+      case _ => None
     }
   }
 
@@ -61,9 +61,9 @@ object Domain {
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
-      case i:scala.Int => sql.Expr.Literal.Integer(i)
-      case _ => throw new IllegalArgumentException("not an int: " + value)
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
+      case i:scala.Int => Some(sql.Expr.Literal.Integer(i))
+      case _ => None
     }
 
   }
@@ -77,9 +77,9 @@ object Domain {
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
-      case d:scala.Double => sql.Expr.Literal.Double(d)
-      case _ => throw new IllegalArgumentException("not a double: " + value)
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
+      case d:scala.Double => Some(sql.Expr.Literal.Double(d))
+      case _ => None
     }
 
   }
@@ -93,9 +93,9 @@ object Domain {
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
-      case b:scala.Boolean => sql.Expr.Literal.Boolean(b)
-      case _ => throw new IllegalArgumentException("not a boolean: " + value)
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
+      case b:scala.Boolean => Some(sql.Expr.Literal.Boolean(b))
+      case _ => None
     }
 
   }
@@ -109,9 +109,9 @@ object Domain {
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
       case t:java.util.Date => throw new RuntimeException("not implemented")
-      case _ => throw new IllegalArgumentException("not a string: " + value)
+      case _ => None
     }
 
   }
@@ -125,9 +125,9 @@ object Domain {
 
     def domainEquals(that: Domain): Boolean = that.eq(this)
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
       case s:java.io.InputStream => throw new RuntimeException("not implemented")
-      case _ => throw new IllegalArgumentException("not a blob: " + value)
+      case _ => None
     }
 
   }
@@ -144,9 +144,9 @@ object Domain {
       case _ => false
     }
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
-      case s:String if s.size <= maxSize => sql.Expr.Literal.String(s)
-      case _ => throw new IllegalArgumentException("not a string of size <= %d: %s".format(maxSize, value))
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
+      case s:String if s.size <= maxSize => Some(sql.Expr.Literal.String(s))
+      case _ => None
     }
 
   }
@@ -163,9 +163,9 @@ object Domain {
       case _ => false
     }
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
-      case null => sql.Expr.Literal.Null
-      case _ => throw new IllegalArgumentException("not null: " + value)
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
+      case null => Some(sql.Expr.Literal.Null)
+      case _ => None
     }
 
   }
@@ -188,10 +188,10 @@ object Domain {
       case _ => false
     }
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
       case s:Seq[Any] => throw new RuntimeException("not implemented")
 //        sql.Expr.Literal.Tuple(components.zip(s).map{ case (c,v) => c.sqlLiteralValueOf(v) })
-      case _ => throw new IllegalArgumentException("not a product: " + value)
+      case _ => None
     }
 
   }
@@ -208,8 +208,8 @@ object Domain {
       case _ => false
     }
 
-    def sqlLiteralValueOf(value: Any): Literal = value match {
-      case _  => throw new RuntimeException("not implemented")
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
+      case _  => None
 //      case _ => throw new IllegalArgumentException("not a set: " + value)
     }
 

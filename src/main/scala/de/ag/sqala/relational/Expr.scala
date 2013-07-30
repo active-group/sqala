@@ -79,7 +79,10 @@ sealed abstract class Expr {
   def toSqlExpr: sql.Expr = this match {
     case Expr.AttributeRef(name) => sql.Expr.Column(name)
     case Expr.Const(domain, value) =>
-      val sqlVal = domain.sqlLiteralValueOf(value)
+      val sqlVal = domain.sqlLiteralValueOf(value) match {
+        case None => throw new RuntimeException("not representable as a literal constant: " + value) // FIXME hm...
+        case Some(l) => l
+      }
       sql.Expr.Const(sqlVal)
     case Expr.Null(_) => sql.Expr.Const(sql.Expr.Literal.Null)
     case Expr.Application(operator, operands) =>
