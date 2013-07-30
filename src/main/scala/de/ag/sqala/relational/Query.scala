@@ -134,15 +134,6 @@ sealed abstract class Query {
     rec(this)
   }
 
-  // FIXME consider this being part of sql.Table
-  def xToSqlSelect(table: sql.Table): sql.Table.Select = {
-    table match {
-      case sql.Table.Empty => sql.Table.makeSelect(from=Seq())
-      case select:sql.Table.Select if select.attributes.isEmpty => select
-      case _ => sql.Table.makeSelect(from=Seq(sql.Table.SelectFromTable(table, None)))
-    }
-  }
-
   // FIXME consider this being part of relational.Expr?
   def expressionToSql(expr: relational.Expr): sql.Expr = expr match {
     case Expr.AttributeRef(name) => sql.Expr.Column(name)
@@ -250,7 +241,7 @@ sealed abstract class Query {
         sql.Table.Base(base)
       case Query.Project(subset, query) =>
         val table = query.toSqlTable
-        val select: sql.Table.Select = xToSqlSelect(table)
+        val select: sql.Table.Select = table.toSelect
         val attributes: Seq[sql.Table.SelectAttribute] = if (subset.isEmpty) {
           Seq(sql.Table.SelectAttribute(sql.Expr.Const(sql.Expr.Literal.String("dummy")), None))
         } else {
@@ -260,7 +251,7 @@ sealed abstract class Query {
         select.copy(attributes = attributes)
       case Query.Restrict(expr, query) =>
         val sqlQuery = query.toSqlTable
-        val select = xToSqlSelect(sqlQuery)
+        val select = sqlQuery.toSelect
         select.copy(where = expressionToSql(expr) +: select.where)
       case Query.Product(query1, query2) => product(query1, query2)
       case Query.Quotient(query1, query2) => quotient(query1, query2)
@@ -269,7 +260,7 @@ sealed abstract class Query {
       case Query.Difference(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Except, q1.toSqlTable, q2.toSqlTable)
       case Query.GroupingProject(alist, query) => // FIXME consider merging GroupingProject with Project (keeping isAggregate filter)
         val sqlQuery = query.toSqlTable
-        val select = xToSqlSelect(sqlQuery)
+        val select = sqlQuery.toSelect
         val groupByClauses = alist
           .map(_._2)
           .filterNot(_.isAggregate)
@@ -278,14 +269,14 @@ sealed abstract class Query {
           groupBy = groupByClauses ++ select.groupBy)
       case Query.Order(by, query) =>
         val sqlQuery = query.toSqlTable
-        val select = xToSqlSelect(sqlQuery)
+        val select = sqlQuery.toSelect
         val newOrder = by.map {
           case (expr, direction) => sql.Table.SelectOrderBy(expressionToSql(expr), direction)
         }
         select.copy(orderBy = newOrder ++ select.orderBy)
       case Query.Top(n, query) =>
         val sqlQuery = query.toSqlTable
-        val select = xToSqlSelect(sqlQuery) // FIXME combine to method: relational.Query -> sql.Table.Select
+        val select = sqlQuery.toSelect // FIXME combine to method: relational.Query -> sql.Table.Select
         select.copy(extra = " LIMIT %d ".format(n) +: select.extra)
     }
   }

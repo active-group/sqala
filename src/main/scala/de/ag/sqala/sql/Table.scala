@@ -2,7 +2,7 @@ package de.ag.sqala.sql
 
 import java.io.{StringWriter, Writer}
 import de.ag.sqala.StringUtils._
-import de.ag.sqala.{OrderDirection, Descending, Ascending}
+import de.ag.sqala.{sql, OrderDirection, Descending, Ascending}
 import de.ag.sqala.relational.Schema
 
 /**
@@ -176,6 +176,18 @@ sealed abstract class Table {
    * @return SQL string of this table
    */
   override def toString = toString(defaultSqlWriteParameterization)
+
+  /**
+   * Turn this Table to a Table.Select
+   * @return a Table.Select that is semantically equivalent to this Table
+   */
+  def toSelect: sql.Table.Select = {
+    this match {
+      case sql.Table.Empty => sql.Table.makeSelect(from=Seq())
+      case select:sql.Table.Select if select.attributes.isEmpty => select
+      case _ => sql.Table.makeSelect(from=Seq(sql.Table.SelectFromTable(this, None)))
+    }
+  }
 }
 
 object Table {
