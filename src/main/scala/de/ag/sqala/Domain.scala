@@ -8,19 +8,25 @@ import de.ag.sqala.sql.Expr.Literal
  * @param name human-readable description of the domain
  */
 abstract class Domain(val name: String) {
+  /** Does this domain only cover values that can be considered 'numeric'? */
   def isNumeric: Boolean
 
+  /** Does this domain only cover values that can be considered 'string'? */
   def isStringLike: Boolean
 
+  /** Does this domain only cover values that can be ordered? */
   def isOrdered: Boolean
 
-  def sqlLiteralValueOf(value:Any): sql.Expr.Literal
+  /** Convert value to SQL Literal, if possible */
+  def sqlLiteralValueOf(value:Any): sql.Expr.Literal  // FIXME should be option
 
+  /** Equality: is the same domain */
   override def equals(other: Any) = other match {
     case that: Domain => that.domainEquals(this)
     case _ => false
   }
 
+  /** Equality: is the same domain */
   def domainEquals(that: Domain): Boolean
 
   override def hashCode(): Int = name.hashCode()
