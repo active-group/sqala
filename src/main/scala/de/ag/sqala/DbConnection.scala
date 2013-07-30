@@ -42,10 +42,21 @@ private val metaData = resultSet.getMetaData
   private def maybeAdvanceResultSetCursor() {
     if (needNext) {
       depleted = resultSet.next()
+      if (depleted) {
+        resultSet.close()
+      }
       needNext = false
     }
   }
 
+  /**
+   * Close this result set. The result set will be auto-closed upon garbage collection,
+   * but this methods allows to close the result set earlier at a defined point in time.
+   *
+   * This frees all JDBC and driver-related resources allocated for this result set, (except
+   * for blob-like objects and meta data, bot of which are currently inaccessible anyways).
+   */
+  def close() = resultSet.close()
 }
 
 
