@@ -63,7 +63,7 @@ class Db2Test extends FunSuite with BeforeAndAfter {
 
     val results = conn.query(Query.makeSelect(
       attributes = Seq(Query.SelectAttribute(Expr.Column("one"), None), Query.SelectAttribute(Expr.Column("two"), None)),
-      from = Seq(Query.SelectFromQuery(Query.Table(Base("tbl1", tbl1Schema)), None))
+      from = Seq(Query.SelectFromQuery(Query.Base(Base("tbl1", tbl1Schema)), None))
     ),
       new Schema(Seq(("one", Domain.String), ("two", Domain.Integer))))
       .toArray
@@ -79,7 +79,7 @@ class Db2Test extends FunSuite with BeforeAndAfter {
   test("insert & query many") {
     createAndFillTbl1()
     expectResult(data.map{d => Seq(d._1, d._2)}.toSet){
-      conn.query(Query.Table(Base("tbl1", tbl1Schema)), tbl1Schema)
+      conn.query(Query.Base(Base("tbl1", tbl1Schema)), tbl1Schema)
         .toSet
     }
   }

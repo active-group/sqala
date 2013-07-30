@@ -13,11 +13,11 @@ class SqlWriteTest extends FunSuite {
   val tbl1Schema = new Schema(Seq(("id", Domain.Integer), ("company", Domain.Integer), ("employee", Domain.Integer)))
   val companiesSchema: Schema = new Schema(Seq("id" -> Domain.Integer, "name" -> Domain.String))
   val tbl2Schema: Schema = new Schema(Seq("id" -> Domain.Integer))
-  val tbl1 = Query.Table(Base("tbl1", tbl1Schema))
+  val tbl1 = Query.Base(Base("tbl1", tbl1Schema))
 
   val baseQuery = Query.makeSelect(from = Seq(Query.SelectFromQuery(tbl1, None)))
   Seq(
-    (Some("Query.Table"), "SELECT * FROM tbl1", tbl1),
+    (Some("Query.Base"), "SELECT * FROM tbl1", tbl1),
     (None, "SELECT * FROM tbl1", baseQuery),
     (None, "SELECT DISTINCT * FROM tbl1", baseQuery.copy(options = Seq("DISTINCT"))),
     (None, "SELECT id FROM tbl1",
@@ -62,7 +62,7 @@ class SqlWriteTest extends FunSuite {
       baseQuery.copy(
         attributes = Seq(Query.SelectAttribute(Expr.Column("id"), None)),
         where = Seq(Expr.App(Operator.In, Seq(Expr.Column("company"), Expr.SubQuery(
-          Query.makeSelect(from = Seq(Query.SelectFromQuery(Query.Table(Base("companies", companiesSchema)), None)),
+          Query.makeSelect(from = Seq(Query.SelectFromQuery(Query.Base(Base("companies", companiesSchema)), None)),
             attributes = Seq(Query.SelectAttribute(Expr.Column("id"), None)),
             where = Seq(Expr.App(Operator.Like, Seq(Expr.Column("name"), Expr.Const(Expr.Literal.String("% Inc."))))))
         ))))
@@ -75,7 +75,7 @@ class SqlWriteTest extends FunSuite {
     (None, "SELECT id FROM tbl1, tbl2",
       Query.makeSelect(
         attributes = Seq(Query.SelectAttribute(Expr.Column("id"), None)),
-        from = Seq(Query.SelectFromQuery(tbl1, None), Query.SelectFromQuery(Query.Table(Base("tbl2", tbl2Schema)), None))
+        from = Seq(Query.SelectFromQuery(tbl1, None), Query.SelectFromQuery(Query.Base(Base("tbl2", tbl2Schema)), None))
       ))
   ).foreach(s => s._1 match {
     case None => testWriteSql(s._2, s._2, s._3)
