@@ -24,7 +24,7 @@ sealed abstract class Query {
     } else {
       writeJoined[Query.SelectAttribute](out, attributes, ", ", {
         (out, attr) => attr.expr match {
-          case Expr.Column(alias) if alias == attr.alias =>
+          case Expr.Column(alias) if alias == attr.alias.getOrElse(alias) =>
             out.write(alias)
           case expr =>
             expr.write(out, param)
