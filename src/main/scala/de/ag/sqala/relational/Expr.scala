@@ -76,6 +76,11 @@ sealed abstract class Expr {
     rec(this)
   }
 
+  /**
+   * Turn this relational expression to an sql expression
+   * @return sql.Expr equivalent to this relational expression. Throws RuntimeException if const value
+   *         cannot be converted to SQL Literal
+   */
   def toSqlExpr: sql.Expr = this match {
     case Expr.AttributeRef(name) => sql.Expr.Column(name)
     case Expr.Const(domain, value) =>
