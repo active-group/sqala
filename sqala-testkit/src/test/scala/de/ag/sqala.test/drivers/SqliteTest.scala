@@ -1,26 +1,26 @@
-package de.ag.sqala.test
+package de.ag.sqala.test.drivers
 
 import org.scalatest.{BeforeAndAfter, FunSuite}
-import de.ag.sqala.drivers.Db2DbConnection
+import de.ag.sqala.drivers.Sqlite3DbConnection
 import de.ag.sqala.sql._
-import de.ag.sqala.{ResultSetIterator, Domain, DbConnection, Operator}
+import de.ag.sqala.{Domain, DbConnection}
 import de.ag.sqala.relational.Schema
+import de.ag.sqala.Operator
 import de.ag.sqala.relational.Query.Base
 
 /**
  *
  */
-class Db2Test extends FunSuite with BeforeAndAfter {
+class SqliteTest extends FunSuite with BeforeAndAfter {
   var conn:DbConnection = _
-  val where = new Db2DbConnection.Location("192.168.1.138", 50001, "test")
 
   before {
-    conn = Db2DbConnection.open(where, "db2inst2", "db2inst2")
+    conn = Sqlite3DbConnection.openInMemory()
   }
 
   val tbl1Schema: Schema = new Schema(Seq(("one", Domain.String), ("two", Domain.Integer)))
 
-  val data:Seq[(String, java.lang.Integer)] = Seq(
+  val data = Seq(
     ("test", 10),
     ("foo", 12),
     ("bar", -1),
@@ -28,21 +28,14 @@ class Db2Test extends FunSuite with BeforeAndAfter {
   )
 
   def createTbl1() {
-    // DROP TABLE IF EXISTS
-    conn.execute("select tabname from syscat.tables where tabschema='DB2INST2' and tabname='TBL1'") match {
-      case Left(it:ResultSetIterator) =>
-        if (it.size > 0)
-          conn.execute("DROP TABLE tbl1")
-      case Right(count) => throw new RuntimeException("unexpectedly received update count")
-    }
-    conn.execute("CREATE TABLE tbl1(one VARCHAR(11), two INT)")
+    conn.execute("CREATE TABLE tbl1(one VARCHAR(10), two SMALLINT)")
   }
 
   def createAndFillTbl1() {
     createTbl1()
     data.foreach {
-      case (w, s) =>
-        conn.insert("tbl1", tbl1Schema, Seq(w, Int.box(s)))
+      case (s, i) =>
+        conn.insert("tbl1", tbl1Schema, Seq(s, Integer.valueOf(i)))
     }
   }
 
@@ -54,12 +47,12 @@ class Db2Test extends FunSuite with BeforeAndAfter {
 
   test("insert") {
     createTbl1()
-    expectResult(1){conn.insert("tbl1", tbl1Schema, Seq("test", Int.box(10)))}
+    expectResult(1){conn.insert("tbl1", tbl1Schema, Seq("test", Integer.valueOf(10)))}
   }
 
   test("insert & query") {
     createTbl1()
-    assert(1 == conn.insert("tbl1", tbl1Schema, Seq("test", Int.box(10))))
+    assert(1 == conn.insert("tbl1", tbl1Schema, Seq("test", Integer.valueOf(10))))
 
     val results = conn.read(Table.makeSelect(
       attributes = Seq(Table.SelectAttribute(Expr.Column("one"), None), Table.SelectAttribute(Expr.Column("two"), None)),
@@ -89,8 +82,8 @@ class Db2Test extends FunSuite with BeforeAndAfter {
 
     expectResult(1){conn.delete("tbl1", Expr.App(Operator.Eq, Seq(Expr.Column("one"), Expr.Const(Expr.Literal.String("test")))))}
     expectResult(2){conn.delete("tbl1", Expr.App(Operator.Or, Seq(
-      Expr.App(Operator.Eq, Seq(Expr.Column("one"), Expr.Const(Expr.Literal.String("foo")))),
-      Expr.App(Operator.Eq, Seq(Expr.Column("two"), Expr.Const(Expr.Literal.Integer(-1)))))))}
+        Expr.App(Operator.Eq, Seq(Expr.Column("one"), Expr.Const(Expr.Literal.String("foo")))),
+        Expr.App(Operator.Eq, Seq(Expr.Column("two"), Expr.Const(Expr.Literal.Integer(-1)))))))}
     expectResult(0){conn.delete("tbl1", Expr.App(Operator.Eq, Seq(Expr.Column("one"), Expr.Const(Expr.Literal.String("test")))))}
   }
 

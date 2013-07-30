@@ -1,4 +1,4 @@
-package de.ag.sqala.test
+package de.ag.sqala.test.jdbc
 
 import java.math.BigDecimal
 import java.sql._

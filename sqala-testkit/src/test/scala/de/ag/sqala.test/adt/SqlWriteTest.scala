@@ -1,4 +1,4 @@
-package de.ag.sqala.test
+package de.ag.sqala.test.adt
 
 import org.scalatest.FunSuite
 import de.ag.sqala.sql._
