@@ -2,14 +2,18 @@ package de.ag.sqala.test
 
 import org.scalatest.FunSuite
 import de.ag.sqala.sql._
-import de.ag.sqala.Ascending
-import de.ag.sqala.Operator
+import de.ag.sqala.{Domain, Ascending, Operator}
+import de.ag.sqala.relational.Schema
+import de.ag.sqala.relational.Query.Base
 
 /**
  * Test writing sql
  */
 class SqlWriteTest extends FunSuite {
-  val tbl1 = Query.Table("tbl1")
+  val tbl1Schema = new Schema(Seq(("id", Domain.Integer), ("company", Domain.Integer), ("employee", Domain.Integer)))
+  val companiesSchema: Schema = new Schema(Seq("id" -> Domain.Integer, "name" -> Domain.String))
+  val tbl2Schema: Schema = new Schema(Seq("id" -> Domain.Integer))
+  val tbl1 = Query.Table(Base("tbl1", tbl1Schema))
 
   val baseQuery = Query.makeSelect(from = Seq(Query.SelectFromQuery(tbl1, None)))
   Seq(
@@ -58,7 +62,7 @@ class SqlWriteTest extends FunSuite {
       baseQuery.copy(
         attributes = Seq(Query.SelectAttribute(Expr.Column("id"), None)),
         where = Seq(Expr.App(Operator.In, Seq(Expr.Column("company"), Expr.SubQuery(
-          Query.makeSelect(from = Seq(Query.SelectFromQuery(Query.Table("companies"), None)),
+          Query.makeSelect(from = Seq(Query.SelectFromQuery(Query.Table(Base("companies", companiesSchema)), None)),
             attributes = Seq(Query.SelectAttribute(Expr.Column("id"), None)),
             where = Seq(Expr.App(Operator.Like, Seq(Expr.Column("name"), Expr.Const(Expr.Literal.String("% Inc."))))))
         ))))
@@ -71,7 +75,7 @@ class SqlWriteTest extends FunSuite {
     (None, "SELECT id FROM tbl1, tbl2",
       Query.makeSelect(
         attributes = Seq(Query.SelectAttribute(Expr.Column("id"), None)),
-        from = Seq(Query.SelectFromQuery(tbl1, None), Query.SelectFromQuery(Query.Table("tbl2"), None))
+        from = Seq(Query.SelectFromQuery(tbl1, None), Query.SelectFromQuery(Query.Table(Base("tbl2", tbl2Schema)), None))
       ))
   ).foreach(s => s._1 match {
     case None => testWriteSql(s._2, s._2, s._3)

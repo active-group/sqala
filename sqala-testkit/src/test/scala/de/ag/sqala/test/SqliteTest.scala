@@ -6,6 +6,7 @@ import de.ag.sqala.sql._
 import de.ag.sqala.{Domain, DbConnection}
 import de.ag.sqala.relational.Schema
 import de.ag.sqala.Operator
+import de.ag.sqala.relational.Query.Base
 
 /**
  *
@@ -55,7 +56,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
 
     val results = conn.query(Query.makeSelect(
       attributes = Seq(Query.SelectAttribute(Expr.Column("one"), None), Query.SelectAttribute(Expr.Column("two"), None)),
-      from = Seq(Query.SelectFromQuery(Query.Table("tbl1"), None))
+      from = Seq(Query.SelectFromQuery(Query.Table(Base("tbl1", tbl1Schema)), None))
     ),
       new Schema(Seq(("one", Domain.String), ("two", Domain.Integer))))
       .toArray
@@ -71,7 +72,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   test("insert & query many") {
     createAndFillTbl1()
     expectResult(data.map{d => Seq(d._1, d._2)}.toSet){
-      conn.query(Query.Table("tbl1"), tbl1Schema)
+      conn.query(Query.Table(Base("tbl1", tbl1Schema)), tbl1Schema)
         .toSet
     }
   }

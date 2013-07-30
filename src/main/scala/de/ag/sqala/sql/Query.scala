@@ -58,7 +58,7 @@ sealed abstract class Query {
     out.write("FROM ")
     writeJoined[Query.SelectFromQuery](out, from, ", ", {
       (out, from) => from.query match {
-        case q: Query.Table => out.write(q.name)
+        case q: Query.Table => out.write(q.base.name)
         case q =>
           out.write("(")
           q.write(out, param)
@@ -138,9 +138,9 @@ sealed abstract class Query {
    */
   def write(out:Writer, param:WriteParameterization) {
     this match {
-      case Query.Table(name) =>
+      case Query.Table(base) =>
         out.write("SELECT * FROM ")
-        out.write(name)
+        out.write(base.name)
       case s:Query.Select =>
         out.write("SELECT")
         writeWithSpaceIfNotEmpty(out, s.options)(writeJoined(out, _, " "))
@@ -184,7 +184,7 @@ object Query {
   type TableName = String
 
   /** plain ref to table */
-  case class Table(name: Query.TableName) extends Query
+  case class Table(base:de.ag.sqala.relational.Query.Base) extends Query  // FIXME smart constructor creating Base
 
   /** select from with all clauses + options + extra */
   case class Select(options: Seq[String], // DISTINCT, ALL, etc.

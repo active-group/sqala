@@ -240,14 +240,14 @@ sealed abstract class Query {
 
     this match {
       case Query.Empty => sql.Query.Empty
-      case Query.Base(name, base) => // FIXME what about handle?
+      case base:Query.Base => // FIXME what about handle?
         /* schemeql2 has this:
           (if (not (sql-table? (base-relation-handle q)))
               (assertion-violation 'query->sql
                                     "base relation not an SQL table"
                                     q))
          */
-        sql.Query.makeSelect(from = Seq(sql.Query.SelectFromQuery(sql.Query.Table(name), None)))
+        sql.Query.makeSelect(from = Seq(sql.Query.SelectFromQuery(sql.Query.Table(base), None)))
       case Query.Project(subset, query) =>
         val sqlQuery = query.toSqlQuery
         val select: sql.Query.Select = xToSqlSelect(sqlQuery)
