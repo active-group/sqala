@@ -79,13 +79,7 @@ sealed abstract class Expr {
   def toSqlExpr: sql.Expr = this match {
     case Expr.AttributeRef(name) => sql.Expr.Column(name)
     case Expr.Const(domain, value) =>
-      val sqlVal:sql.Expr.Literal = domain match {
-        // FIXME conversion should happen in Domain
-        case Domain.String => sql.Expr.Literal.String(value.asInstanceOf[String])
-        case Domain.Integer => sql.Expr.Literal.Integer(value.asInstanceOf[Integer])
-        case Domain.Boolean => sql.Expr.Literal.Boolean(value.asInstanceOf[Boolean])
-        // etc.
-      }
+      val sqlVal = domain.sqlLiteralValueOf(value)
       sql.Expr.Const(sqlVal)
     case Expr.Null(_) => sql.Expr.Const(sql.Expr.Literal.Null)
     case Expr.Application(operator, operands) =>
