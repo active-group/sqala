@@ -48,4 +48,21 @@ class relationalSqlTest extends FunSuite {
       .toString
     }
   }
+
+  test("aggregation") {
+    expectResult("SELECT one, AVG(two) AS foo FROM tbl1 GROUP BY one") {
+      RQuery.GroupingProject(Seq("one" -> RExpr.AttributeRef("one"),
+      "foo" -> RExpr.Aggregation(Operator.Avg, RExpr.AttributeRef("two"))), query1)
+      .toSqlTable
+      .toString()
+    }
+
+    expectResult("SELECT two, COUNT(one) AS foo FROM tbl1 GROUP BY two") {
+      RQuery.GroupingProject(Seq("two" -> RExpr.AttributeRef("two"),
+        "foo" -> RExpr.Aggregation(Operator.Count, RExpr.AttributeRef("one"))), query1)
+        .toSqlTable
+        .toString()
+    }
+
+  }
 }
