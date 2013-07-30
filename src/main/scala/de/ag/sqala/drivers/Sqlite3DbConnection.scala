@@ -33,9 +33,9 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
      *
      * @param out output sink
      * @param param this object for recursive calls
-     * @param sqlCombine left sql query, combine operator, right sql query
+     * @param sqlCombine left sql table, combine operator, right sql table
      */
-    def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: Query.Combine) {
+    def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: Table.Combine) {
       out.write("SELECT * FROM (")
       sqlCombine.left.write(out, param)
       sqlCombine.op match {
@@ -52,8 +52,8 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     connection.close()
   }
 
-  def query(sqlQuery: Query, schema: Schema): ResultSetIterator = {
-    val sql = sqlQuery.toString(sqlWriteParameterization)
+  def read(table: Table, schema: Schema): ResultSetIterator = {
+    val sql = table.toString(sqlWriteParameterization)
     val statement = connection.createStatement()
     val resultSet = statement.executeQuery(sql)
     // first shot: primitively return Objects
@@ -61,7 +61,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
 
-  def insert(tableName: Query.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
+  def insert(tableName: Table.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
     val sql = "INSERT INTO %s(%s) VALUES (%s)".format(
       tableName,
       schema.attributes.mkString(", "),
@@ -95,7 +95,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     })
   }
 
-  def delete(tableName: Query.TableName, condition: Expr): Int = {
+  def delete(tableName: Table.TableName, condition: Expr): Int = {
     val sql = "DELETE FROM %s WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
     val statement = connection.createStatement()
     val result = statement.executeUpdate(sql)
@@ -104,7 +104,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
 
-  def update(tableName: Query.TableName, condition: Expr, updates: Seq[(Query.ColumnName, Expr)]): Int = {
+  def update(tableName: Table.TableName, condition: Expr, updates: Seq[(Table.ColumnName, Expr)]): Int = {
     val clauses = updates.map {
       case (columnName, value) => "%s = %s".format(columnName, value.toString(sqlWriteParameterization))
     }

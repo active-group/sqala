@@ -134,12 +134,12 @@ sealed abstract class Query {
     rec(this)
   }
 
-  // FIXME consider this being part of sql.Query
-  def xToSqlSelect(query: sql.Query): sql.Query.Select = {
-    query match {
-      case sql.Query.Empty => sql.Query.makeSelect(from=Seq())
-      case select:sql.Query.Select if select.attributes.isEmpty => select
-      case _ => sql.Query.makeSelect(from=Seq(sql.Query.SelectFromQuery(query, None)))
+  // FIXME consider this being part of sql.Table
+  def xToSqlSelect(table: sql.Table): sql.Table.Select = {
+    table match {
+      case sql.Table.Empty => sql.Table.makeSelect(from=Seq())
+      case select:sql.Table.Select if select.attributes.isEmpty => select
+      case _ => sql.Table.makeSelect(from=Seq(sql.Table.SelectFromTable(table, None)))
     }
   }
 
@@ -168,29 +168,29 @@ sealed abstract class Query {
           sql.Expr.CaseBranch(expressionToSql(condition), expressionToSql(value)) },
         default.map(expressionToSql))
     case Expr.ScalarSubQuery(q) =>
-      sql.Expr.SubQuery(q.toSqlQuery)
+      sql.Expr.SubTable(q.toSqlTable)
     case Expr.SetSubQuery(q) =>
-      sql.Expr.SubQuery(q.toSqlQuery) // FIXME consider dropping this branch from relational.Expr
+      sql.Expr.SubTable(q.toSqlTable) // FIXME consider dropping this branch from relational.Expr
   }
 
-  def toSqlQuery:sql.Query = {
-    def product(query1: relational.Query, query2: relational.Query): sql.Query = {
-      val sqlQuery1 = query1.toSqlQuery
-      val sqlQuery2 = query2.toSqlQuery
-      sqlQuery1 match { // micro-optimizing 'SELECT *' queries
-        case select1:sql.Query.Select if select1.attributes.isEmpty => addTable(select1, sqlQuery2)
-        case _ => sqlQuery2 match {
-          case select2:sql.Query.Select if select2.attributes.isEmpty => addTable(select2, sqlQuery1)
-          case _ => sql.Query.makeSelect(from=Seq(sql.Query.SelectFromQuery(sqlQuery1, None),
-            sql.Query.SelectFromQuery(sqlQuery2, None)))
+  def toSqlTable:sql.Table = {
+    def product(query1: relational.Query, query2: relational.Query): sql.Table = {
+      val table1 = query1.toSqlTable
+      val table2 = query2.toSqlTable
+      table1 match { // micro-optimizing 'SELECT *' queries
+        case select1:sql.Table.Select if select1.attributes.isEmpty => addTable(select1, table2)
+        case _ => table2 match {
+          case select2:sql.Table.Select if select2.attributes.isEmpty => addTable(select2, table1)
+          case _ => sql.Table.makeSelect(from=Seq(sql.Table.SelectFromTable(table1, None),
+            sql.Table.SelectFromTable(table2, None)))
         }
       }
     }
 
-    def addTable(sqlQuery1:sql.Query.Select, sqlQuery2:sql.Query):sql.Query =
-      sqlQuery1.copy(from = sqlQuery1.from ++ Seq(sql.Query.SelectFromQuery(sqlQuery2, None)))
+    def addTable(table1:sql.Table.Select, table2:sql.Table):sql.Table =
+      table1.copy(from = table1.from ++ Seq(sql.Table.SelectFromTable(table2, None)))
 
-    def quotient(query1: relational.Query, query2: relational.Query): sql.Query = {
+    def quotient(query1: relational.Query, query2: relational.Query): sql.Table = {
       val schema1 = query1.schema()
       val schema2 = query2.schema()
       val diffSchema = schema1.difference(schema2)
@@ -204,19 +204,19 @@ sealed abstract class Query {
         ;; HAVING COUNT(*) =
         ;; ( SELECT COUNT (*) FROM T2 );
         */
-        val sqlQuery1 = query1.toSqlQuery
-        val sqlQuery2 = query2.toSqlQuery
+        val table1 = query1.toSqlTable
+        val table2 = query2.toSqlTable
         val name2 = schema2.schema.head._1
-        sql.Query.makeSelect(
-          from = Seq(sql.Query.SelectFromQuery(sqlQuery1, None)),
-          attributes = diffSchema.schema.map{case (attr, domain) => sql.Query.SelectAttribute(sql.Expr.Column(attr), Some(attr))},
-          where = Seq(sql.Expr.App(Operator.In, Seq(sql.Expr.Column(name2), sql.Expr.SubQuery(sqlQuery2)))),
+        sql.Table.makeSelect(
+          from = Seq(sql.Table.SelectFromTable(table1, None)),
+          attributes = diffSchema.schema.map{case (attr, domain) => sql.Table.SelectAttribute(sql.Expr.Column(attr), Some(attr))},
+          where = Seq(sql.Expr.App(Operator.In, Seq(sql.Expr.Column(name2), sql.Expr.SubTable(table2)))),
           groupBy = diffSchema.schema.map{case (attr, domain) => sql.Expr.Column(attr)},
           having = Some(sql.Expr.App(Operator.Eq, Seq(
             sql.Expr.App(Operator.Count, Seq(sql.Expr.Column(diffSchema.schema.head._1))),
-            sql.Expr.SubQuery(
-              sql.Query.makeSelect(from = Seq(sql.Query.SelectFromQuery(sqlQuery2, None)),
-                attributes = Seq(sql.Query.SelectAttribute(sql.Expr.App(Operator.Count, Seq(sql.Expr.Column(name2))), None)))
+            sql.Expr.SubTable(
+              sql.Table.makeSelect(from = Seq(sql.Table.SelectFromTable(table2, None)),
+                attributes = Seq(sql.Table.SelectAttribute(sql.Expr.App(Operator.Count, Seq(sql.Expr.Column(name2))), None)))
             )
           )))
         )
@@ -230,45 +230,45 @@ sealed abstract class Query {
               relational.Query.Project(q1ProjectAlist,
                 relational.Query.Product(query2, pruned)),
               query1
-            ))).toSqlQuery
+            ))).toSqlTable
       }
     }
 
-    def alistToSql(tuples: Seq[(Schema.Attribute, Expr)]): Seq[sql.Query.SelectAttribute] = {
-      tuples.map{case (attr, expr) => sql.Query.SelectAttribute(alias=Some(attr), expr=expressionToSql(expr))}
+    def alistToSql(tuples: Seq[(Schema.Attribute, Expr)]): Seq[sql.Table.SelectAttribute] = {
+      tuples.map{case (attr, expr) => sql.Table.SelectAttribute(alias=Some(attr), expr=expressionToSql(expr))}
     }
 
     this match {
-      case Query.Empty => sql.Query.Empty
-      case Query.Base(name, base) => // FIXME what about handle?
+      case Query.Empty => sql.Table.Empty
+      case base:Query.Base => // FIXME what about handle?
         /* schemeql2 has this:
           (if (not (sql-table? (base-relation-handle q)))
               (assertion-violation 'query->sql
                                     "base relation not an SQL table"
                                     q))
          */
-        sql.Query.makeSelect(from = Seq(sql.Query.SelectFromQuery(sql.Query.Table(name), None)))
+        sql.Table.Base(base)
       case Query.Project(subset, query) =>
-        val sqlQuery = query.toSqlQuery
-        val select: sql.Query.Select = xToSqlSelect(sqlQuery)
-        val attributes: Seq[sql.Query.SelectAttribute] = if (subset.isEmpty) {
-          Seq(sql.Query.SelectAttribute(sql.Expr.Const(sql.Expr.Literal.String("dummy")), None))
+        val table = query.toSqlTable
+        val select: sql.Table.Select = xToSqlSelect(table)
+        val attributes: Seq[sql.Table.SelectAttribute] = if (subset.isEmpty) {
+          Seq(sql.Table.SelectAttribute(sql.Expr.Const(sql.Expr.Literal.String("dummy")), None))
         } else {
           alistToSql(subset)
         }
         // FIXME what about `(set-sql-nullary? sql #t)` ?
         select.copy(attributes = attributes)
       case Query.Restrict(expr, query) =>
-        val sqlQuery = query.toSqlQuery
+        val sqlQuery = query.toSqlTable
         val select = xToSqlSelect(sqlQuery)
         select.copy(where = expressionToSql(expr) +: select.where)
       case Query.Product(query1, query2) => product(query1, query2)
       case Query.Quotient(query1, query2) => quotient(query1, query2)
-      case Query.Union(q1, q2) => sql.Query.Combine(sql.Expr.CombineOp.Union, q1.toSqlQuery, q2.toSqlQuery)
-      case Query.Intersection(q1, q2) => sql.Query.Combine(sql.Expr.CombineOp.Intersect, q1.toSqlQuery, q2.toSqlQuery)
-      case Query.Difference(q1, q2) => sql.Query.Combine(sql.Expr.CombineOp.Except, q1.toSqlQuery, q2.toSqlQuery)
+      case Query.Union(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Union, q1.toSqlTable, q2.toSqlTable)
+      case Query.Intersection(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Intersect, q1.toSqlTable, q2.toSqlTable)
+      case Query.Difference(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Except, q1.toSqlTable, q2.toSqlTable)
       case Query.GroupingProject(alist, query) => // FIXME consider merging GroupingProject with Project (keeping isAggregate filter)
-        val sqlQuery = query.toSqlQuery
+        val sqlQuery = query.toSqlTable
         val select = xToSqlSelect(sqlQuery)
         val groupByClauses = alist
           .map(_._2)
@@ -277,15 +277,15 @@ sealed abstract class Query {
         select.copy(attributes = alistToSql(alist),
           groupBy = groupByClauses ++ select.groupBy)
       case Query.Order(by, query) =>
-        val sqlQuery = query.toSqlQuery
+        val sqlQuery = query.toSqlTable
         val select = xToSqlSelect(sqlQuery)
         val newOrder = by.map {
-          case (expr, direction) => sql.Query.SelectOrderBy(expressionToSql(expr), direction)
+          case (expr, direction) => sql.Table.SelectOrderBy(expressionToSql(expr), direction)
         }
         select.copy(orderBy = newOrder ++ select.orderBy)
       case Query.Top(n, query) =>
-        val sqlQuery = query.toSqlQuery
-        val select = xToSqlSelect(sqlQuery) // FIXME combine to method: relational.Query -> sql.Query.Select
+        val sqlQuery = query.toSqlTable
+        val select = xToSqlSelect(sqlQuery) // FIXME combine to method: relational.Query -> sql.Table.Select
         select.copy(extra = " LIMIT %d ".format(n) +: select.extra)
     }
   }

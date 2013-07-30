@@ -48,9 +48,9 @@ trait DbConnection {
   val sqlWriteParameterization: WriteParameterization
 
   def close():Unit
-  def query(Query:Query, schema:Schema): ResultSetIterator
-  def insert(table:Query.TableName, schema:Schema, values:Seq[AnyRef]): Int
-  def delete(table:Query.TableName, condition:Expr): Int
-  def update(table:Query.TableName, condition:Expr, updates:Seq[(String, Expr)]): Int
+  def read(table:Table, schema:Schema): ResultSetIterator
+  def insert(table:Table.TableName, schema:Schema, values:Seq[AnyRef]): Int
+  def delete(table:Table.TableName, condition:Expr): Int
+  def update(table:Table.TableName, condition:Expr, updates:Seq[(String, Expr)]): Int
   def execute(sql:String):Any // run raw , for emergencies
 }

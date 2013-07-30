@@ -6,9 +6,9 @@ import de.ag.sqala.{OrderDirection, Descending, Ascending}
 import de.ag.sqala.relational.Schema
 
 /**
- * SQL query
+ * SQL table
  */
-sealed abstract class Query {
+sealed abstract class Table {
 
   /**
    * Write comma-seperated list of attributes to output sink, or '*' if attributes is empty.
@@ -18,13 +18,13 @@ sealed abstract class Query {
    * @param param      write parameterization
    * @param attributes attributes to write
    */
-  protected def writeAttributes(out: Writer, param: WriteParameterization, attributes: Seq[Query.SelectAttribute]) {
+  protected def writeAttributes(out: Writer, param: WriteParameterization, attributes: Seq[Table.SelectAttribute]) {
     if (attributes.isEmpty) {
       out.write("*")
     } else {
-      writeJoined[Query.SelectAttribute](out, attributes, ", ", {
+      writeJoined[Table.SelectAttribute](out, attributes, ", ", {
         (out, attr) => attr.expr match {
-          case Expr.Column(alias) if alias == attr.alias =>
+          case Expr.Column(alias) if alias == attr.alias.getOrElse(alias) =>
             out.write(alias)
           case expr =>
             expr.write(out, param)
@@ -54,11 +54,11 @@ sealed abstract class Query {
    * @param param write parameterization
    * @param from  FROM queries to write
    */
-  protected def writeFrom(out: Writer, param: WriteParameterization, from: Seq[Query.SelectFromQuery]) {
+  protected def writeFrom(out: Writer, param: WriteParameterization, from: Seq[Table.SelectFromTable]) {
     out.write("FROM ")
-    writeJoined[Query.SelectFromQuery](out, from, ", ", {
-      (out, from) => from.query match {
-        case q: Query.Table => out.write(q.name)
+    writeJoined[Table.SelectFromTable](out, from, ", ", {
+      (out, from) => from.table match {
+        case q: Table.Base => out.write(q.base.name)
         case q =>
           out.write("(")
           q.write(out, param)
@@ -117,9 +117,9 @@ sealed abstract class Query {
    * @param param    write paramaterization
    * @param orderBys order-by clauses
    */
-  protected def writeOrderBy(out: Writer, param: WriteParameterization, orderBys: Seq[Query.SelectOrderBy]) {
+  protected def writeOrderBy(out: Writer, param: WriteParameterization, orderBys: Seq[Table.SelectOrderBy]) {
     out.write("ORDER BY ")
-    writeJoined[Query.SelectOrderBy](out, orderBys, ", ", {
+    writeJoined[Table.SelectOrderBy](out, orderBys, ", ", {
       (out, orderBy) =>
         orderBy.expr.write(out, param)
         out.write(orderBy.order match {
@@ -130,7 +130,7 @@ sealed abstract class Query {
   }
 
   /**
-   * Write query to output sink.
+   * Write table to output sink.
    *
    * Eg., "SELECT id, name FROM persons WHERE (id > 12) ORDER BY id DESC"
    * @param out   output sink
@@ -138,10 +138,10 @@ sealed abstract class Query {
    */
   def write(out:Writer, param:WriteParameterization) {
     this match {
-      case Query.Table(name) =>
+      case Table.Base(base) =>
         out.write("SELECT * FROM ")
-        out.write(name)
-      case s:Query.Select =>
+        out.write(base.name)
+      case s:Table.Select =>
         out.write("SELECT")
         writeWithSpaceIfNotEmpty(out, s.options)(writeJoined(out, _, " "))
         writeSpace(out); writeAttributes(out, param, s.attributes)
@@ -154,16 +154,16 @@ sealed abstract class Query {
         }
         writeWithSpaceIfNotEmpty(out, s.orderBy)(writeOrderBy(out, param, _))
         writeWithSpaceIfNotEmpty(out, s.extra)(writeJoined(out, _, " "))
-      case s:Query.Combine =>
+      case s:Table.Combine =>
         param.writeCombine(out, param, s)
-      case Query.Empty =>
+      case Table.Empty =>
     }
   }
 
   /**
-   * Turn query to string
+   * Turn table to string
    * @param param write parameterization
-   * @return      SQL string of this query
+   * @return      SQL string of this table
    */
   def toString(param:WriteParameterization) = {
     val result = new StringWriter()
@@ -172,49 +172,49 @@ sealed abstract class Query {
   }
 
   /**
-   * Turn query to string using default write parameterization
-   * @return SQL string of this query
+   * Turn table to string using default write parameterization
+   * @return SQL string of this table
    */
   override def toString = toString(defaultSqlWriteParameterization)
 }
 
-object Query {
+object Table {
   type ColumnName = String
 
   type TableName = String
 
   /** plain ref to table */
-  case class Table(name: Query.TableName) extends Query
+  case class Base(base:de.ag.sqala.relational.Query.Base) extends Table  // FIXME smart constructor creating Base
 
   /** select from with all clauses + options + extra */
   case class Select(options: Seq[String], // DISTINCT, ALL, etc.
                          attributes: Seq[SelectAttribute], // selected fields (expr + alias), empty seq for '*'
                          //                     isNullary: Boolean, // true if select represents nullary relation (?); in this case attributes should contain single dummy attribute (?)
-                         from: Seq[SelectFromQuery], // FROM (
+                         from: Seq[SelectFromTable], // FROM (
                          where: Seq[Expr], // WHERE; Seq constructed from relational algebra
                          groupBy: Seq[Expr], // GROUP BY
                          having: Option[Expr], // HAVING
                          orderBy: Seq[SelectOrderBy], // ORDER BY
                          extra: Seq[String] // TOP n, etc.
-                          ) extends Query
+                          ) extends Table
 
   /** combine two queries */
   case class Combine(op: Expr.CombineOp,
-                          left: Query,
-                          right: Query) extends Query
+                          left: Table,
+                          right: Table) extends Table
 
-  /** the empty query */
-  case object Empty extends Query // FIXME used when?
+  /** the empty table */
+  case object Empty extends Table // FIXME used when?
 
   /** select-from attributes with optional alias */
-  case class SelectAttribute(expr:Expr, alias:Option[Query.ColumnName])
-  /** select-from query (FROM clause) with optional alias */
-  case class SelectFromQuery(query:Query, alias:Option[Query.TableName])
+  case class SelectAttribute(expr:Expr, alias:Option[Table.ColumnName])
+  /** select-from table (FROM clause) with optional alias */
+  case class SelectFromTable(table:Table, alias:Option[Table.TableName])
   /** select-from order-by clause with order direction */
   case class SelectOrderBy(expr:Expr, order:OrderDirection)
 
   /**
-   * Helper method with defaults to create Query.Select
+   * Helper method with defaults to create Table.Select
    * @param options     options (DISTINCT, etc.), defaults to Seq()
    * @param attributes  attributes (columns, expressions, etc.), defaults to Seq() ("*")
    * @param from        from clauses, required
@@ -223,11 +223,11 @@ object Query {
    * @param having      having clause, defaults to None
    * @param orderBy     order-by clauses, defaults to Seq()
    * @param extra       extra text (eg. "LIMIT 2"), defaults to Seq()
-   * @return            constructed Query.Select
+   * @return            constructed Table.Select
    */
   def makeSelect(options:Seq[String]=Seq(),
                  attributes:Seq[SelectAttribute]=Seq(),
-                 from:Seq[SelectFromQuery],
+                 from:Seq[SelectFromTable],
                  where: Seq[Expr]=Seq(),
                  groupBy: Seq[Expr]=Seq(),
                  having: Option[Expr]=None,

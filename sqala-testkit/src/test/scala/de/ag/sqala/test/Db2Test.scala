@@ -5,6 +5,7 @@ import de.ag.sqala.drivers.Db2DbConnection
 import de.ag.sqala.sql._
 import de.ag.sqala.{ResultSetIterator, Domain, DbConnection, Operator}
 import de.ag.sqala.relational.Schema
+import de.ag.sqala.relational.Query.Base
 
 /**
  *
@@ -60,9 +61,9 @@ class Db2Test extends FunSuite with BeforeAndAfter {
     createTbl1()
     assert(1 == conn.insert("tbl1", tbl1Schema, Seq("test", Int.box(10))))
 
-    val results = conn.query(Query.makeSelect(
-      attributes = Seq(Query.SelectAttribute(Expr.Column("one"), None), Query.SelectAttribute(Expr.Column("two"), None)),
-      from = Seq(Query.SelectFromQuery(Query.Table("tbl1"), None))
+    val results = conn.read(Table.makeSelect(
+      attributes = Seq(Table.SelectAttribute(Expr.Column("one"), None), Table.SelectAttribute(Expr.Column("two"), None)),
+      from = Seq(Table.SelectFromTable(Table.Base(Base("tbl1", tbl1Schema)), None))
     ),
       new Schema(Seq(("one", Domain.String), ("two", Domain.Integer))))
       .toArray
@@ -78,7 +79,7 @@ class Db2Test extends FunSuite with BeforeAndAfter {
   test("insert & query many") {
     createAndFillTbl1()
     expectResult(data.map{d => Seq(d._1, d._2)}.toSet){
-      conn.query(Query.Table("tbl1"), tbl1Schema)
+      conn.read(Table.Base(Base("tbl1", tbl1Schema)), tbl1Schema)
         .toSet
     }
   }

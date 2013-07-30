@@ -7,13 +7,13 @@ import java.io.Writer
  */
 trait WriteParameterization {
   /**
-   * Write SQL Query.Combine to output sink in a DB-specific way (eg. parentheses, key words, etc.)
+   * Write SQL Table.Combine to output sink in a DB-specific way (eg. parentheses, key words, etc.)
    *
    * @param out output sink
    * @param param this object for recursive calls
-   * @param Combine combining  query
+   * @param Combine combining  table
    */
-  def writeCombine(out:Writer, param:WriteParameterization, Combine:Query.Combine):Unit
+  def writeCombine(out:Writer, param:WriteParameterization, Combine:Table.Combine):Unit
 
   /**
    * Write constant expression (literal) to output sink in a DB-specific way (e.g. map types, etc.)
@@ -30,9 +30,9 @@ object defaultSqlWriteParameterization extends WriteParameterization {
    *
    * @param out     output sink
    * @param param   write parameterization
-   * @param combine Query.combine to write
+   * @param combine Table.combine to write
    */
-  def writeCombine(out:Writer, param:WriteParameterization, combine:Query.Combine) {
+  def writeCombine(out:Writer, param:WriteParameterization, combine:Table.Combine) {
     out.write('(')
     combine.left.write(out, param)
     out.write(") ")
