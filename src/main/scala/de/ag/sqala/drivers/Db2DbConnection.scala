@@ -55,7 +55,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     connection.close()
   }
 
-  def query(table: Table, schema: Schema): ResultSetIterator = {
+  def read(table: Table, schema: Schema): ResultSetIterator = {
     val sql = table.toString(sqlWriteParameterization)
     val statement = connection.createStatement()
     val resultSet = statement.executeQuery(sql)
