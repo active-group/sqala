@@ -81,5 +81,13 @@ class relationalSqlTest extends FunSuite {
     }
   }
 
-
+  test("quotient-1") {
+    val R = RQuery.Base("R", Schema(Seq("A" -> Domain.String, "B" -> Domain.String)))
+    val S = RQuery.Base("S", Schema(Seq("A" -> Domain.String)))
+    expectResult("SELECT B FROM R WHERE (A IN (SELECT * FROM S)) GROUP BY B HAVING (COUNT(B) = (SELECT COUNT(A) FROM S))") {
+      RQuery.Quotient(R, S)
+      .toSqlTable
+      .toString
+    }
+  }
 }
