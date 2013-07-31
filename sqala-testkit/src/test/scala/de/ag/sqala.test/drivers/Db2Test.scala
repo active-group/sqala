@@ -18,7 +18,7 @@ class Db2Test extends FunSuite with BeforeAndAfter {
     conn = Db2DbConnection.open(where, "db2inst2", "db2inst2")
   }
 
-  val tbl1Schema: Schema = new Schema(Seq(("one", Domain.String), ("two", Domain.Integer)))
+  val tbl1Schema: Schema = Schema("one" -> Domain.BoundedString(11), "two" -> Domain.Integer)
 
   val data:Seq[(String, java.lang.Integer)] = Seq(
     ("test", 10),
@@ -35,7 +35,7 @@ class Db2Test extends FunSuite with BeforeAndAfter {
           conn.execute("DROP TABLE tbl1")
       case Right(count) => throw new RuntimeException("unexpectedly received update count")
     }
-    conn.execute("CREATE TABLE tbl1(one VARCHAR(11), two INT)")
+    conn.createTable("tbl1", tbl1Schema)
   }
 
   def createAndFillTbl1() {

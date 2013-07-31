@@ -74,6 +74,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
       case ((value, domain), i) =>
         domain match {
           case Domain.String => statement.setString(i, value.asInstanceOf[String])
+          case Domain.BoundedString(_) => statement.setString(i, value.asInstanceOf[String])
           case Domain.Integer => statement.setInt(i, value.asInstanceOf[Integer].intValue())
           case Domain.Double => statement.setDouble(i, value.asInstanceOf[Double])
           case Domain.Boolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
@@ -124,7 +125,27 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
       Right(statement.getUpdateCount)
   }
 
-  def createTable(name: View.TableName, schema: Schema): Unit = ???
+  def domain2SqliteDomain(domain: Domain): String = domain match {
+    case Domain.String => "VARCHAR(32672)" // 32672 is the max (for v10); use BoundedString to define max yourself
+    case Domain.BoundedString(maxSize) => "VARCHAR(%d)".format(maxSize)
+    case Domain.Integer => "INTEGER"
+    case Domain.Double => "DOUBLE"
+    case Domain.Blob => "BLOB(1M)" // 1M is the default (for v10); FIXME allow specifying max
+    case Domain.CalendarTime => "TIMESTAMP(6)" // 6 fractional seconds digits is the default (for v10); FIXME allow specifiying precision
+    case _ => throw new RuntimeException("not implemented")
+  }
+
+  def schemaToDDTList(schema: Schema): Seq[String] =
+    schema.schema.map{
+      case(attr, domain) => "%s %s".format(attr, domain2SqliteDomain(domain))
+    }
+
+  def createTable(name: View.TableName, schema: Schema) {
+    val sql = "CREATE TABLE %s(\n%s\n)".format(name, schemaToDDTList(schema).mkString(",\n"))
+    val statement = connection.createStatement()
+    statement.execute(sql)
+    statement.close()
+  }
 }
 
 object Db2DbConnection {
