@@ -42,9 +42,6 @@ private val metaData = resultSet.getMetaData
   private def maybeAdvanceResultSetCursor() {
     if (needNext) {
       depleted = resultSet.next()
-      if (depleted) {
-        resultSet.close()
-      }
       needNext = false
     }
   }
