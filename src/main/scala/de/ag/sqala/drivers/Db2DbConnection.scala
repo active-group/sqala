@@ -147,9 +147,27 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     statement.close()
   }
 
-  def dropTable(name: View.TableName): Unit = ???
+  def dropTable(name: View.TableName) {
+    val statement = connection.createStatement()
+    statement.execute("DROP TABLE \"%s\"".format(name))
+    statement.close()
+  }
 
-  def dropTableIfExists(name: View.TableName): Unit = ???
+  def dropTableIfExists(name: View.TableName) {
+    val statement = connection.createStatement()
+    val sql = "SELECT tabname FROM syscat.tables WHERE tabschema=(SELECT current_schema FROM sysibm.sysdummy1) and tabname='%s'".format(name)
+    if (statement.execute(sql)) {
+      val rs = statement.getResultSet
+      if(rs.next()) {
+        val statement2 = connection.createStatement()
+        statement2.execute("DROP TABLE \"%s\"".format(name))
+        statement2.close()
+      }
+      statement.close()
+    } else {
+       throw new RuntimeException("unexpectedly received update count")
+    }
+  }
 }
 
 object Db2DbConnection {

@@ -6,6 +6,7 @@ import de.ag.sqala.sql._
 import de.ag.sqala.{ResultSetIterator, Domain, DbConnection, Operator}
 import de.ag.sqala.relational.Schema
 import de.ag.sqala.relational.Query.Base
+import java.sql.SQLException
 
 /**
  *
@@ -40,6 +41,10 @@ class Db2Test extends FunSuite with BeforeAndAfter {
 
   def createAndFillTbl1() {
     createTbl1()
+    fillTbl1()
+  }
+
+  def fillTbl1() {
     data.foreach {
       case (w, s) =>
         conn.insert("tbl1", tbl1Schema, Seq(w, Int.box(s)))
@@ -107,4 +112,22 @@ class Db2Test extends FunSuite with BeforeAndAfter {
       Expr.App(Operator.Eq, Seq(Expr.Column("two"), Expr.Const(Expr.Literal.Integer(12)))),
       Seq(("two", Expr.Const(Expr.Literal.Null))))}
   }
+
+  test("drop table") {
+    createTbl1()
+    conn.dropTable("tbl1")
+    intercept[SQLException]{
+      fillTbl1()
+    }
+  }
+
+  test("drop table if exists") {
+    conn.dropTableIfExists("foo")
+    createTbl1()
+    conn.dropTableIfExists("tbl1")
+    intercept[SQLException]{
+      fillTbl1()
+    }
+  }
+
 }
