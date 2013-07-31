@@ -10,15 +10,15 @@ import de.ag.sqala.DomainChecker.DomainCheckException
  */
 
 class relationalTest extends FunSuite {
-  val tbl1 = Query.Base("tbl1", Schema(Seq("one" -> Domain.String, "two" -> Domain.Integer)))
-  val tbl2 = Query.Base("tbl2", Schema(Seq("three" -> Domain.Blob, "four" -> Domain.String)))
+  val tbl1 = Query.Base("tbl1", Schema("one" -> Domain.String, "two" -> Domain.Integer))
+  val tbl2 = Query.Base("tbl2", Schema("three" -> Domain.Blob, "four" -> Domain.String))
 
   test("trivial") {
     val q = Query.Project(Seq(
       "two" -> Expr.AttributeRef("two"),
       "one" -> Expr.AttributeRef("one")),
       tbl1)
-    expectResult(Schema(Seq("two" -> Domain.Integer, "one" -> Domain.String))) {
+    expectResult(Schema("two" -> Domain.Integer, "one" -> Domain.String)) {
       q.checkedSchema()
     }
   }
@@ -44,10 +44,10 @@ class relationalTest extends FunSuite {
 
   test("product") {
     val q1 = Query.Product(tbl1, tbl2)
-    val q1Schema = Schema(Seq("one" -> Domain.String,
+    val q1Schema = Schema("one" -> Domain.String,
       "two" -> Domain.Integer,
       "three" -> Domain.Blob,
-      "four" -> Domain.String))
+      "four" -> Domain.String)
     expectResult(q1Schema) { q1.checkedSchema() }
   }
 
@@ -68,7 +68,7 @@ class relationalTest extends FunSuite {
         Expr.AttributeRef("one"))),
         Some(Expr.AttributeRef("two")))),
       tbl1)
-    val q1Schema = Schema(Seq("foo" -> Domain.String))
+    val q1Schema = Schema("foo" -> Domain.String)
     expectResult(q1Schema) { q1.checkedSchema()}
     expectResult(q1Schema) { q2.checkedSchema()}
     intercept[DomainCheckException] { q3.checkDomains()}
@@ -87,15 +87,15 @@ class relationalTest extends FunSuite {
       Query.GroupingProject(Seq("one" -> Expr.AttributeRef("one"), "foo" -> Expr.Aggregation(Operator.Avg, Expr.AttributeRef("two"))), tbl1))
     val q2 = Query.Project(Seq("foo" -> Expr.AttributeRef("foo")),
       Query.GroupingProject(Seq("two" -> Expr.AttributeRef("two"), "foo" -> Expr.Aggregation(Operator.Count, Expr.AttributeRef("one"))), tbl1))
-    expectResult(Schema(Seq("foo" -> Domain.Integer))) { q1.checkedSchema() }
+    expectResult(Schema("foo" -> Domain.Integer)) { q1.checkedSchema() }
     intercept[DomainCheckException]{
       Query.GroupingProject(Seq("two" -> Expr.AttributeRef("two"), "foo" -> Expr.Aggregation(Operator.Avg, Expr.AttributeRef("one"))), tbl1).checkedSchema()
     }
-    expectResult(Schema(Seq("foo" -> Domain.Integer))) { q2.checkedSchema() }
+    expectResult(Schema("foo" -> Domain.Integer)) { q2.checkedSchema() }
   }
 
   test("quotient") {
-    expectResult(Schema(Seq("a" -> Domain.Integer))) {
+    expectResult(Schema("a" -> Domain.Integer)) {
       Query.Quotient(
         Query.Project(Seq(
           "a" -> Expr.Null(Domain.Integer),
@@ -106,7 +106,7 @@ class relationalTest extends FunSuite {
       )
         .checkedSchema()
     }
-    expectResult(Schema(Seq("a" -> Domain.Integer, "c" -> Domain.Integer))) {
+    expectResult(Schema("a" -> Domain.Integer, "c" -> Domain.Integer)) {
       Query.Quotient(
         Query.Project(Seq(
           "a" -> Expr.Null(Domain.Integer),
@@ -137,9 +137,9 @@ class relationalTest extends FunSuite {
   }
 
   test("scalar sub-query") {
-    val SUBA = Query.Base("SUBA", Schema(Seq("C" -> Domain.String)))
-    val SUBB = Query.Base("SUBB", Schema(Seq("C" -> Domain.String)))
-    expectResult(Schema(Seq("C" -> Domain.String))) {
+    val SUBA = Query.Base("SUBA", Schema("C" -> Domain.String))
+    val SUBB = Query.Base("SUBB", Schema("C" -> Domain.String))
+    expectResult(Schema("C" -> Domain.String)) {
       Query.Project(Seq("C" -> Expr.AttributeRef("C")),
         Query.Restrict(
           Expr.Application(
@@ -152,7 +152,7 @@ class relationalTest extends FunSuite {
   }
 
   test("set sub-query") {
-    expectResult(Schema(Seq("S" -> Domain.Set(Domain.Integer)))) {
+    expectResult(Schema("S" -> Domain.Set(Domain.Integer))) {
       Query.Project(Seq("S" -> Expr.SetSubQuery(
         Query.Project(Seq("two" -> Expr.AttributeRef("two")), tbl1))), Query.Empty)
         .checkedSchema()

@@ -10,9 +10,9 @@ import de.ag.sqala.{Ascending, Operator, Domain}
  *
  */
 class relationalSqlTest extends FunSuite {
-  val tbl1 = Table.Base("tbl1", Schema(Seq("one" -> Domain.String, "two" -> Domain.Integer)))
+  val tbl1 = Table.Base("tbl1", Schema("one" -> Domain.String, "two" -> Domain.Integer))
   val query1 = tbl1.toQuery
-  val tbl2 = Table.Base("tbl2", Schema(Seq("three" -> Domain.Blob, "four" -> Domain.String)))
+  val tbl2 = Table.Base("tbl2", Schema("three" -> Domain.Blob, "four" -> Domain.String))
   val query2 = tbl2.toQuery
 
   test("trivial") {
@@ -82,8 +82,8 @@ class relationalSqlTest extends FunSuite {
   }
 
   test("quotient-1") {
-    val R = RQuery.Base("R", Schema(Seq("A" -> Domain.String, "B" -> Domain.String)))
-    val S = RQuery.Base("S", Schema(Seq("A" -> Domain.String)))
+    val R = RQuery.Base("R", Schema("A" -> Domain.String, "B" -> Domain.String))
+    val S = RQuery.Base("S", Schema("A" -> Domain.String))
     expectResult("SELECT B FROM R WHERE (A IN (SELECT * FROM S)) GROUP BY B HAVING (COUNT(B) = (SELECT COUNT(A) FROM S))") {
       RQuery.Quotient(R, S)
       .toSqlTable

@@ -71,7 +71,7 @@ sealed abstract class Query {
             val domain = toEnv(baseSchema).expressionDomain(expr, domainCheck)
             domainCheck { fail => if (domain.isInstanceOf[Domain.Product]) fail("non-product domain", domain) }
             (attr, domain)
-          }.toSeq
+          }:_*
         )
       case Query.Restrict(expr, query) =>
         val schema = rec(query)
@@ -91,7 +91,7 @@ sealed abstract class Query {
               if (env2.contains(attr)) fail("non-duplicate " + attr, attr)
           }
         }
-        Schema(schema1.schema ++ schema2.schema)
+        Schema(schema1.schema ++ schema2.schema:_*)
       case Query.Quotient(query1, query2) =>
         val schema1 = rec(query1)
         val schema2 = rec(query2)
@@ -118,7 +118,7 @@ sealed abstract class Query {
             val domain = environment.expressionDomain(expr, domainCheck)
             domainCheck { fail => if (domain.isInstanceOf[Domain.Product]) fail("non-product domain", domain) }
             (attr, domain)
-          }
+          }:_*
         )
       case Query.Order(by, query) =>
         val schema = rec(query)
