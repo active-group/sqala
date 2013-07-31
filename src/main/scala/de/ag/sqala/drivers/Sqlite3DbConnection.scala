@@ -75,8 +75,8 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
           case Domain.Integer => statement.setInt(i, value.asInstanceOf[Integer].intValue())
           case Domain.Double => statement.setDouble(i, value.asInstanceOf[Double])
           case Domain.Boolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
-          case Domain.CalendarTime => throw new IllegalArgumentException("sqlite cannot handle date/time")
-          case Domain.Blob => statement.setBlob(i, value.asInstanceOf[java.io.InputStream])
+          case Domain.CalendarTime => statement.setString(i, value.asInstanceOf[String]) // ISO-8601 String
+          case Domain.Blob => statement.setBlob(i, value.asInstanceOf[java.io.InputStream]) // FIXME
           case _ => throw new RuntimeException("unknown domain " + domain)
         }
     }
