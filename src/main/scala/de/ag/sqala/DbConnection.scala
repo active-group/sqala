@@ -103,6 +103,10 @@ trait DbConnection {
 
   def createTable(name:View.TableName, schema:Schema): Unit
 
+  def dropTable(name:View.TableName): Unit
+
+  def dropTableIfExists(name:View.TableName): Unit
+
   /** Execute raw SQL string. For 'emergencies' and database- and driver-specific stuff.
     *
     * @param sql Raw SQL string that is sent to driver

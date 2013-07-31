@@ -147,6 +147,9 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
       Right(statement.getUpdateCount)
   }
 
+  def dropTable(name: View.TableName):Unit = ???
+
+  def dropTableIfExists(name: View.TableName):Unit = ???
 }
 
 object Sqlite3DbConnection {

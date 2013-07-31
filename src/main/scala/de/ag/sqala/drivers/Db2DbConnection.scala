@@ -146,6 +146,10 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     statement.execute(sql)
     statement.close()
   }
+
+  def dropTable(name: View.TableName): Unit = ???
+
+  def dropTableIfExists(name: View.TableName): Unit = ???
 }
 
 object Db2DbConnection {
