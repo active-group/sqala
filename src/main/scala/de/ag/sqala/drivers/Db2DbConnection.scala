@@ -1,14 +1,12 @@
 package de.ag.sqala.drivers
 
 import de.ag.sqala.sql._
-import java.io.{File, Writer}
-import java.sql.Date
+import java.io.Writer
 import java.util.Properties
 import de.ag.sqala._
 import de.ag.sqala.JDBCHandle
 import de.ag.sqala.sql.View
 import de.ag.sqala.relational.Schema
-import java.net.URL
 
 /**
  * Driver for DB2 database
@@ -59,38 +57,29 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     new ResultSetIterator(resultSet)
   }
 
+  def domainValue(domain:Domain, value:AnyRef): String = domain match {
+    case Domain.String | Domain.BoundedString(_) => "'%s'".format(value)
+    case Domain.IdentityInteger => "default"
+    case Domain.Integer => value.toString
+    case Domain.Double => value.toString
+    case Domain.Nullable(nDomain) => if (value == null) "null" else domainValue(nDomain, value)
+    case Domain.Boolean => ???
+    case Domain.Blob => ???
+    case Domain.CalendarTime => ???
+    case Domain.Set(_) => ???
+    case Domain.Product(_) => ???
+  }
 
   def insert(tableName: View.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
     val sql = "INSERT INTO \"%s\"(%s) VALUES (%s)".format(
       tableName,
       schema.attributes.mkString(", "),
-      listToPlaceholders(values).mkString(", ")
+      schema.domains.zip(values).map{case dv => domainValue(dv._1, dv._2)}.mkString(", ")
     )
-    val statement = connection.prepareStatement(sql)
-    values
-      .zip(schema.domains)
-      .zip(1 to schema.degree) // parameter count starts with 1
-      .foreach {
-      case ((value, domain), i) =>
-        domain match {
-          case Domain.String => statement.setString(i, value.asInstanceOf[String])
-          case Domain.BoundedString(_) => statement.setString(i, value.asInstanceOf[String])
-          case Domain.Integer => statement.setInt(i, value.asInstanceOf[Integer].intValue())
-          case Domain.Double => statement.setDouble(i, value.asInstanceOf[Double])
-          case Domain.Boolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
-          case Domain.CalendarTime => statement.setDate(i, value.asInstanceOf[Date])
-          case Domain.Blob => statement.setBlob(i, value.asInstanceOf[java.io.InputStream])
-          case _ => throw new RuntimeException("unknown domain " + domain)
-        }
-    }
-    val result = statement.executeUpdate()
+    val statement = connection.createStatement()
+    val result = statement.executeUpdate(sql)
     statement.close()
     result
-  }
-
-
-  private def listToPlaceholders(values: Seq[Any]): Seq[String] = {
-    values.map{_=>"?"}
   }
 
   def delete(tableName: View.TableName, condition: Expr): Int = {
@@ -128,6 +117,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
   def domain2SqliteDomain(domain: Domain): String = domain match {
     case Domain.String => "VARCHAR(32672)" // 32672 is the max (for v10); use BoundedString to define max yourself
     case Domain.BoundedString(maxSize) => "VARCHAR(%d)".format(maxSize)
+    case Domain.IdentityInteger => "INT NOT NULL GENERATED ALWAYS AS IDENTITY(START WITH 1, INCREMENT BY 1, NO CYCLE)"
     case Domain.Integer => "INTEGER"
     case Domain.Double => "DOUBLE"
     case Domain.Blob => "BLOB(1M)" // 1M is the default (for v10); FIXME allow specifying max
