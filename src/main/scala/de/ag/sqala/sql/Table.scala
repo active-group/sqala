@@ -58,7 +58,7 @@ sealed abstract class Table {
     out.write("FROM ")
     writeJoined[Table.SelectFromTable](out, from, ", ", {
       (out, from) => from.table match {
-        case q: Table.Base => out.write(q.base.name)
+        case Table.Base(name, _) => out.write(name)
         case q =>
           out.write("(")
           q.write(out, param)
@@ -138,9 +138,9 @@ sealed abstract class Table {
    */
   def write(out:Writer, param:WriteParameterization) {
     this match {
-      case Table.Base(base) =>
+      case Table.Base(name, _) =>
         out.write("SELECT * FROM ")
-        out.write(base.name)
+        out.write(name)
       case s:Table.Select =>
         out.write("SELECT")
         writeWithSpaceIfNotEmpty(out, s.options)(writeJoined(out, _, " "))
@@ -196,7 +196,10 @@ object Table {
   type TableName = String
 
   /** plain ref to table */
-  case class Base(base:de.ag.sqala.relational.Query.Base) extends Table  // TODO smart constructor creating Base
+  case class Base(name: String, schema: Schema) extends Table {
+    /** convert table to a relational query */
+    def toQuery: de.ag.sqala.relational.Query.Base = de.ag.sqala.relational.Query.Base(name, schema)
+  }
 
   /** select from with all clauses + options + extra */
   case class Select(options: Seq[String], // DISTINCT, ALL, etc.

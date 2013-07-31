@@ -59,7 +59,7 @@ sealed abstract class Query {
 
     def rec(q:Query): Schema = q match {
       case Query.Empty => Schema.empty
-      case b:Query.Base => b.base
+      case Query.Base(_, schema) => schema
       case Query.Project(subset, query) =>
         val baseSchema = rec(query)
         domainCheck { fail =>
@@ -213,14 +213,14 @@ sealed abstract class Query {
 
     this match {
       case Query.Empty => sql.Table.Empty
-      case base:Query.Base => // TODO what about handle?
+      case Query.Base(name, schema) => // TODO what about handle?
         /* schemeql2 has this:
           (if (not (sql-table? (base-relation-handle q)))
               (assertion-violation 'query->sql
                                     "base relation not an SQL table"
                                     q))
          */
-        sql.Table.Base(base)
+        sql.Table.Base(name, schema)
       case Query.Project(subset, query) =>
         val select = queryToSelect(query)
         val attributes: Seq[sql.Table.SelectAttribute] = if (subset.isEmpty) {
@@ -266,8 +266,8 @@ object Query {
   case object Empty extends Query
   /** named schema */
   case class Base(name:Query.Name,
-                       base:Schema
-                       /* TODO handle? */) extends Query
+                  baseSchema:Schema
+                  /* TODO handle? */) extends Query
   /** Projection (select and alias columns) */
   case class Project(subset:Seq[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
   /** Restriction (select rows) */

@@ -10,10 +10,10 @@ import de.ag.sqala.{Ascending, Operator, Domain}
  *
  */
 class relationalSqlTest extends FunSuite {
-  val query1 = RQuery.Base("tbl1", Schema(Seq("one" -> Domain.String, "two" -> Domain.Integer)))
-  val tbl1 = Table.Base(query1)
-  val query2 = RQuery.Base("tbl2", Schema(Seq("three" -> Domain.Blob, "four" -> Domain.String)))
-  val tbl2 = Table.Base(query2)
+  val tbl1 = Table.Base("tbl1", Schema(Seq("one" -> Domain.String, "two" -> Domain.Integer)))
+  val query1 = tbl1.toQuery
+  val tbl2 = Table.Base("tbl2", Schema(Seq("three" -> Domain.Blob, "four" -> Domain.String)))
+  val query2 = tbl2.toQuery
 
   test("trivial") {
     expectResult("SELECT two, one FROM tbl1") {
