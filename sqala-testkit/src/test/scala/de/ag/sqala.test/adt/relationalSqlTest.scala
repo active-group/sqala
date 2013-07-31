@@ -25,7 +25,7 @@ class relationalSqlTest extends FunSuite {
     }
 
     expectResult("SELECT (two = two) AS eq FROM tbl1") {
-      RQuery.Project(Seq("eq" -> RExpr.Application(Operator.Eq, Seq(RExpr.AttributeRef("two"), RExpr.AttributeRef("two")))),
+      RQuery.Project(Seq("eq" -> RExpr.Application(Operator.Eq, RExpr.AttributeRef("two"), RExpr.AttributeRef("two"))),
         query1)
         .toSqlTable
         .toString
@@ -41,7 +41,7 @@ class relationalSqlTest extends FunSuite {
   test("case") {
     expectResult("SELECT (CASE WHEN (two = two) THEN one ELSE one) AS foo FROM tbl1") {
       RQuery.Project(Seq("foo" -> RExpr.Case(
-        Seq(RExpr.CaseBranch(RExpr.Application(Operator.Eq, Seq(RExpr.AttributeRef("two"), RExpr.AttributeRef("two"))), RExpr.AttributeRef("one"))),
+        Seq(RExpr.CaseBranch(RExpr.Application(Operator.Eq, RExpr.AttributeRef("two"), RExpr.AttributeRef("two")), RExpr.AttributeRef("one"))),
         Some(RExpr.AttributeRef("one")))),
       query1)
       .toSqlTable

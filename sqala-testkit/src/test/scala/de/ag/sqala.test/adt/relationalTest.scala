@@ -25,13 +25,13 @@ class relationalTest extends FunSuite {
 
   test("trivial-checkDomain") {
     val q1 = Query.Project(Seq(
-      "eq" -> Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("two"), Expr.AttributeRef("two")))
+      "eq" -> Expr.Application(Operator.Eq, Expr.AttributeRef("two"), Expr.AttributeRef("two"))
     ),
       tbl1)
     q1.checkDomains() // should not throw DomainCheckException (or any other, that is)
     info("checked domains of q1 schema")
     val q2 = Query.Project(Seq(
-      "eq" -> Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("one"), Expr.AttributeRef("two")))
+      "eq" -> Expr.Application(Operator.Eq, Expr.AttributeRef("one"), Expr.AttributeRef("two"))
     ),
       tbl1)
     intercept[DomainCheckException]{q2.checkDomains()}
@@ -54,17 +54,17 @@ class relationalTest extends FunSuite {
   test("case") {
     val q1 = Query.Project(Seq("foo" ->
       Expr.Case(Seq(
-        Expr.CaseBranch(Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("two"), Expr.AttributeRef("two"))),
+        Expr.CaseBranch(Expr.Application(Operator.Eq, Expr.AttributeRef("two"), Expr.AttributeRef("two")),
           Expr.AttributeRef("one"))),
         None)),
       tbl1)
     val q2 = Query.Project(Seq("foo" ->
-      Expr.Case(Seq(Expr.CaseBranch(Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("two"), Expr.AttributeRef("two"))),
+      Expr.Case(Seq(Expr.CaseBranch(Expr.Application(Operator.Eq, Expr.AttributeRef("two"), Expr.AttributeRef("two")),
         Expr.AttributeRef("one"))),
         Some(Expr.AttributeRef("one")))),
       tbl1)
     val q3 = Query.Project(Seq("foo" ->
-      Expr.Case(Seq(Expr.CaseBranch(Expr.Application(Operator.Eq, Seq(Expr.AttributeRef("two"), Expr.AttributeRef("two"))),
+      Expr.Case(Seq(Expr.CaseBranch(Expr.Application(Operator.Eq, Expr.AttributeRef("two"), Expr.AttributeRef("two")),
         Expr.AttributeRef("one"))),
         Some(Expr.AttributeRef("two")))),
       tbl1)
@@ -143,9 +143,9 @@ class relationalTest extends FunSuite {
       Query.Project(Seq("C" -> Expr.AttributeRef("C")),
         Query.Restrict(
           Expr.Application(
-            Operator.Eq, Seq(Expr.ScalarSubQuery(Query.Project(Seq("C" -> Expr.AttributeRef("C")),
+            Operator.Eq, Expr.ScalarSubQuery(Query.Project(Seq("C" -> Expr.AttributeRef("C")),
               SUBB)),
-              Expr.AttributeRef("C"))),
+              Expr.AttributeRef("C")),
           SUBA))
         .checkedSchema()
     }
