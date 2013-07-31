@@ -17,17 +17,15 @@ class relationalSqlTest extends FunSuite {
 
   test("trivial") {
     expectResult("SELECT two, one FROM tbl1") {
-      RQuery.Project(Seq("two" -> RExpr.AttributeRef("two"),
-        "one" -> RExpr.AttributeRef("one")),
-        query1)
+      RQuery.Project(query1, "two" -> RExpr.AttributeRef("two"),
+        "one" -> RExpr.AttributeRef("one"))
         .toSqlTable
         .toString
     }
 
     expectResult("SELECT (two = two) AS eq FROM tbl1") {
-      RQuery.Project(Seq("eq" -> RExpr.Application(Operator.Eq, RExpr.AttributeRef("two"), RExpr.AttributeRef("two"))),
-        query1)
-        .toSqlTable
+      RQuery.Project(query1, "eq" -> RExpr.Application(Operator.Eq, RExpr.AttributeRef("two"), RExpr.AttributeRef("two")))
+      .toSqlTable
         .toString
     }
 
@@ -40,10 +38,9 @@ class relationalSqlTest extends FunSuite {
 
   test("case") {
     expectResult("SELECT (CASE WHEN (two = two) THEN one ELSE one) AS foo FROM tbl1") {
-      RQuery.Project(Seq("foo" -> RExpr.Case(
+      RQuery.Project(query1, "foo" -> RExpr.Case(
         Seq(RExpr.CaseBranch(RExpr.Application(Operator.Eq, RExpr.AttributeRef("two"), RExpr.AttributeRef("two")), RExpr.AttributeRef("one"))),
-        Some(RExpr.AttributeRef("one")))),
-      query1)
+        Some(RExpr.AttributeRef("one"))))
       .toSqlTable
       .toString
     }
@@ -51,15 +48,15 @@ class relationalSqlTest extends FunSuite {
 
   test("aggregation") {
     expectResult("SELECT one, AVG(two) AS foo FROM tbl1 GROUP BY one") {
-      RQuery.GroupingProject(Seq("one" -> RExpr.AttributeRef("one"),
-      "foo" -> RExpr.Aggregation(Operator.Avg, RExpr.AttributeRef("two"))), query1)
+      RQuery.GroupingProject(query1, "one" -> RExpr.AttributeRef("one"),
+      "foo" -> RExpr.Aggregation(Operator.Avg, RExpr.AttributeRef("two")))
       .toSqlTable
       .toString()
     }
 
     expectResult("SELECT two, COUNT(one) AS foo FROM tbl1 GROUP BY two") {
-      RQuery.GroupingProject(Seq("two" -> RExpr.AttributeRef("two"),
-        "foo" -> RExpr.Aggregation(Operator.Count, RExpr.AttributeRef("one"))), query1)
+      RQuery.GroupingProject(query1, "two" -> RExpr.AttributeRef("two"),
+        "foo" -> RExpr.Aggregation(Operator.Count, RExpr.AttributeRef("one")))
         .toSqlTable
         .toString()
     }
@@ -67,7 +64,7 @@ class relationalSqlTest extends FunSuite {
 
   test("order") {
     expectResult("SELECT * FROM tbl1 ORDER BY one ASC") {
-      RQuery.Order(Seq(RExpr.AttributeRef("one") -> Ascending), query1)
+      RQuery.Order(query1, RExpr.AttributeRef("one") -> Ascending)
       .toSqlTable
       .toString
     }
@@ -75,7 +72,7 @@ class relationalSqlTest extends FunSuite {
 
   test("subquery") {
     expectResult("SELECT * FROM tbl2 WHERE (SELECT * FROM tbl1)") {
-      RQuery.Restrict(RExpr.ScalarSubQuery(query1), query2)
+      RQuery.Restrict(query2, RExpr.ScalarSubQuery(query1))
       .toSqlTable
       .toString
     }

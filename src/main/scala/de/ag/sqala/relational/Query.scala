@@ -60,7 +60,7 @@ sealed abstract class Query {
     def rec(q:Query): Schema = q match {
       case Query.Empty => Schema.empty
       case Query.Base(_, schema) => schema
-      case Query.Project(subset, query) =>
+      case Query.Project(query, subset@_*) =>
         val baseSchema = rec(query)
         domainCheck { fail =>
           subset.foreach {
@@ -73,7 +73,7 @@ sealed abstract class Query {
             (attr, domain)
           }:_*
         )
-      case Query.Restrict(expr, query) =>
+      case Query.Restrict(query, expr) =>
         val schema = rec(query)
         domainCheck { fail =>
           val domain = toEnv(schema).expressionDomain(expr, domainCheck)
@@ -110,7 +110,7 @@ sealed abstract class Query {
       case Query.Union(q1, q2) => uiq(q, q1, q2)
       case Query.Intersection(q1, q2) => uiq(q, q1, q2)
       case Query.Difference(q1, q2) => uiq(q, q1, q2)
-      case Query.GroupingProject(alist, query) =>
+      case Query.GroupingProject(query, alist@_*) =>
         val schema = rec(query)
         val environment = toEnv(schema)
         Schema(
@@ -120,7 +120,7 @@ sealed abstract class Query {
             (attr, domain)
           }:_*
         )
-      case Query.Order(by, query) =>
+      case Query.Order(query, by@_*) =>
         val schema = rec(query)
         val env = toEnv(schema)
         domainCheck { fail =>
@@ -191,14 +191,13 @@ sealed abstract class Query {
       } else {
         val diffProjectAlist = diffSchema.schema.map{case (attr, domain) => (attr, relational.Expr.AttributeRef(attr))}
         val q1ProjectAlist = schema1.schema.map{case (attr, domain) => (attr, relational.Expr.AttributeRef(attr))}
-        val pruned = relational.Query.Project(diffProjectAlist, query1)
+        val pruned = relational.Query.Project(query1, diffProjectAlist:_*)
         relational.Query.Difference(pruned,
-          relational.Query.Project(diffProjectAlist,
+          relational.Query.Project(
             relational.Query.Difference(
-              relational.Query.Project(q1ProjectAlist,
-                relational.Query.Product(query2, pruned)),
-              query1
-            ))).toSqlTable
+              relational.Query.Project(
+                relational.Query.Product(query2, pruned), q1ProjectAlist:_*),
+              query1), diffProjectAlist:_*)).toSqlTable
       }
     }
 
@@ -221,7 +220,7 @@ sealed abstract class Query {
                                     q))
          */
         sql.Table.Base(name, schema)
-      case Query.Project(subset, query) =>
+      case Query.Project(query, subset@_*) =>
         val select = queryToSelect(query)
         val attributes: Seq[sql.Table.SelectAttribute] = if (subset.isEmpty) {
           Seq(sql.Table.SelectAttribute(sql.Expr.Const(sql.Expr.Literal.String("dummy")), None))
@@ -230,7 +229,7 @@ sealed abstract class Query {
         }
         // TODO what about `(set-sql-nullary? sql #t)` ?
         select.copy(attributes = attributes)
-      case Query.Restrict(expr, query) =>
+      case Query.Restrict(query, expr) =>
         val select = queryToSelect(query)
         select.copy(where = expr.toSqlExpr +: select.where)
       case Query.Product(query1, query2) => product(query1, query2)
@@ -238,7 +237,7 @@ sealed abstract class Query {
       case Query.Union(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Union, q1.toSqlTable, q2.toSqlTable)
       case Query.Intersection(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Intersect, q1.toSqlTable, q2.toSqlTable)
       case Query.Difference(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Except, q1.toSqlTable, q2.toSqlTable)
-      case Query.GroupingProject(alist, query) => // TODO consider merging GroupingProject with Project (keeping isAggregate filter)
+      case Query.GroupingProject(query, alist@_*) => // TODO consider merging GroupingProject with Project (keeping isAggregate filter)
         val select = queryToSelect(query)
         val groupByClauses = alist
           .map(_._2)
@@ -246,7 +245,7 @@ sealed abstract class Query {
           .map(_.toSqlExpr)
         select.copy(attributes = alistToSql(alist),
           groupBy = groupByClauses ++ select.groupBy)
-      case Query.Order(by, query) =>
+      case Query.Order(query, by@_*) =>
         val select = queryToSelect(query)
         val newOrder = by.map {
           case (expr, direction) => sql.Table.SelectOrderBy(expr.toSqlExpr, direction)
@@ -269,9 +268,9 @@ object Query {
                   baseSchema:Schema
                   /* TODO handle? */) extends Query
   /** Projection (select and alias columns) */
-  case class Project(subset:Seq[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
+  case class Project(query:Query, subset:(Attribute, Expr)*) extends Query // map newly bound attributes to expressions
   /** Restriction (select rows) */
-  case class Restrict(expr:Expr /*returning boolean*/, query:Query) extends Query
+  case class Restrict(query:Query, expr:Expr /*returning boolean*/) extends Query
   /** (Cross-) Product */
   case class Product(query1:Query, query2:Query) extends Query
   /** Union (contents of both queries, "vertical cat") */
@@ -294,9 +293,9 @@ object Query {
    * Like Project, but the underlying query is grouped by the non-aggregate expressions in
    * the grouping (hu? FIXME)
    */
-  case class GroupingProject(grouping:Seq[(Attribute, Expr)], query:Query) extends Query
+  case class GroupingProject(query:Query, grouping:(Attribute, Expr)*) extends Query
   /** Order rows */
-  case class Order(by:Seq[(Expr, OrderDirection)], query:Query) extends Query
+  case class Order(query:Query, by:(Expr, OrderDirection)*) extends Query
   /** Top n entries */
   case class Top(n:Int, query:Query) extends Query
 
