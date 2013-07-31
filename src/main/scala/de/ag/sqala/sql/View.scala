@@ -58,7 +58,10 @@ sealed abstract class View {
     out.write("FROM ")
     writeJoined[View.SelectFromView](out, from, ", ", {
       (out, from) => from.view match {
-        case View.Table(name, _) => out.write(name)
+        case View.Table(name, _) =>
+          out.write('"')  // mysql: use ansi mode (set @session sql_mode = ANSI;) or parameterize this, too
+          out.write(name)
+          out.write('"')
         case q =>
           out.write("(")
           q.write(out, param)
@@ -140,7 +143,9 @@ sealed abstract class View {
     this match {
       case View.Table(name, _) =>
         out.write("SELECT * FROM ")
+        out.write('"')  // mysql: see note in writeFrom
         out.write(name)
+        out.write('"')
       case s:View.Select =>
         out.write("SELECT")
         writeWithSpaceIfNotEmpty(out, s.options)(writeJoined(out, _, " "))

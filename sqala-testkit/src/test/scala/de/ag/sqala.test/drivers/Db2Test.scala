@@ -29,10 +29,10 @@ class Db2Test extends FunSuite with BeforeAndAfter {
 
   def createTbl1() {
     // DROP TABLE IF EXISTS
-    conn.execute("select tabname from syscat.tables where tabschema='DB2INST2' and tabname='TBL1'") match {
+    conn.execute("select tabname from syscat.tables where tabschema='DB2INST2' and tabname='tbl1'") match {
       case Left(it:ResultSetIterator) =>
         if (it.size > 0)
-          conn.execute("DROP TABLE tbl1")
+          conn.execute("DROP TABLE \"tbl1\"")
       case Right(count) => throw new RuntimeException("unexpectedly received update count")
     }
     conn.createTable("tbl1", tbl1Schema)

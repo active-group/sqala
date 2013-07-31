@@ -61,7 +61,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
 
 
   def insert(tableName: View.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
-    val sql = "INSERT INTO %s(%s) VALUES (%s)".format(
+    val sql = "INSERT INTO \"%s\"(%s) VALUES (%s)".format(
       tableName,
       schema.attributes.mkString(", "),
       listToPlaceholders(values).mkString(", ")
@@ -94,7 +94,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
   def delete(tableName: View.TableName, condition: Expr): Int = {
-    val sql = "DELETE FROM %s WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
+    val sql = "DELETE FROM \"%s\" WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
     val statement = connection.createStatement()
     val result = statement.executeUpdate(sql)
     statement.close()
@@ -106,7 +106,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     val clauses = updates.map {
       case (columnName, value) => "%s = %s".format(columnName, value.toString(sqlWriteParameterization))
     }
-    val sql = "UPDATE %s SET %s WHERE %s".format(
+    val sql = "UPDATE \"%s\" SET %s WHERE %s".format(
       tableName,
       clauses.mkString(", "),
       condition.toString(sqlWriteParameterization)
@@ -141,7 +141,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     }
 
   def createTable(name: View.TableName, schema: Schema) {
-    val sql = "CREATE TABLE %s(\n%s\n)".format(name, schemaToDDTList(schema).mkString(",\n"))
+    val sql = "CREATE TABLE \"%s\"(\n%s\n)".format(name, schemaToDDTList(schema).mkString(",\n"))
     val statement = connection.createStatement()
     statement.execute(sql)
     statement.close()
