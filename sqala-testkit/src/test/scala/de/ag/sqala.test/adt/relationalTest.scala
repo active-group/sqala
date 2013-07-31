@@ -1,4 +1,4 @@
-package de.ag.sqala.test
+package de.ag.sqala.test.adt
 
 import org.scalatest.FunSuite
 import de.ag.sqala.relational._
@@ -76,7 +76,7 @@ class relationalTest extends FunSuite {
 
   test("ordered") {
     val q1 = Query.Order(Seq(Expr.AttributeRef("one") -> Ascending), tbl1)
-    expectResult(tbl1.base) { q1.checkedSchema() }
+    expectResult(tbl1.baseSchema) { q1.checkedSchema() }
     intercept[NoSuchElementException] {
       Query.Order(Seq(Expr.AttributeRef("three") -> Ascending), tbl1).checkDomains()
     }

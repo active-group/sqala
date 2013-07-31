@@ -36,11 +36,7 @@ object defaultSqlWriteParameterization extends WriteParameterization {
     out.write('(')
     combine.left.write(out, param)
     out.write(") ")
-    out.write(combine.op match {
-      case Expr.CombineOp.Union => "UNION"
-      case Expr.CombineOp.Intersect => "INTERSECT"
-      case Expr.CombineOp.Except => "EXCEPT"
-    })
+    out.write(combine.op.toSpacedString)
     out.write(" (")
     combine.right.write(out, param)
     out.write(")")

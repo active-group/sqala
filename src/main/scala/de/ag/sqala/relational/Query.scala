@@ -59,7 +59,7 @@ sealed abstract class Query {
 
     def rec(q:Query): Schema = q match {
       case Query.Empty => Schema.empty
-      case b:Query.Base => b.base
+      case Query.Base(_, schema) => schema
       case Query.Project(subset, query) =>
         val baseSchema = rec(query)
         domainCheck { fail =>
@@ -134,46 +134,12 @@ sealed abstract class Query {
     rec(this)
   }
 
-  // FIXME consider this being part of sql.Table
-  def xToSqlSelect(table: sql.Table): sql.Table.Select = {
-    table match {
-      case sql.Table.Empty => sql.Table.makeSelect(from=Seq())
-      case select:sql.Table.Select if select.attributes.isEmpty => select
-      case _ => sql.Table.makeSelect(from=Seq(sql.Table.SelectFromTable(table, None)))
-    }
-  }
-
-  // FIXME consider this being part of relational.Expr?
-  def expressionToSql(expr: relational.Expr): sql.Expr = expr match {
-    case Expr.AttributeRef(name) => sql.Expr.Column(name)
-    case Expr.Const(domain, value) =>  // FIXME value should be Any or choose other representation
-      val sqlVal:sql.Expr.Literal = domain match {
-        // FIXME conversion should happen in Domain
-        case Domain.String => sql.Expr.Literal.String(value.asInstanceOf[String])
-        case Domain.Integer => sql.Expr.Literal.Integer(value.asInstanceOf[Integer])
-        case Domain.Boolean => sql.Expr.Literal.Boolean(value.asInstanceOf[Boolean])
-        // etc.
-      }
-      sql.Expr.Const(sqlVal)
-    case Expr.Null(_) => sql.Expr.Const(sql.Expr.Literal.Null)
-    case Expr.Application(operator, operands) =>
-      /* FIXME what about `(apply make-sql-expr-app (rator-data (application-rator expr))
-                                (map expression->sql (application-rands expr)))`? */
-      val sqlOperator:Operator = operator
-      sql.Expr.App(sqlOperator, operands.map(expressionToSql))
-    case Expr.Tuple(exprs) => sql.Expr.Tuple(exprs.map(expressionToSql))
-    case Expr.Aggregation(op, aggrExpr) => sql.Expr.App(op, Seq(expressionToSql(aggrExpr))) // FIXME consider Aggregation being Application
-    case Expr.Case(branches, default) =>
-      sql.Expr.Case(branches.map { case Expr.CaseBranch(condition, value) =>
-          sql.Expr.CaseBranch(expressionToSql(condition), expressionToSql(value)) },
-        default.map(expressionToSql))
-    case Expr.ScalarSubQuery(q) =>
-      sql.Expr.SubTable(q.toSqlTable)
-    case Expr.SetSubQuery(q) =>
-      sql.Expr.SubTable(q.toSqlTable) // FIXME consider dropping this branch from relational.Expr
-  }
-
+  /**
+   * Convert this query to an SQL Table (query)
+   * @return SQL table (query) equivalent to this relational query
+   */
   def toSqlTable:sql.Table = {
+    /** helper method for product case */
     def product(query1: relational.Query, query2: relational.Query): sql.Table = {
       val table1 = query1.toSqlTable
       val table2 = query2.toSqlTable
@@ -187,9 +153,11 @@ sealed abstract class Query {
       }
     }
 
+    /** Append table2 to FROM-clause of sql-Select table1 */
     def addTable(table1:sql.Table.Select, table2:sql.Table):sql.Table =
       table1.copy(from = table1.from ++ Seq(sql.Table.SelectFromTable(table2, None)))
 
+    /** helper method for quotient case */
     def quotient(query1: relational.Query, query2: relational.Query): sql.Table = {
       val schema1 = query1.schema()
       val schema2 = query2.schema()
@@ -234,58 +202,58 @@ sealed abstract class Query {
       }
     }
 
+    /** Convert sequence of (Attribute, Expr) to sequence of attributes of a sql table-select */
     def alistToSql(tuples: Seq[(Schema.Attribute, Expr)]): Seq[sql.Table.SelectAttribute] = {
-      tuples.map{case (attr, expr) => sql.Table.SelectAttribute(alias=Some(attr), expr=expressionToSql(expr))}
+      tuples.map{case (attr, expr) => sql.Table.SelectAttribute(alias=Some(attr), expr=expr.toSqlExpr)}
     }
+
+    /** helper method converting relational query to sql table-select */
+    def queryToSelect(query:Query): sql.Table.Select =
+      query.toSqlTable.toSelect
 
     this match {
       case Query.Empty => sql.Table.Empty
-      case base:Query.Base => // FIXME what about handle?
+      case Query.Base(name, schema) => // TODO what about handle?
         /* schemeql2 has this:
           (if (not (sql-table? (base-relation-handle q)))
               (assertion-violation 'query->sql
                                     "base relation not an SQL table"
                                     q))
          */
-        sql.Table.Base(base)
+        sql.Table.Base(name, schema)
       case Query.Project(subset, query) =>
-        val table = query.toSqlTable
-        val select: sql.Table.Select = xToSqlSelect(table)
+        val select = queryToSelect(query)
         val attributes: Seq[sql.Table.SelectAttribute] = if (subset.isEmpty) {
           Seq(sql.Table.SelectAttribute(sql.Expr.Const(sql.Expr.Literal.String("dummy")), None))
         } else {
           alistToSql(subset)
         }
-        // FIXME what about `(set-sql-nullary? sql #t)` ?
+        // TODO what about `(set-sql-nullary? sql #t)` ?
         select.copy(attributes = attributes)
       case Query.Restrict(expr, query) =>
-        val sqlQuery = query.toSqlTable
-        val select = xToSqlSelect(sqlQuery)
-        select.copy(where = expressionToSql(expr) +: select.where)
+        val select = queryToSelect(query)
+        select.copy(where = expr.toSqlExpr +: select.where)
       case Query.Product(query1, query2) => product(query1, query2)
       case Query.Quotient(query1, query2) => quotient(query1, query2)
       case Query.Union(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Union, q1.toSqlTable, q2.toSqlTable)
       case Query.Intersection(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Intersect, q1.toSqlTable, q2.toSqlTable)
       case Query.Difference(q1, q2) => sql.Table.Combine(sql.Expr.CombineOp.Except, q1.toSqlTable, q2.toSqlTable)
-      case Query.GroupingProject(alist, query) => // FIXME consider merging GroupingProject with Project (keeping isAggregate filter)
-        val sqlQuery = query.toSqlTable
-        val select = xToSqlSelect(sqlQuery)
+      case Query.GroupingProject(alist, query) => // TODO consider merging GroupingProject with Project (keeping isAggregate filter)
+        val select = queryToSelect(query)
         val groupByClauses = alist
           .map(_._2)
           .filterNot(_.isAggregate)
-          .map(expressionToSql)
+          .map(_.toSqlExpr)
         select.copy(attributes = alistToSql(alist),
           groupBy = groupByClauses ++ select.groupBy)
       case Query.Order(by, query) =>
-        val sqlQuery = query.toSqlTable
-        val select = xToSqlSelect(sqlQuery)
+        val select = queryToSelect(query)
         val newOrder = by.map {
-          case (expr, direction) => sql.Table.SelectOrderBy(expressionToSql(expr), direction)
+          case (expr, direction) => sql.Table.SelectOrderBy(expr.toSqlExpr, direction)
         }
         select.copy(orderBy = newOrder ++ select.orderBy)
       case Query.Top(n, query) =>
-        val sqlQuery = query.toSqlTable
-        val select = xToSqlSelect(sqlQuery) // FIXME combine to method: relational.Query -> sql.Table.Select
+        val select = queryToSelect(query)
         select.copy(extra = " LIMIT %d ".format(n) +: select.extra)
     }
   }
@@ -298,8 +266,8 @@ object Query {
   case object Empty extends Query
   /** named schema */
   case class Base(name:Query.Name,
-                       base:Schema
-                       /* TODO handle? */) extends Query
+                  baseSchema:Schema
+                  /* TODO handle? */) extends Query
   /** Projection (select and alias columns) */
   case class Project(subset:Seq[(Attribute, Expr)], query:Query) extends Query // map newly bound attributes to expressions
   /** Restriction (select rows) */

@@ -119,11 +119,22 @@ object Expr {
 
   /** Combine operator in SQL expression.
     * Could have been enumeration. */
-  sealed abstract class CombineOp
+  sealed abstract class CombineOp {
+    def toSpacedString:String = " " + this.toString + " "
+
+    override def toString: String = this match {
+      case CombineOp.Union => "UNION"
+      case CombineOp.Intersect => "INTERSECT"
+      case CombineOp.Except => "EXCEPT"
+      case CombineOp.UnionAll => "UNION ALL"
+    }
+  }
+
   object CombineOp {
-    //FIXME what about UNION ALL?
     /** Union */
     case object Union extends CombineOp
+    /** Union all */
+    case object UnionAll extends CombineOp
     /** Intersection */
     case object Intersect extends CombineOp
     /** Except */

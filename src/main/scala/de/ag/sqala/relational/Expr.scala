@@ -1,6 +1,6 @@
 package de.ag.sqala.relational
 
-import de.ag.sqala.{AggregationOperator, Operator, Domain}
+import de.ag.sqala._
 
 /**
  * Expression in a relational algebra
@@ -54,7 +54,7 @@ sealed abstract class Expr {
       onSetSubQuery= {query => ???})
   */
   def fold[T](onAttributeRef: (String) => T,
-              onConst: (Domain, String) => T,
+              onConst: (Domain, Any) => T,
               onNull: (Domain) => T,
               onApplication: (Operator, Seq[T]) => T,
               onTuple: (Seq[T]) => T,
@@ -75,13 +75,45 @@ sealed abstract class Expr {
     }
     rec(this)
   }
+
+  /**
+   * Turn this relational expression to an sql expression
+   * @return sql.Expr equivalent to this relational expression. Throws RuntimeException if const value
+   *         cannot be converted to SQL Literal
+   */
+  def toSqlExpr: sql.Expr = this match {
+    case Expr.AttributeRef(name) => sql.Expr.Column(name)
+    case Expr.Const(domain, value) =>
+      val sqlVal = domain.sqlLiteralValueOf(value) match {
+        case None => throw new RuntimeException("not representable as a literal constant: " + value) // FIXME hm...
+        case Some(l) => l
+      }
+      sql.Expr.Const(sqlVal)
+    case Expr.Null(_) => sql.Expr.Const(sql.Expr.Literal.Null)
+    case Expr.Application(operator, operands) =>
+      /* TODO what about `(apply make-sql-expr-app (rator-data (application-rator expr))
+                                (map expression->sql (application-rands expr)))`? */
+      val sqlOperator:Operator = operator
+      sql.Expr.App(sqlOperator, operands.map(_.toSqlExpr))
+    case Expr.Tuple(exprs) => sql.Expr.Tuple(exprs.map(_.toSqlExpr))
+    case Expr.Aggregation(op, aggrExpr) => sql.Expr.App(op, Seq(aggrExpr.toSqlExpr)) // TODO consider Aggregation being Application
+    case Expr.Case(branches, default) =>
+      sql.Expr.Case(branches.map { case Expr.CaseBranch(condition, value) =>
+        sql.Expr.CaseBranch(condition.toSqlExpr, value.toSqlExpr) },
+        default.map(_.toSqlExpr))
+    case Expr.ScalarSubQuery(q) =>
+      sql.Expr.SubTable(q.toSqlTable)
+    case Expr.SetSubQuery(q) =>
+      sql.Expr.SubTable(q.toSqlTable) // TODO consider dropping this branch from relational.Expr
+  }
+
 }
 
 object Expr {
   /** attribute reference */
   case class AttributeRef(name:String) extends Expr
   /** constant value */
-  case class Const(domain:Domain, value:String /*FIXME?*/) extends Expr
+  case class Const(domain:Domain, value:Any) extends Expr
   /** a nullable domain */
   case class Null(typ:Domain) extends Expr
   /** application (but not with aggregate op FIXME) */

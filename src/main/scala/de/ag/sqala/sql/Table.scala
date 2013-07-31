@@ -2,7 +2,7 @@ package de.ag.sqala.sql
 
 import java.io.{StringWriter, Writer}
 import de.ag.sqala.StringUtils._
-import de.ag.sqala.{OrderDirection, Descending, Ascending}
+import de.ag.sqala.{sql, OrderDirection, Descending, Ascending}
 import de.ag.sqala.relational.Schema
 
 /**
@@ -58,7 +58,7 @@ sealed abstract class Table {
     out.write("FROM ")
     writeJoined[Table.SelectFromTable](out, from, ", ", {
       (out, from) => from.table match {
-        case q: Table.Base => out.write(q.base.name)
+        case Table.Base(name, _) => out.write(name)
         case q =>
           out.write("(")
           q.write(out, param)
@@ -138,9 +138,9 @@ sealed abstract class Table {
    */
   def write(out:Writer, param:WriteParameterization) {
     this match {
-      case Table.Base(base) =>
+      case Table.Base(name, _) =>
         out.write("SELECT * FROM ")
-        out.write(base.name)
+        out.write(name)
       case s:Table.Select =>
         out.write("SELECT")
         writeWithSpaceIfNotEmpty(out, s.options)(writeJoined(out, _, " "))
@@ -176,6 +176,18 @@ sealed abstract class Table {
    * @return SQL string of this table
    */
   override def toString = toString(defaultSqlWriteParameterization)
+
+  /**
+   * Turn this Table to a Table.Select
+   * @return a Table.Select that is semantically equivalent to this Table
+   */
+  def toSelect: sql.Table.Select = {
+    this match {
+      case sql.Table.Empty => sql.Table.makeSelect(from=Seq())
+      case select:sql.Table.Select if select.attributes.isEmpty => select
+      case _ => sql.Table.makeSelect(from=Seq(sql.Table.SelectFromTable(this, None)))
+    }
+  }
 }
 
 object Table {
@@ -184,7 +196,10 @@ object Table {
   type TableName = String
 
   /** plain ref to table */
-  case class Base(base:de.ag.sqala.relational.Query.Base) extends Table  // FIXME smart constructor creating Base
+  case class Base(name: String, schema: Schema) extends Table {
+    /** convert table to a relational query */
+    def toQuery: de.ag.sqala.relational.Query.Base = de.ag.sqala.relational.Query.Base(name, schema)
+  }
 
   /** select from with all clauses + options + extra */
   case class Select(options: Seq[String], // DISTINCT, ALL, etc.

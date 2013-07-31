@@ -38,11 +38,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: Table.Combine) {
       out.write("SELECT * FROM (")
       sqlCombine.left.write(out, param)
-      sqlCombine.op match {
-        case Expr.CombineOp.Intersect => " INTERSECT "
-        case Expr.CombineOp.Except => " EXCEPT "
-        case Expr.CombineOp.Union => " UNION "
-      }
+      sqlCombine.op.toSpacedString
       sqlCombine.right.write(out, param)
       out.write(")")
     }

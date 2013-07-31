@@ -1,4 +1,4 @@
-package de.ag.sqala.test
+package de.ag.sqala.test.adt
 
 import org.scalatest.FunSuite
 import de.ag.sqala.sql._
@@ -13,7 +13,7 @@ class SqlWriteTest extends FunSuite {
   val tbl1Schema = new Schema(Seq(("id", Domain.Integer), ("company", Domain.Integer), ("employee", Domain.Integer)))
   val companiesSchema: Schema = new Schema(Seq("id" -> Domain.Integer, "name" -> Domain.String))
   val tbl2Schema: Schema = new Schema(Seq("id" -> Domain.Integer))
-  val tbl1 = Table.Base(Base("tbl1", tbl1Schema))
+  val tbl1 = Table.Base("tbl1", tbl1Schema)
 
   val baseSelect = Table.makeSelect(from = Seq(Table.SelectFromTable(tbl1, None)))
   Seq(
@@ -62,7 +62,7 @@ class SqlWriteTest extends FunSuite {
       baseSelect.copy(
         attributes = Seq(Table.SelectAttribute(Expr.Column("id"), None)),
         where = Seq(Expr.App(Operator.In, Seq(Expr.Column("company"), Expr.SubTable(
-          Table.makeSelect(from = Seq(Table.SelectFromTable(Table.Base(Base("companies", companiesSchema)), None)),
+          Table.makeSelect(from = Seq(Table.SelectFromTable(Table.Base("companies", companiesSchema), None)),
             attributes = Seq(Table.SelectAttribute(Expr.Column("id"), None)),
             where = Seq(Expr.App(Operator.Like, Seq(Expr.Column("name"), Expr.Const(Expr.Literal.String("% Inc."))))))
         ))))
@@ -75,7 +75,7 @@ class SqlWriteTest extends FunSuite {
     (None, "SELECT id FROM tbl1, tbl2",
       Table.makeSelect(
         attributes = Seq(Table.SelectAttribute(Expr.Column("id"), None)),
-        from = Seq(Table.SelectFromTable(tbl1, None), Table.SelectFromTable(Table.Base(Base("tbl2", tbl2Schema)), None))
+        from = Seq(Table.SelectFromTable(tbl1, None), Table.SelectFromTable(Table.Base("tbl2", tbl2Schema), None))
       ))
   ).foreach(s => s._1 match {
     case None => testWriteSql(s._2, s._2, s._3)
