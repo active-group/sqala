@@ -72,6 +72,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
         domain match {
           case Domain.String => statement.setString(i, value.asInstanceOf[String])
           case Domain.BoundedString(_) => statement.setString(i, value.asInstanceOf[String])
+          case Domain.IdentityInteger => statement.setObject(1, null)
           case Domain.Integer => statement.setInt(i, value.asInstanceOf[Integer].intValue())
           case Domain.Double => statement.setDouble(i, value.asInstanceOf[Double])
           case Domain.Boolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
@@ -119,6 +120,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   def domain2SqliteDomain(domain: Domain): String = domain match {
     case Domain.String => "TEXT"
     case Domain.BoundedString(maxSize) => "VARCHAR(%d)".format(maxSize)
+    case Domain.IdentityInteger => "INTEGER PRIMARY KEY AUTOINCREMENT"
     case Domain.Integer => "INTEGER"
     case Domain.Double => "REAL"
     case Domain.Blob => "BLOB"

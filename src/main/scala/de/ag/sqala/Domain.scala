@@ -71,6 +71,22 @@ object Domain {
 
   }
 
+  case object IdentityInteger extends Domain("identity integer") {
+    type ScalaType = java.lang.Integer
+    def isNumeric: Boolean = true
+
+    def isStringLike: Boolean = false
+
+    def isOrdered: Boolean = true
+
+    def domainEquals(that: Domain): Boolean = that.eq(this)
+
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
+      case i:scala.Int => Some(sql.Expr.Literal.Integer(i))
+      case _ => None
+    }
+  }
+
   case object Double extends Domain("double") {
     type ScalaType = java.lang.Double
     def isNumeric: Boolean = true
