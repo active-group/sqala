@@ -102,9 +102,9 @@ sealed abstract class Expr {
         sql.Expr.CaseBranch(condition.toSqlExpr, value.toSqlExpr) },
         default.map(_.toSqlExpr))
     case Expr.ScalarSubQuery(q) =>
-      sql.Expr.SubTable(q.toSqlTable)
+      sql.Expr.SubView(q.toSqlView)
     case Expr.SetSubQuery(q) =>
-      sql.Expr.SubTable(q.toSqlTable) // TODO consider dropping this branch from relational.Expr
+      sql.Expr.SubView(q.toSqlView) // TODO consider dropping this branch from relational.Expr
   }
 
 }

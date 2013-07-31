@@ -54,9 +54,9 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
     createTbl1()
     assert(1 == conn.insert("tbl1", tbl1Schema, Seq("test", Integer.valueOf(10))))
 
-    val results = conn.read(Table.makeSelect(
-      attributes = Seq(Table.SelectAttribute(Expr.Column("one"), None), Table.SelectAttribute(Expr.Column("two"), None)),
-      from = Seq(Table.SelectFromTable(Table.Base("tbl1", tbl1Schema), None))
+    val results = conn.read(View.makeSelect(
+      attributes = Seq(View.SelectAttribute(Expr.Column("one"), None), View.SelectAttribute(Expr.Column("two"), None)),
+      from = Seq(View.SelectFromView(View.Table("tbl1", tbl1Schema), None))
     ),
       new Schema(Seq(("one", Domain.String), ("two", Domain.Integer))))
       .toArray
@@ -72,7 +72,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   test("insert & query many") {
     createAndFillTbl1()
     expectResult(data.map{d => Seq(d._1, d._2)}.toSet){
-      conn.read(Table.Base("tbl1", tbl1Schema), tbl1Schema)
+      conn.read(View.Table("tbl1", tbl1Schema), tbl1Schema)
         .toSet
     }
   }

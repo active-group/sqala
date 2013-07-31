@@ -57,13 +57,13 @@ sealed abstract class Expr {
             expr.write(out, param)
         }
         out.write(")")
-      case Expr.Exists(table) =>
+      case Expr.Exists(view) =>
         out.write("EXISTS (")
-        table.write(out, param)
+        view.write(out, param)
         out.write(")")
-      case Expr.SubTable(table) =>
+      case Expr.SubView(view) =>
         out.write("(")
-        table.write(out, param)
+        view.write(out, param)
         out.write(")")
     }
   }
@@ -90,15 +90,15 @@ object Expr {
   /** tuple */
   case class Tuple(exprs: Seq[Expr]) extends Expr
   /** column reference */
-  case class Column(name: Table.ColumnName) extends Expr
+  case class Column(name: View.ColumnName) extends Expr
   /** function application */
   case class App(operator: Operator, operands: Seq[Expr]) extends Expr
   /** case (aka 'switch') */
   case class Case(branches: Seq[CaseBranch], default: Option[Expr]) extends Expr
   /** 'EXISTS' clause */
-  case class Exists(table: Table) extends Expr
+  case class Exists(view: View) extends Expr
   /** sub-select */
-  case class SubTable(table: Table) extends Expr
+  case class SubView(view: View) extends Expr
 
   /** Literal in SQL expression */
   sealed abstract class Literal

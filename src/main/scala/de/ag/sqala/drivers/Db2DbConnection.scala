@@ -6,7 +6,7 @@ import java.sql.Date
 import java.util.Properties
 import de.ag.sqala._
 import de.ag.sqala.JDBCHandle
-import de.ag.sqala.sql.Table
+import de.ag.sqala.sql.View
 import de.ag.sqala.relational.Schema
 import java.net.URL
 
@@ -36,9 +36,9 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
      *
      * @param out output sink
      * @param param this object for recursive calls
-     * @param sqlCombine left sql table, combine operator, right sql table
+     * @param sqlCombine left sql view, combine operator, right sql view
      */
-    def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: Table.Combine) {
+    def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: View.Combine) {
       out.write("SELECT * FROM (")
       sqlCombine.left.write(out, param)
       sqlCombine.op.toSpacedString
@@ -51,8 +51,8 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     connection.close()
   }
 
-  def read(table: Table, schema: Schema): ResultSetIterator = {
-    val sql = table.toString(sqlWriteParameterization)
+  def read(view: View, schema: Schema): ResultSetIterator = {
+    val sql = view.toString(sqlWriteParameterization)
     val statement = connection.createStatement()
     val resultSet = statement.executeQuery(sql)
     // first shot: primitively return Objects
@@ -60,7 +60,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
 
-  def insert(tableName: Table.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
+  def insert(tableName: View.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
     val sql = "INSERT INTO %s(%s) VALUES (%s)".format(
       tableName,
       schema.attributes.mkString(", "),
@@ -92,7 +92,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     values.map{_=>"?"}
   }
 
-  def delete(tableName: Table.TableName, condition: Expr): Int = {
+  def delete(tableName: View.TableName, condition: Expr): Int = {
     val sql = "DELETE FROM %s WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
     val statement = connection.createStatement()
     val result = statement.executeUpdate(sql)
@@ -101,7 +101,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
 
-  def update(tableName: Table.TableName, condition: Expr, updates: Seq[(Table.ColumnName, Expr)]): Int = {
+  def update(tableName: View.TableName, condition: Expr, updates: Seq[(View.ColumnName, Expr)]): Int = {
     val clauses = updates.map {
       case (columnName, value) => "%s = %s".format(columnName, value.toString(sqlWriteParameterization))
     }

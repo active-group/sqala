@@ -6,9 +6,9 @@ import de.ag.sqala.{sql, OrderDirection, Descending, Ascending}
 import de.ag.sqala.relational.Schema
 
 /**
- * SQL table
+ * SQL view
  */
-sealed abstract class Table {
+sealed abstract class View {
 
   /**
    * Write comma-seperated list of attributes to output sink, or '*' if attributes is empty.
@@ -18,11 +18,11 @@ sealed abstract class Table {
    * @param param      write parameterization
    * @param attributes attributes to write
    */
-  protected def writeAttributes(out: Writer, param: WriteParameterization, attributes: Seq[Table.SelectAttribute]) {
+  protected def writeAttributes(out: Writer, param: WriteParameterization, attributes: Seq[View.SelectAttribute]) {
     if (attributes.isEmpty) {
       out.write("*")
     } else {
-      writeJoined[Table.SelectAttribute](out, attributes, ", ", {
+      writeJoined[View.SelectAttribute](out, attributes, ", ", {
         (out, attr) => attr.expr match {
           case Expr.Column(alias) if alias == attr.alias.getOrElse(alias) =>
             out.write(alias)
@@ -54,11 +54,11 @@ sealed abstract class Table {
    * @param param write parameterization
    * @param from  FROM queries to write
    */
-  protected def writeFrom(out: Writer, param: WriteParameterization, from: Seq[Table.SelectFromTable]) {
+  protected def writeFrom(out: Writer, param: WriteParameterization, from: Seq[View.SelectFromView]) {
     out.write("FROM ")
-    writeJoined[Table.SelectFromTable](out, from, ", ", {
-      (out, from) => from.table match {
-        case Table.Base(name, _) => out.write(name)
+    writeJoined[View.SelectFromView](out, from, ", ", {
+      (out, from) => from.view match {
+        case View.Table(name, _) => out.write(name)
         case q =>
           out.write("(")
           q.write(out, param)
@@ -117,9 +117,9 @@ sealed abstract class Table {
    * @param param    write paramaterization
    * @param orderBys order-by clauses
    */
-  protected def writeOrderBy(out: Writer, param: WriteParameterization, orderBys: Seq[Table.SelectOrderBy]) {
+  protected def writeOrderBy(out: Writer, param: WriteParameterization, orderBys: Seq[View.SelectOrderBy]) {
     out.write("ORDER BY ")
-    writeJoined[Table.SelectOrderBy](out, orderBys, ", ", {
+    writeJoined[View.SelectOrderBy](out, orderBys, ", ", {
       (out, orderBy) =>
         orderBy.expr.write(out, param)
         out.write(orderBy.order match {
@@ -130,7 +130,7 @@ sealed abstract class Table {
   }
 
   /**
-   * Write table to output sink.
+   * Write view to output sink.
    *
    * Eg., "SELECT id, name FROM persons WHERE (id > 12) ORDER BY id DESC"
    * @param out   output sink
@@ -138,10 +138,10 @@ sealed abstract class Table {
    */
   def write(out:Writer, param:WriteParameterization) {
     this match {
-      case Table.Base(name, _) =>
+      case View.Table(name, _) =>
         out.write("SELECT * FROM ")
         out.write(name)
-      case s:Table.Select =>
+      case s:View.Select =>
         out.write("SELECT")
         writeWithSpaceIfNotEmpty(out, s.options)(writeJoined(out, _, " "))
         writeSpace(out); writeAttributes(out, param, s.attributes)
@@ -154,16 +154,16 @@ sealed abstract class Table {
         }
         writeWithSpaceIfNotEmpty(out, s.orderBy)(writeOrderBy(out, param, _))
         writeWithSpaceIfNotEmpty(out, s.extra)(writeJoined(out, _, " "))
-      case s:Table.Combine =>
+      case s:View.Combine =>
         param.writeCombine(out, param, s)
-      case Table.Empty =>
+      case View.Empty =>
     }
   }
 
   /**
-   * Turn table to string
+   * Turn view to string
    * @param param write parameterization
-   * @return      SQL string of this table
+   * @return      SQL string of this view
    */
   def toString(param:WriteParameterization) = {
     val result = new StringWriter()
@@ -172,32 +172,32 @@ sealed abstract class Table {
   }
 
   /**
-   * Turn table to string using default write parameterization
-   * @return SQL string of this table
+   * Turn view to string using default write parameterization
+   * @return SQL string of this view
    */
   override def toString = toString(defaultSqlWriteParameterization)
 
   /**
-   * Turn this Table to a Table.Select
-   * @return a Table.Select that is semantically equivalent to this Table
+   * Turn this View to a View.Select
+   * @return a View.Select that is semantically equivalent to this View
    */
-  def toSelect: sql.Table.Select = {
+  def toSelect: sql.View.Select = {
     this match {
-      case sql.Table.Empty => sql.Table.makeSelect(from=Seq())
-      case select:sql.Table.Select if select.attributes.isEmpty => select
-      case _ => sql.Table.makeSelect(from=Seq(sql.Table.SelectFromTable(this, None)))
+      case sql.View.Empty => sql.View.makeSelect(from=Seq())
+      case select:sql.View.Select if select.attributes.isEmpty => select
+      case _ => sql.View.makeSelect(from=Seq(sql.View.SelectFromView(this, None)))
     }
   }
 }
 
-object Table {
+object View {
   type ColumnName = String
 
   type TableName = String
 
   /** plain ref to table */
-  case class Base(name: String, schema: Schema) extends Table {
-    /** convert table to a relational query */
+  case class Table(name: String, schema: Schema) extends View {
+    /** convert view to a relational query */
     def toQuery: de.ag.sqala.relational.Query.Base = de.ag.sqala.relational.Query.Base(name, schema)
   }
 
@@ -205,31 +205,31 @@ object Table {
   case class Select(options: Seq[String], // DISTINCT, ALL, etc.
                          attributes: Seq[SelectAttribute], // selected fields (expr + alias), empty seq for '*'
                          //                     isNullary: Boolean, // true if select represents nullary relation (?); in this case attributes should contain single dummy attribute (?)
-                         from: Seq[SelectFromTable], // FROM (
+                         from: Seq[SelectFromView], // FROM (
                          where: Seq[Expr], // WHERE; Seq constructed from relational algebra
                          groupBy: Seq[Expr], // GROUP BY
                          having: Option[Expr], // HAVING
                          orderBy: Seq[SelectOrderBy], // ORDER BY
                          extra: Seq[String] // TOP n, etc.
-                          ) extends Table
+                          ) extends View
 
   /** combine two queries */
   case class Combine(op: Expr.CombineOp,
-                          left: Table,
-                          right: Table) extends Table
+                          left: View,
+                          right: View) extends View
 
-  /** the empty table */
-  case object Empty extends Table // FIXME used when?
+  /** the empty view */
+  case object Empty extends View // FIXME used when?
 
   /** select-from attributes with optional alias */
-  case class SelectAttribute(expr:Expr, alias:Option[Table.ColumnName])
+  case class SelectAttribute(expr:Expr, alias:Option[View.ColumnName])
   /** select-from table (FROM clause) with optional alias */
-  case class SelectFromTable(table:Table, alias:Option[Table.TableName])
+  case class SelectFromView(view:View, alias:Option[View.TableName])
   /** select-from order-by clause with order direction */
   case class SelectOrderBy(expr:Expr, order:OrderDirection)
 
   /**
-   * Helper method with defaults to create Table.Select
+   * Helper method with defaults to create View.Select
    * @param options     options (DISTINCT, etc.), defaults to Seq()
    * @param attributes  attributes (columns, expressions, etc.), defaults to Seq() ("*")
    * @param from        from clauses, required
@@ -238,11 +238,11 @@ object Table {
    * @param having      having clause, defaults to None
    * @param orderBy     order-by clauses, defaults to Seq()
    * @param extra       extra text (eg. "LIMIT 2"), defaults to Seq()
-   * @return            constructed Table.Select
+   * @return            constructed View.Select
    */
   def makeSelect(options:Seq[String]=Seq(),
                  attributes:Seq[SelectAttribute]=Seq(),
-                 from:Seq[SelectFromTable],
+                 from:Seq[SelectFromView],
                  where: Seq[Expr]=Seq(),
                  groupBy: Seq[Expr]=Seq(),
                  having: Option[Expr]=None,

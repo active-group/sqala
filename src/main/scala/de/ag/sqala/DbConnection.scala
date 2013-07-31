@@ -75,8 +75,8 @@ trait DbConnection {
 
   /** Close this connection. All subsequent methods calls are undefined. */
   def close():Unit
-  /** Read results from database described in table, expecting schema */
-  def read(table:Table, schema:Schema): ResultSetIterator
+  /** Read results from database described in view, expecting schema */
+  def read(view:View, schema:Schema): ResultSetIterator
 
   /** Insert values into database
     *
@@ -85,7 +85,7 @@ trait DbConnection {
     * @param values  Values to add (single row)
     * @return        Number of rows that have been added
     */
-  def insert(table:Table.TableName, schema:Schema, values:Seq[AnyRef]): Int
+  def insert(table:View.TableName, schema:Schema, values:Seq[AnyRef]): Int
 
   /** Delete values from database
     *
@@ -93,7 +93,7 @@ trait DbConnection {
     * @param condition  Condition that each row that is to be deleted fulfills (use tautology to delete all rows)
     * @return           Number of rows that have been deleted
     */
-  def delete(table:Table.TableName, condition:Expr): Int
+  def delete(table:View.TableName, condition:Expr): Int
 
   /** Update values in database
     *
@@ -102,7 +102,7 @@ trait DbConnection {
     * @param updates    Which column is to be updated to which value (expression)
     * @return           Number of rows that have been updated
     */
-  def update(table:Table.TableName, condition:Expr, updates:Seq[(Schema.Attribute, Expr)]): Int
+  def update(table:View.TableName, condition:Expr, updates:Seq[(Schema.Attribute, Expr)]): Int
 
   /** Execute raw SQL string. For 'emergencies' and database- and driver-specific stuff.
     *
