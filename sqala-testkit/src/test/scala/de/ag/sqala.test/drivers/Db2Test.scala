@@ -12,7 +12,7 @@ import de.ag.sqala.relational.Query.Base
  */
 class Db2Test extends FunSuite with BeforeAndAfter {
   var conn:DbConnection = _
-  val where = new Db2DbConnection.Location("192.168.1.138", 50001, "test")
+  val where = new Db2DbConnection.Location("localhost", 50000, "test")
 
   before {
     conn = Db2DbConnection.open(where, "db2inst2", "db2inst2")
