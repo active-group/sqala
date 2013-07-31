@@ -18,7 +18,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
     conn = Sqlite3DbConnection.openInMemory()
   }
 
-  val tbl1Schema: Schema = new Schema(Seq(("one", Domain.String), ("two", Domain.Integer)))
+  val tbl1Schema: Schema = Schema("one" -> Domain.BoundedString(10), "two"-> Domain.Integer)
 
   val data = Seq(
     ("test", 10),

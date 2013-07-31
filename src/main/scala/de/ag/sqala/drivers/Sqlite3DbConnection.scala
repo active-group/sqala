@@ -71,6 +71,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
       case ((value, domain), i) =>
         domain match {
           case Domain.String => statement.setString(i, value.asInstanceOf[String])
+          case Domain.BoundedString(_) => statement.setString(i, value.asInstanceOf[String])
           case Domain.Integer => statement.setInt(i, value.asInstanceOf[Integer].intValue())
           case Domain.Double => statement.setDouble(i, value.asInstanceOf[Double])
           case Domain.Boolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
@@ -115,6 +116,29 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     result
   }
 
+  def domain2SqliteDomain(domain: Domain): String = domain match {
+    case Domain.String => "TEXT"
+    case Domain.BoundedString(maxSize) => "VARCHAR(%d)".format(maxSize)
+    case Domain.Integer => "INTEGER"
+    case Domain.Double => "REAL"
+    case Domain.Blob => "BLOB"
+    case Domain.CalendarTime => "TEXT" // as ISO-8601: YYYY-MM-DD HH:MM:SS.SSS
+    case _ => throw new RuntimeException("not implemented")
+  }
+
+  def schemaToDDTList(schema: Schema): Seq[String] =
+    schema.schema.map{
+      case(attr, domain) => "%s %s".format(attr, domain2SqliteDomain(domain))
+    }
+
+  def createTable(name: View.TableName, schema: Schema): Unit = {
+    val sql = "CREATE TABLE %s (\n%s\n)".format(name, schemaToDDTList(schema).mkString(",\n"))
+    val statement = connection.createStatement()
+    statement.execute(sql)
+    statement.close()
+  }
+
+
   def execute(sql: String): Either[ResultSetIterator, Int] = {
     val statement = connection.createStatement()
     if (statement.execute(sql))
@@ -122,6 +146,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     else
       Right(statement.getUpdateCount)
   }
+
 }
 
 object Sqlite3DbConnection {

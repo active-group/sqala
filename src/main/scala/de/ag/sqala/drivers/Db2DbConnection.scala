@@ -123,6 +123,8 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     else
       Right(statement.getUpdateCount)
   }
+
+  def createTable(name: View.TableName, schema: Schema): Unit = ???
 }
 
 object Db2DbConnection {

@@ -101,6 +101,8 @@ trait DbConnection {
     */
   def update(table:View.TableName, condition:Expr, updates:Seq[(Schema.Attribute, Expr)]): Int
 
+  def createTable(name:View.TableName, schema:Schema): Unit
+
   /** Execute raw SQL string. For 'emergencies' and database- and driver-specific stuff.
     *
     * @param sql Raw SQL string that is sent to driver
