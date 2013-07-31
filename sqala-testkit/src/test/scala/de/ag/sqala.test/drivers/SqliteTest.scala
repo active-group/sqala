@@ -123,4 +123,11 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
       fillTbl1()
     }
   }
+
+  test("identity column") {
+    val tbl2Schema = Schema("id" -> Domain.IdentityInteger)
+    conn.createTable("tbl2", tbl2Schema)
+    (1 to 10).foreach{_ => conn.insert("tbl2", tbl2Schema, Seq(null))}
+    expectResult((1 to 10).map{Seq(_)}){conn.read(View.Table("tbl2", tbl2Schema), tbl2Schema).toSeq}
+  }
 }
