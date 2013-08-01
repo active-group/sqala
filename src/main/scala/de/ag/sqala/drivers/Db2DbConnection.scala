@@ -76,6 +76,8 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
       schema.attributes.mkString(", "),
       schema.domains.zip(values).map{case dv => domainValue(dv._1, dv._2)}.mkString(", ")
     )
+    // TODO maybe optimize using prepared statements when no generated keys are used
+    //      ...or find out how to use prepared statements when generated keys are used with DB2 JDBC driver
     val statement = connection.createStatement()
     val result = statement.executeUpdate(sql)
     statement.close()
