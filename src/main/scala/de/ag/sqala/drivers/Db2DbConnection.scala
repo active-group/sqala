@@ -71,11 +71,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
   def insert(tableName: View.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
-    val sql = "INSERT INTO \"%s\"(%s) VALUES (%s)".format(
-      tableName,
-      schema.attributes.mkString(", "),
-      schema.domains.zip(values).map{case dv => domainValue(dv._1, dv._2)}.mkString(", ")
-    )
+    val sql = makeInsertSql(tableName, schema, values)
     // TODO maybe optimize using prepared statements when no generated keys are used
     //      ...or find out how to use prepared statements when generated keys are used with DB2 JDBC driver
     val statement = connection.createStatement()
@@ -172,13 +168,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
    * @return        Number of rows that have been inserted and integer key generated during this insertion.
    */
   def insertAndRetrieveGeneratedKey(table: View.TableName, schema: Schema, values: Seq[AnyRef]): (Int, Int) = {
-    val sql = "INSERT INTO \"%s\"(%s) VALUES (%s)".format(
-      table,
-      schema.attributes.mkString(", "),
-      schema.domains.zip(values).map{case dv => domainValue(dv._1, dv._2)}.mkString(", ")
-    )
-    // TODO maybe optimize using prepared statements when no generated keys are used
-    //      ...or find out how to use prepared statements when generated keys are used with DB2 JDBC driver
+    val sql: String = makeInsertSql(table, schema, values)
     val statement = connection.createStatement()
     val idColumn = schema.domains.indexWhere{case Domain.IdentityInteger => true}
     val rowCount = statement.executeUpdate(sql, Array(idColumn))
@@ -187,6 +177,17 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     val generatedKey = generatedKeys.getInt(1)
     statement.close()
     (rowCount, generatedKey)
+  }
+
+  protected def makeInsertSql(table: View.TableName, schema: Schema, values: Seq[AnyRef]): String = {
+    val sql = "INSERT INTO \"%s\"(%s) VALUES (%s)".format(
+      table,
+      schema.attributes.mkString(", "),
+      schema.domains.zip(values).map {
+        case dv => domainValue(dv._1, dv._2)
+      }.mkString(", ")
+    )
+    sql
   }
 }
 
