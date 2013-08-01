@@ -17,7 +17,7 @@ sealed abstract class Expr {
          | _:Expr.ScalarSubQuery
          | _:Expr.SetSubQuery => false
     case _:Expr.Aggregation => true
-    case Expr.Application(rator, rands) =>
+    case Expr.Application(rator, rands @_*) =>
       rands.exists(_.isAggregate)
     case Expr.Tuple(exprs) => exprs.exists(_.isAggregate)
     case Expr.Case(branches, default) =>
@@ -67,7 +67,7 @@ sealed abstract class Expr {
       case Expr.Const(domain, value) => onConst(domain, value)
       case Expr.Null(typ) => onNull(typ)
       case Expr.Aggregation(op, exp) => onAggregation(op, rec(exp))
-      case Expr.Application(rator, rands) => onApplication(rator, rands.map(rec))
+      case Expr.Application(rator, rands@_*) => onApplication(rator, rands.map(rec))
       case Expr.Tuple(exprs) => onTuple(exprs.map(rec))
       case Expr.Case(branches, default) => onCase(branches.map{case Expr.CaseBranch(condition, value) => (rec(condition), rec(value))}, default.map(rec))
       case Expr.ScalarSubQuery(query) => onScalarSubQuery(query)
@@ -90,7 +90,7 @@ sealed abstract class Expr {
       }
       sql.Expr.Const(sqlVal)
     case Expr.Null(_) => sql.Expr.Const(sql.Expr.Literal.Null)
-    case Expr.Application(operator, operands) =>
+    case Expr.Application(operator, operands@_*) =>
       /* TODO what about `(apply make-sql-expr-app (rator-data (application-rator expr))
                                 (map expression->sql (application-rands expr)))`? */
       val sqlOperator:Operator = operator
@@ -102,9 +102,9 @@ sealed abstract class Expr {
         sql.Expr.CaseBranch(condition.toSqlExpr, value.toSqlExpr) },
         default.map(_.toSqlExpr))
     case Expr.ScalarSubQuery(q) =>
-      sql.Expr.SubTable(q.toSqlTable)
+      sql.Expr.SubView(q.toSqlView)
     case Expr.SetSubQuery(q) =>
-      sql.Expr.SubTable(q.toSqlTable) // TODO consider dropping this branch from relational.Expr
+      sql.Expr.SubView(q.toSqlView) // TODO consider dropping this branch from relational.Expr
   }
 
 }
@@ -117,7 +117,7 @@ object Expr {
   /** a nullable domain */
   case class Null(typ:Domain) extends Expr
   /** application (but not with aggregate op FIXME) */
-  case class Application(operator:Operator, operands:Seq[Expr]) extends Expr
+  case class Application(operator:Operator, operands:Expr*) extends Expr
   /** tuples */
   case class Tuple(expressions:Seq[Expr]) extends Expr
   /** application with aggregation operator (count, sum, etc.) */

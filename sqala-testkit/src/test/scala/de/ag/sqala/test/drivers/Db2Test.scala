@@ -6,19 +6,20 @@ import de.ag.sqala.sql._
 import de.ag.sqala.{ResultSetIterator, Domain, DbConnection, Operator}
 import de.ag.sqala.relational.Schema
 import de.ag.sqala.relational.Query.Base
+import java.sql.SQLException
 
 /**
  *
  */
 class Db2Test extends FunSuite with BeforeAndAfter {
   var conn:DbConnection = _
-  val where = new Db2DbConnection.Location("192.168.1.138", 50001, "test")
+  val where = new Db2DbConnection.Location("localhost", 50000, "test")
 
   before {
     conn = Db2DbConnection.open(where, "db2inst2", "db2inst2")
   }
 
-  val tbl1Schema: Schema = new Schema(Seq(("one", Domain.String), ("two", Domain.Integer)))
+  val tbl1Schema: Schema = Schema("one" -> Domain.BoundedString(11), "two" -> Domain.Integer)
 
   val data:Seq[(String, java.lang.Integer)] = Seq(
     ("test", 10),
@@ -29,17 +30,21 @@ class Db2Test extends FunSuite with BeforeAndAfter {
 
   def createTbl1() {
     // DROP TABLE IF EXISTS
-    conn.execute("select tabname from syscat.tables where tabschema='DB2INST2' and tabname='TBL1'") match {
+    conn.execute("select tabname from syscat.tables where tabschema='DB2INST2' and tabname='tbl1'") match {
       case Left(it:ResultSetIterator) =>
         if (it.size > 0)
-          conn.execute("DROP TABLE tbl1")
+          conn.execute("DROP TABLE \"tbl1\"")
       case Right(count) => throw new RuntimeException("unexpectedly received update count")
     }
-    conn.execute("CREATE TABLE tbl1(one VARCHAR(11), two INT)")
+    conn.createTable("tbl1", tbl1Schema)
   }
 
   def createAndFillTbl1() {
     createTbl1()
+    fillTbl1()
+  }
+
+  def fillTbl1() {
     data.foreach {
       case (w, s) =>
         conn.insert("tbl1", tbl1Schema, Seq(w, Int.box(s)))
@@ -61,9 +66,9 @@ class Db2Test extends FunSuite with BeforeAndAfter {
     createTbl1()
     assert(1 == conn.insert("tbl1", tbl1Schema, Seq("test", Int.box(10))))
 
-    val results = conn.read(Table.makeSelect(
-      attributes = Seq(Table.SelectAttribute(Expr.Column("one"), None), Table.SelectAttribute(Expr.Column("two"), None)),
-      from = Seq(Table.SelectFromTable(Table.Base("tbl1", tbl1Schema), None))
+    val results = conn.read(View.makeSelect(
+      attributes = Seq(View.SelectAttribute(Expr.Column("one"), None), View.SelectAttribute(Expr.Column("two"), None)),
+      from = Seq(View.SelectFromView(View.Table("tbl1", tbl1Schema), None))
     ),
       new Schema(Seq(("one", Domain.String), ("two", Domain.Integer))))
       .toArray
@@ -79,7 +84,7 @@ class Db2Test extends FunSuite with BeforeAndAfter {
   test("insert & query many") {
     createAndFillTbl1()
     expectResult(data.map{d => Seq(d._1, d._2)}.toSet){
-      conn.read(Table.Base("tbl1", tbl1Schema), tbl1Schema)
+      conn.read(View.Table("tbl1", tbl1Schema), tbl1Schema)
         .toSet
     }
   }
@@ -107,4 +112,30 @@ class Db2Test extends FunSuite with BeforeAndAfter {
       Expr.App(Operator.Eq, Seq(Expr.Column("two"), Expr.Const(Expr.Literal.Integer(12)))),
       Seq(("two", Expr.Const(Expr.Literal.Null))))}
   }
+
+  test("drop table") {
+    createTbl1()
+    conn.dropTable("tbl1")
+    intercept[SQLException]{
+      fillTbl1()
+    }
+  }
+
+  test("drop table if exists") {
+    conn.dropTableIfExists("foo")
+    createTbl1()
+    conn.dropTableIfExists("tbl1")
+    intercept[SQLException]{
+      fillTbl1()
+    }
+  }
+
+  test("identity column") {
+    val tbl2Schema = Schema("id" -> Domain.IdentityInteger)
+    conn.dropTableIfExists("tbl2")
+    conn.createTable("tbl2", tbl2Schema)
+    (1 to 10).foreach{_ => conn.insert("tbl2", tbl2Schema, Seq(null))}
+    expectResult((1 to 10).map{Seq(_)}.toSet){conn.read(View.Table("tbl2", tbl2Schema), tbl2Schema).toSet}
+  }
+
 }

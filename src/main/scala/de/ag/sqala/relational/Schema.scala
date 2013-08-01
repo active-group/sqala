@@ -20,7 +20,7 @@ class Schema(val schema:Seq[(Schema.Attribute, Domain)]) {
   def difference(that:Schema):Schema = {
     val thatKeys = that.environment.keySet
     // keep order of attributes
-    Schema(schema.filter(tuple => !thatKeys.contains(tuple._1)))
+    Schema(schema.filter(tuple => !thatKeys.contains(tuple._1)):_*)
   }
   /** True iff schema has only one attribute */
   def isUnary = !schema.isEmpty && schema.tail.isEmpty
@@ -51,14 +51,13 @@ object Schema {
   type Attribute = String
 
   /** The empty schema */
-  val empty: Schema = Schema(Seq())
+  val empty: Schema = Schema()
 
   // can have only one or the other apply, not both (same type after erasure);
-  // settled for the one not requiring (...:*) for Seq arguments
-  // def apply(schema:(Attribute, Domain)*) =
-  //   new Schema(schema)
-  def apply(schema:Seq[(Attribute, Domain)]) =
-    new Schema(schema)
+  def apply(schema:(Attribute, Domain)*) =
+     new Schema(schema)
+//  def apply(schema:Seq[(Attribute, Domain)]) =
+//    new Schema(schema)
   def unapply(schema:Schema) = Some(schema.schema)
 }
 

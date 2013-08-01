@@ -1,14 +1,12 @@
 package de.ag.sqala.drivers
 
 import de.ag.sqala.sql._
-import java.io.{File, Writer}
-import java.sql.Date
+import java.io.Writer
 import java.util.Properties
 import de.ag.sqala._
 import de.ag.sqala.JDBCHandle
-import de.ag.sqala.sql.Table
+import de.ag.sqala.sql.View
 import de.ag.sqala.relational.Schema
-import java.net.URL
 
 /**
  * Driver for DB2 database
@@ -36,9 +34,9 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
      *
      * @param out output sink
      * @param param this object for recursive calls
-     * @param sqlCombine left sql table, combine operator, right sql table
+     * @param sqlCombine left sql view, combine operator, right sql view
      */
-    def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: Table.Combine) {
+    def writeCombine(out: Writer, param: WriteParameterization, sqlCombine: View.Combine) {
       out.write("SELECT * FROM (")
       sqlCombine.left.write(out, param)
       sqlCombine.op.toSpacedString
@@ -51,49 +49,39 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     connection.close()
   }
 
-  def read(table: Table, schema: Schema): ResultSetIterator = {
-    val sql = table.toString(sqlWriteParameterization)
+  def read(view: View, schema: Schema): ResultSetIterator = {
+    val sql = view.toString(sqlWriteParameterization)
     val statement = connection.createStatement()
     val resultSet = statement.executeQuery(sql)
     // first shot: primitively return Objects
     new ResultSetIterator(resultSet)
   }
 
+  def domainValue(domain:Domain, value:AnyRef): String = domain match {
+    case Domain.String | Domain.BoundedString(_) => "'%s'".format(value)
+    case Domain.IdentityInteger => "default"
+    case Domain.Integer => value.toString
+    case Domain.Double => value.toString
+    case Domain.Nullable(nDomain) => if (value == null) "null" else domainValue(nDomain, value)
+    case Domain.Boolean => ???
+    case Domain.Blob => ???
+    case Domain.CalendarTime => ???
+    case Domain.Set(_) => ???
+    case Domain.Product(_) => ???
+  }
 
-  def insert(tableName: Table.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
-    val sql = "INSERT INTO %s(%s) VALUES (%s)".format(
-      tableName,
-      schema.attributes.mkString(", "),
-      listToPlaceholders(values).mkString(", ")
-    )
-    val statement = connection.prepareStatement(sql)
-    values
-      .zip(schema.domains)
-      .zip(1 to schema.degree) // parameter count starts with 1
-      .foreach {
-      case ((value, domain), i) =>
-        domain match {
-          case Domain.String => statement.setString(i, value.asInstanceOf[String])
-          case Domain.Integer => statement.setInt(i, value.asInstanceOf[Integer].intValue())
-          case Domain.Double => statement.setDouble(i, value.asInstanceOf[Double])
-          case Domain.Boolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
-          case Domain.CalendarTime => statement.setDate(i, value.asInstanceOf[Date])
-          case Domain.Blob => statement.setBlob(i, value.asInstanceOf[java.io.InputStream])
-          case _ => throw new RuntimeException("unknown domain " + domain)
-        }
-    }
-    val result = statement.executeUpdate()
+  def insert(tableName: View.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
+    val sql = makeInsertSql(tableName, schema, values)
+    // TODO maybe optimize using prepared statements when no generated keys are used
+    //      ...or find out how to use prepared statements when generated keys are used with DB2 JDBC driver
+    val statement = connection.createStatement()
+    val result = statement.executeUpdate(sql)
     statement.close()
     result
   }
 
-
-  private def listToPlaceholders(values: Seq[Any]): Seq[String] = {
-    values.map{_=>"?"}
-  }
-
-  def delete(tableName: Table.TableName, condition: Expr): Int = {
-    val sql = "DELETE FROM %s WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
+  def delete(tableName: View.TableName, condition: Expr): Int = {
+    val sql = "DELETE FROM \"%s\" WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
     val statement = connection.createStatement()
     val result = statement.executeUpdate(sql)
     statement.close()
@@ -101,11 +89,11 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
 
-  def update(tableName: Table.TableName, condition: Expr, updates: Seq[(Table.ColumnName, Expr)]): Int = {
+  def update(tableName: View.TableName, condition: Expr, updates: Seq[(View.ColumnName, Expr)]): Int = {
     val clauses = updates.map {
       case (columnName, value) => "%s = %s".format(columnName, value.toString(sqlWriteParameterization))
     }
-    val sql = "UPDATE %s SET %s WHERE %s".format(
+    val sql = "UPDATE \"%s\" SET %s WHERE %s".format(
       tableName,
       clauses.mkString(", "),
       condition.toString(sqlWriteParameterization)
@@ -122,6 +110,84 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
       Left(new ResultSetIterator(statement.getResultSet))
     else
       Right(statement.getUpdateCount)
+  }
+
+  def domain2Db2Domain(domain: Domain): String = domain match {
+    case Domain.String => "VARCHAR(32672)" // 32672 is the max (for v10); use BoundedString to define max yourself
+    case Domain.BoundedString(maxSize) => "VARCHAR(%d)".format(maxSize)
+    case Domain.IdentityInteger => "INT NOT NULL GENERATED ALWAYS AS IDENTITY(START WITH 1, INCREMENT BY 1, NO CYCLE)"
+    case Domain.Integer => "INTEGER"
+    case Domain.Double => "DOUBLE"
+    case Domain.Blob => "BLOB(1M)" // 1M is the default (for v10); FIXME allow specifying max
+    case Domain.CalendarTime => "TIMESTAMP(6)" // 6 fractional seconds digits is the default (for v10); FIXME allow specifiying precision
+    case _ => throw new RuntimeException("not implemented")
+  }
+
+  def schemaToDDTList(schema: Schema): Seq[String] =
+    schema.schema.map{
+      case(attr, domain) => "%s %s".format(attr, domain2Db2Domain(domain))
+    }
+
+  def createTable(name: View.TableName, schema: Schema) {
+    val sql = "CREATE TABLE \"%s\"(\n%s\n)".format(name, schemaToDDTList(schema).mkString(",\n"))
+    val statement = connection.createStatement()
+    statement.execute(sql)
+    statement.close()
+  }
+
+  def dropTable(name: View.TableName) {
+    val statement = connection.createStatement()
+    statement.execute("DROP TABLE \"%s\"".format(name))
+    statement.close()
+  }
+
+  def dropTableIfExists(name: View.TableName) {
+    val statement = connection.createStatement()
+    val sql = "SELECT tabname FROM syscat.tables WHERE tabschema=(SELECT current_schema FROM sysibm.sysdummy1) and tabname='%s'".format(name)
+    if (statement.execute(sql)) {
+      val rs = statement.getResultSet
+      if(rs.next()) {
+        val statement2 = connection.createStatement()
+        statement2.execute("DROP TABLE \"%s\"".format(name))
+        statement2.close()
+      }
+      statement.close()
+    } else {
+       throw new RuntimeException("unexpectedly received update count")
+    }
+  }
+
+  /**
+   * Insert values into database table and retrieve the generated integer key.
+   *
+   * If the schema has no column for which integer keys are generated, the behavior is unspecified.
+   *
+   * @param table   Name of table to which to insert values
+   * @param schema  Schema of the table that is being inserted
+   * @param values  Values to insert (single row)
+   * @return        Number of rows that have been inserted and integer key generated during this insertion.
+   */
+  def insertAndRetrieveGeneratedKey(table: View.TableName, schema: Schema, values: Seq[AnyRef]): (Int, Int) = {
+    val sql: String = makeInsertSql(table, schema, values)
+    val statement = connection.createStatement()
+    val idColumn = schema.domains.indexWhere{case Domain.IdentityInteger => true}
+    val rowCount = statement.executeUpdate(sql, Array(idColumn))
+    val generatedKeys = statement.getGeneratedKeys
+    generatedKeys.next()
+    val generatedKey = generatedKeys.getInt(1)
+    statement.close()
+    (rowCount, generatedKey)
+  }
+
+  protected def makeInsertSql(table: View.TableName, schema: Schema, values: Seq[AnyRef]): String = {
+    val sql = "INSERT INTO \"%s\"(%s) VALUES (%s)".format(
+      table,
+      schema.attributes.mkString(", "),
+      schema.domains.zip(values).map {
+        case dv => domainValue(dv._1, dv._2)
+      }.mkString(", ")
+    )
+    sql
   }
 }
 

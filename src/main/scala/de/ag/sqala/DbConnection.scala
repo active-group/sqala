@@ -42,9 +42,6 @@ private val metaData = resultSet.getMetaData
   private def maybeAdvanceResultSetCursor() {
     if (needNext) {
       depleted = resultSet.next()
-      if (depleted) {
-        resultSet.close()
-      }
       needNext = false
     }
   }
@@ -75,8 +72,8 @@ trait DbConnection {
 
   /** Close this connection. All subsequent methods calls are undefined. */
   def close():Unit
-  /** Read results from database described in table, expecting schema */
-  def read(table:Table, schema:Schema): ResultSetIterator
+  /** Read results from database described in view, expecting schema */
+  def read(view:View, schema:Schema): ResultSetIterator
 
   /** Insert values into database
     *
@@ -85,7 +82,19 @@ trait DbConnection {
     * @param values  Values to add (single row)
     * @return        Number of rows that have been added
     */
-  def insert(table:Table.TableName, schema:Schema, values:Seq[AnyRef]): Int
+  def insert(table:View.TableName, schema:Schema, values:Seq[AnyRef]): Int
+
+  /**
+   * Insert values into database table and retrieve the generated integer key.
+   *
+   * If the schema has no column for which integer keys are generated, the behavior is unspecified
+   *
+   * @param table   Name of table to which to insert values
+   * @param schema  Schema of the table that is being inserted
+   * @param values  Values to insert (single row)
+   * @return        Number of rows that have been inserted and integer key generated during this insertion.
+   */
+  def insertAndRetrieveGeneratedKey(table:View.TableName, schema:Schema, values:Seq[AnyRef]): (Int, Int)
 
   /** Delete values from database
     *
@@ -93,7 +102,7 @@ trait DbConnection {
     * @param condition  Condition that each row that is to be deleted fulfills (use tautology to delete all rows)
     * @return           Number of rows that have been deleted
     */
-  def delete(table:Table.TableName, condition:Expr): Int
+  def delete(table:View.TableName, condition:Expr): Int
 
   /** Update values in database
     *
@@ -102,7 +111,33 @@ trait DbConnection {
     * @param updates    Which column is to be updated to which value (expression)
     * @return           Number of rows that have been updated
     */
-  def update(table:Table.TableName, condition:Expr, updates:Seq[(Schema.Attribute, Expr)]): Int
+  def update(table:View.TableName, condition:Expr, updates:Seq[(Schema.Attribute, Expr)]): Int
+
+  /** Create a table at the database
+    *
+    * Table creation varies heavily among different DBMS.  This method creates a "basic"
+    * table that has the field you'd expect.
+    *
+    * @param name    Name of the table to create
+    * @param schema  Schema of the table
+    */
+  def createTable(name:View.TableName, schema:Schema): Unit
+
+  /** Drop a table from the database.
+    *
+    * This may trigger constraints at the database side.
+    * Use dropTableIfExists if you don't know whether the table exists or not.
+    *
+    * @param name Name of table to drop
+    */
+  def dropTable(name:View.TableName): Unit
+
+  /**
+   * Drop table from the database. Don't fail if it does not exist.
+   *
+   * @param name Name of table to drop
+   */
+  def dropTableIfExists(name:View.TableName): Unit
 
   /** Execute raw SQL string. For 'emergencies' and database- and driver-specific stuff.
     *

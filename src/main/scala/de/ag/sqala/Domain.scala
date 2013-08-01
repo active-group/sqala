@@ -8,6 +8,7 @@ import de.ag.sqala.sql.Expr.Literal
  * @param name human-readable description of the domain
  */
 abstract class Domain(val name: String) {
+  type ScalaType
   /** Does this domain only cover values that can be considered 'numeric'? */
   def isNumeric: Boolean
 
@@ -38,6 +39,7 @@ abstract class Domain(val name: String) {
 object Domain {
 
   case object String extends Domain("string") {
+    type ScalaType = java.lang.String
     def isNumeric: Boolean = false
 
     def isStringLike: Boolean = true
@@ -53,6 +55,7 @@ object Domain {
   }
 
   case object Integer extends Domain("integer") {
+    type ScalaType = java.lang.Integer
     def isNumeric: Boolean = true
 
     def isStringLike: Boolean = false
@@ -68,7 +71,24 @@ object Domain {
 
   }
 
+  case object IdentityInteger extends Domain("identity integer") {
+    type ScalaType = java.lang.Integer
+    def isNumeric: Boolean = true
+
+    def isStringLike: Boolean = false
+
+    def isOrdered: Boolean = true
+
+    def domainEquals(that: Domain): Boolean = that.eq(this)
+
+    def sqlLiteralValueOf(value: Any): Option[Literal] = value match {
+      case i:scala.Int => Some(sql.Expr.Literal.Integer(i))
+      case _ => None
+    }
+  }
+
   case object Double extends Domain("double") {
+    type ScalaType = java.lang.Double
     def isNumeric: Boolean = true
 
     def isStringLike: Boolean = false
@@ -85,6 +105,7 @@ object Domain {
   }
 
   case object Boolean extends Domain("boolean") {
+    type ScalaType = java.lang.Boolean
     def isNumeric: Boolean = false
 
     def isStringLike: Boolean = false
@@ -101,6 +122,8 @@ object Domain {
   }
 
   case object CalendarTime extends Domain("calendar time") {
+    type ScalaType = java.sql.Timestamp
+
     def isNumeric: Boolean = false
 
     def isStringLike: Boolean = false
@@ -117,6 +140,8 @@ object Domain {
   }
 
   case object Blob extends Domain("blob") {
+    type ScalaType = scala.Null // FIXME streaming not implemented
+
     def isNumeric: Boolean = false
 
     def isStringLike: Boolean = false
@@ -133,6 +158,8 @@ object Domain {
   }
 
   case class BoundedString(maxSize: Int) extends Domain("bounded string") {
+    type ScalaType = java.lang.String
+
     def isNumeric: Boolean = false
 
     def isStringLike: Boolean = false
@@ -152,6 +179,8 @@ object Domain {
   }
 
   case class Nullable(underlying: Domain) extends Domain("nullable '" + underlying.name + "'") {
+    type ScalaType = underlying.ScalaType
+    
     def isNumeric: Boolean = false
 
     def isStringLike: Boolean = false
@@ -173,6 +202,8 @@ object Domain {
   case class Product(components: Seq[Domain]) extends Domain("product of '" + components.map {
     _.name
   } + "'") {
+    type ScalaType = Seq[AnyRef]
+
     def isNumeric: Boolean = false
 
     def isStringLike: Boolean = false
@@ -197,6 +228,8 @@ object Domain {
   }
 
   case class Set(member: Domain) extends Domain("set of '" + member.name + "'") {
+    type ScalaType = scala.collection.immutable.Set[member.ScalaType]
+
     def isNumeric: Boolean = false
 
     def isStringLike: Boolean = false
