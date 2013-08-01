@@ -81,13 +81,6 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     result
   }
 
-
-  private def listToPlaceholders(values: Seq[Any]): Seq[String] = {
-    values.zipWithIndex.map({
-      case (_, i) => ":" + i
-    })
-  }
-
   def delete(tableName: View.TableName, condition: Expr): Int = {
     val sql = "DELETE FROM \"%s\" WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
     val statement = connection.createStatement()
