@@ -164,14 +164,30 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
   /**
    * Insert values into database table and retrieve the generated integer key.
    *
-   * If the schema has no column for which integer keys are generated, the behavior is unspecified
+   * If the schema has no column for which integer keys are generated, the behavior is unspecified.
    *
    * @param table   Name of table to which to insert values
    * @param schema  Schema of the table that is being inserted
    * @param values  Values to insert (single row)
    * @return        Number of rows that have been inserted and integer key generated during this insertion.
    */
-  def insertAndRetrieveGeneratedKey(table: View.TableName, schema: Schema, values: Seq[AnyRef]): (Int, Int) = ???
+  def insertAndRetrieveGeneratedKey(table: View.TableName, schema: Schema, values: Seq[AnyRef]): (Int, Int) = {
+    val sql = "INSERT INTO \"%s\"(%s) VALUES (%s)".format(
+      table,
+      schema.attributes.mkString(", "),
+      schema.domains.zip(values).map{case dv => domainValue(dv._1, dv._2)}.mkString(", ")
+    )
+    // TODO maybe optimize using prepared statements when no generated keys are used
+    //      ...or find out how to use prepared statements when generated keys are used with DB2 JDBC driver
+    val statement = connection.createStatement()
+    val idColumn = schema.domains.indexWhere{case Domain.IdentityInteger => true}
+    val rowCount = statement.executeUpdate(sql, Array(idColumn))
+    val generatedKeys = statement.getGeneratedKeys
+    generatedKeys.next()
+    val generatedKey = generatedKeys.getInt(1)
+    statement.close()
+    (rowCount, generatedKey)
+  }
 }
 
 object Db2DbConnection {
