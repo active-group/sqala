@@ -56,32 +56,27 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     new ResultSetIterator(resultSet)
   }
 
+  def domainValue(domain:Domain, value:AnyRef): String = domain match {
+    case Domain.String | Domain.BoundedString(_) => "'%s'".format(value)
+    case Domain.IdentityInteger => "null"
+    case Domain.Integer => value.toString
+    case Domain.Double => value.toString
+    case Domain.Nullable(nDomain) => if (value == null) "null" else domainValue(nDomain, value)
+    case Domain.Boolean => ???
+    case Domain.Blob => ???
+    case Domain.CalendarTime => ???
+    case Domain.Set(_) => ???
+    case Domain.Product(_) => ???
+  }
 
   def insert(tableName: View.TableName, schema: Schema, values: Seq[AnyRef]): Int = {
-    val sql = "INSERT INTO %s(%s) VALUES (%s)".format(
+    val sql = "INSERT INTO \"%s\"(%s) VALUES (%s)".format(
       tableName,
       schema.attributes.mkString(", "),
-      listToPlaceholders(values).mkString(", ")
+      schema.domains.zip(values).map{case dv => domainValue(dv._1, dv._2)}.mkString(", ")
     )
-    val statement = connection.prepareStatement(sql)
-    values
-      .zip(schema.domains)
-      .zip(1 to schema.degree) // sqlite counts from 1
-      .foreach {
-      case ((value, domain), i) =>
-        domain match {
-          case Domain.String => statement.setString(i, value.asInstanceOf[String])
-          case Domain.BoundedString(_) => statement.setString(i, value.asInstanceOf[String])
-          case Domain.IdentityInteger => statement.setObject(1, null)
-          case Domain.Integer => statement.setInt(i, value.asInstanceOf[Integer].intValue())
-          case Domain.Double => statement.setDouble(i, value.asInstanceOf[Double])
-          case Domain.Boolean => statement.setBoolean(i, value.asInstanceOf[Boolean])
-          case Domain.CalendarTime => statement.setString(i, value.asInstanceOf[String]) // ISO-8601 String
-          case Domain.Blob => statement.setBlob(i, value.asInstanceOf[java.io.InputStream]) // FIXME
-          case _ => throw new RuntimeException("unknown domain " + domain)
-        }
-    }
-    val result = statement.executeUpdate()
+    val statement = connection.createStatement()
+    val result = statement.executeUpdate(sql)
     statement.close()
     result
   }
