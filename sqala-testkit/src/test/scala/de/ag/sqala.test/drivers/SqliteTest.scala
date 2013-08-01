@@ -128,7 +128,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   test("identity column") {
     conn.createTable("tbl2", tbl2Schema)
     (1 to 10).foreach{_ => conn.insert("tbl2", tbl2Schema, Seq(null))}
-    expectResult((1 to 10).map{Seq(_)}){conn.read(View.Table("tbl2", tbl2Schema), tbl2Schema).toSeq}
+    expectResult((1 to 10).map{Seq(_)}.toSet){conn.read(View.Table("tbl2", tbl2Schema), tbl2Schema).toSet}
   }
 
   test("retrieve generated keys") {
