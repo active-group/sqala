@@ -65,7 +65,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     case Domain.Nullable(nDomain) => if (value == null) "null" else domainValue(nDomain, value)
     case Domain.Boolean => ???
     case Domain.Blob => ???
-    case Domain.CalendarTime => ???
+    case Domain.CalendarTime => "'" + Db2DbConnection.timestampFormatter.format(value.asInstanceOf[java.sql.Timestamp]) + "'"
     case Domain.Set(_) => ???
     case Domain.Product(_) => ???
   }
@@ -214,4 +214,7 @@ object Db2DbConnection {
     val connection = java.sql.DriverManager.getConnection("jdbc:db2:" + where, properties)
     new Db2DbConnection(connection)
   }
+
+  val timestampFormatter = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
+
 }
