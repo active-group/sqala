@@ -5,7 +5,6 @@ import de.ag.sqala.drivers.Db2DbConnection
 import de.ag.sqala.sql._
 import de.ag.sqala.{ResultSetIterator, Domain, DbConnection, Operator}
 import de.ag.sqala.relational.Schema
-import de.ag.sqala.relational.Query.Base
 import java.sql.SQLException
 
 /**
