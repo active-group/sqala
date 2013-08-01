@@ -6,7 +6,6 @@ import de.ag.sqala.sql._
 import de.ag.sqala.{Domain, DbConnection}
 import de.ag.sqala.relational.Schema
 import de.ag.sqala.Operator
-import de.ag.sqala.relational.Query.Base
 import java.sql.SQLException
 
 /**
