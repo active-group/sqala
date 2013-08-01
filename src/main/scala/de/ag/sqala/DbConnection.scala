@@ -101,10 +101,30 @@ trait DbConnection {
     */
   def update(table:View.TableName, condition:Expr, updates:Seq[(Schema.Attribute, Expr)]): Int
 
+  /** Create a table at the database
+    *
+    * Table creation varies heavily among different DBMS.  This method creates a "basic"
+    * table that has the field you'd expect.
+    *
+    * @param name    Name of the table to create
+    * @param schema  Schema of the table
+    */
   def createTable(name:View.TableName, schema:Schema): Unit
 
+  /** Drop a table from the database.
+    *
+    * This may trigger constraints at the database side.
+    * Use dropTableIfExists if you don't know whether the table exists or not.
+    *
+    * @param name Name of table to drop
+    */
   def dropTable(name:View.TableName): Unit
 
+  /**
+   * Drop table from the database. Don't fail if it does not exist.
+   *
+   * @param name Name of table to drop
+   */
   def dropTableIfExists(name:View.TableName): Unit
 
   /** Execute raw SQL string. For 'emergencies' and database- and driver-specific stuff.
