@@ -139,4 +139,15 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
       }
     }
   }
+
+  test("calendar columns") {
+    val calTblSchema = Schema("id" -> Domain.IdentityInteger, "start" -> Domain.CalendarTime)
+    conn.createTable("calTbl", calTblSchema)
+    val time1 = new java.sql.Timestamp(new java.util.GregorianCalendar(2013, 7, 1, 9, 20, 22).getTimeInMillis)
+    val time1String = Sqlite3DbConnection.iso8601DateFormat(time1)
+    conn.insert("calTbl", calTblSchema, Seq(null, time1String))
+    val rows = conn.read(View.makeSelect(attributes = Seq(View.SelectAttribute(Expr.Column("start"), None)), from = Seq(View.SelectFromView(View.Table("calTbl", calTblSchema), None))),
+      Schema("start" -> Domain.CalendarTime)).toList
+    expectResult(List(List(time1String))){rows.toList}
+  }
 }

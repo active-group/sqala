@@ -64,7 +64,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     case Domain.Nullable(nDomain) => if (value == null) "null" else domainValue(nDomain, value)
     case Domain.Boolean => ???
     case Domain.Blob => ???
-    case Domain.CalendarTime => ???
+    case Domain.CalendarTime => "'" + value + "'"
     case Domain.Set(_) => ???
     case Domain.Product(_) => ???
   }
@@ -119,7 +119,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     case Domain.Integer => "INTEGER"
     case Domain.Double => "REAL"
     case Domain.Blob => "BLOB"
-    case Domain.CalendarTime => "TEXT" // as ISO-8601: YYYY-MM-DD HH:MM:SS.SSS
+    case Domain.CalendarTime => "TEXT" // as ISO-8601: YYYY-MM-DD HH:MM:SS.SSS, see Sqlite3DbConnection.iso8601DateFormat
     case _ => throw new RuntimeException("not implemented")
   }
 
@@ -202,4 +202,15 @@ object Sqlite3DbConnection {
     val connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + where, properties)
     new Sqlite3DbConnection(connection)
   }
+
+  val timestampFormatter = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
+  /**
+   * Format java sql timestamp to Sqlite date/time string.
+   *
+   * (Sqlite does not support date/time)
+   *
+   * @param timestamp timestamp to convert
+   * @return          string representation of timestamp with (3-digit) nanosecond precision
+   */
+  def iso8601DateFormat(timestamp:java.sql.Timestamp) = timestampFormatter.format(timestamp)
 }
