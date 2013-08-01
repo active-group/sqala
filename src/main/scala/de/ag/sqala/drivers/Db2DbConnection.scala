@@ -114,7 +114,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
       Right(statement.getUpdateCount)
   }
 
-  def domain2SqliteDomain(domain: Domain): String = domain match {
+  def domain2Db2Domain(domain: Domain): String = domain match {
     case Domain.String => "VARCHAR(32672)" // 32672 is the max (for v10); use BoundedString to define max yourself
     case Domain.BoundedString(maxSize) => "VARCHAR(%d)".format(maxSize)
     case Domain.IdentityInteger => "INT NOT NULL GENERATED ALWAYS AS IDENTITY(START WITH 1, INCREMENT BY 1, NO CYCLE)"
@@ -127,7 +127,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
 
   def schemaToDDTList(schema: Schema): Seq[String] =
     schema.schema.map{
-      case(attr, domain) => "%s %s".format(attr, domain2SqliteDomain(domain))
+      case(attr, domain) => "%s %s".format(attr, domain2Db2Domain(domain))
     }
 
   def createTable(name: View.TableName, schema: Schema) {
