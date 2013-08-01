@@ -20,6 +20,7 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   }
 
   val tbl1Schema: Schema = Schema("one" -> Domain.BoundedString(10), "two"-> Domain.Integer)
+  val tbl2Schema = Schema("id" -> Domain.IdentityInteger)
 
   val data = Seq(
     ("test", 10),
@@ -125,9 +126,17 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   }
 
   test("identity column") {
-    val tbl2Schema = Schema("id" -> Domain.IdentityInteger)
     conn.createTable("tbl2", tbl2Schema)
     (1 to 10).foreach{_ => conn.insert("tbl2", tbl2Schema, Seq(null))}
     expectResult((1 to 10).map{Seq(_)}){conn.read(View.Table("tbl2", tbl2Schema), tbl2Schema).toSeq}
+  }
+
+  test("retrieve generated keys") {
+    conn.createTable("tbl2", tbl2Schema)
+    for(i <- 1 to 10) {
+      expectResult((1, i)) {
+          conn.insertAndRetrieveGeneratedKeys("tbl2", tbl2Schema, Seq(null))
+        }
+    }
   }
 }
