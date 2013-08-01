@@ -89,7 +89,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
   }
 
   def delete(tableName: View.TableName, condition: Expr): Int = {
-    val sql = "DELETE FROM %s WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
+    val sql = "DELETE FROM \"%s\" WHERE %s".format(tableName, condition.toString(sqlWriteParameterization))
     val statement = connection.createStatement()
     val result = statement.executeUpdate(sql)
     statement.close()
@@ -101,7 +101,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     val clauses = updates.map {
       case (columnName, value) => "%s = %s".format(columnName, value.toString(sqlWriteParameterization))
     }
-    val sql = "UPDATE %s SET %s WHERE %s".format(
+    val sql = "UPDATE \"%s\" SET %s WHERE %s".format(
       tableName,
       clauses.mkString(", "),
       condition.toString(sqlWriteParameterization)
@@ -129,7 +129,7 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
     }
 
   def createTable(name: View.TableName, schema: Schema): Unit = {
-    val sql = "CREATE TABLE %s (\n%s\n)".format(name, schemaToDDTList(schema).mkString(",\n"))
+    val sql = "CREATE TABLE \"%s\" (\n%s\n)".format(name, schemaToDDTList(schema).mkString(",\n"))
     val statement = connection.createStatement()
     statement.execute(sql)
     statement.close()
@@ -146,13 +146,13 @@ class Sqlite3DbConnection(connection:java.sql.Connection) extends DbConnection {
 
   def dropTable(name: View.TableName) {
     val statement = connection.createStatement()
-    statement.execute("DROP TABLE %s".format(name))
+    statement.execute("DROP TABLE \"%s\"".format(name))
     statement.close()
   }
 
   def dropTableIfExists(name: View.TableName) {
     val statement = connection.createStatement()
-    statement.execute("DROP TABLE IF EXISTS %s".format(name))
+    statement.execute("DROP TABLE IF EXISTS \"%s\"".format(name))
     statement.close()
   }
 
