@@ -134,9 +134,10 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
   test("retrieve generated keys") {
     conn.createTable("tbl2", tbl2Schema)
     for(i <- 1 to 10) {
-      expectResult((1, i)) {
-          conn.insertAndRetrieveGeneratedKeys("tbl2", tbl2Schema, Seq(null))
-        }
+      expectResult((1, Seq(i))) {
+        val (rowCount, keys) = conn.insertAndRetrieveGeneratedKeys("tbl2", tbl2Schema, Seq(null))
+        (rowCount, keys.toSeq)
+      }
     }
   }
 }
