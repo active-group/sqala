@@ -138,4 +138,15 @@ class Db2Test extends FunSuite with BeforeAndAfter {
     expectResult((1 to 10).map{Seq(_)}.toSet){conn.read(View.Table("tbl2", tbl2Schema), tbl2Schema).toSet}
   }
 
+  test("calendar columns") {
+    val calTblSchema = Schema("id" -> Domain.IdentityInteger, "start" -> Domain.CalendarTime)
+    conn.dropTableIfExists("calTbl")
+    conn.createTable("calTbl", calTblSchema)
+    val time1 = new java.sql.Timestamp(new java.util.GregorianCalendar(2013, 7, 1, 9, 20, 22).getTimeInMillis)
+    conn.insert("calTbl", calTblSchema, Seq(null, time1))
+    val rows = conn.read(View.makeSelect(attributes = Seq(View.SelectAttribute(Expr.Column("start"), None)), from = Seq(View.SelectFromView(View.Table("calTbl", calTblSchema), None))),
+      Schema("start" -> Domain.CalendarTime)).toList
+    expectResult(List(List(time1))){rows.toList}
+  }
+
 }
