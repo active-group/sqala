@@ -171,7 +171,7 @@ class Db2DbConnection(connection:java.sql.Connection) extends DbConnection {
     val sql: String = makeInsertSql(table, schema, values)
     val statement = connection.createStatement()
     val idColumn = schema.domains.indexWhere{case Domain.IdentityInteger => true}
-    val rowCount = statement.executeUpdate(sql, Array(idColumn))
+    val rowCount = statement.executeUpdate(sql, Array(idColumn+1))
     val generatedKeys = statement.getGeneratedKeys
     generatedKeys.next()
     val generatedKey = generatedKeys.getInt(1)
