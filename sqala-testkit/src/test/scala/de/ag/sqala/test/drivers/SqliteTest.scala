@@ -149,4 +149,14 @@ class SqliteTest extends FunSuite with BeforeAndAfter {
       Schema("start" -> Domain.CalendarTime)).toList
     expectResult(List(List(time1String))){rows.toList}
   }
+
+  test("retrieve identity column") {
+    val tblName = "id"
+    val tblSchema = Schema("id" -> Domain.IdentityInteger)
+    conn.dropTableIfExists(tblName)
+    conn.createTable(tblName, tblSchema)
+    expectResult((1,1)) {conn.insertAndRetrieveGeneratedKey(tblName, tblSchema, Seq(null))}
+    expectResult((1,2)) {conn.insertAndRetrieveGeneratedKey(tblName, tblSchema, Seq(null))}
+  }
+
 }
