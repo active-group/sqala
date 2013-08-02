@@ -148,4 +148,12 @@ class Db2Test extends FunSuite with BeforeAndAfter {
     expectResult(List(List(time1))){rows.toList}
   }
 
+  test("identity column with other columns") {
+    val tblName = "idplus"
+    val tblSchema = Schema("id" -> Domain.IdentityInteger)
+    conn.dropTableIfExists(tblName)
+    conn.createTable(tblName, tblSchema)
+    expectResult((1,1)) {conn.insertAndRetrieveGeneratedKey(tblName, tblSchema, Seq(null))}
+  }
+
 }
