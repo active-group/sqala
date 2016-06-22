@@ -10,9 +10,36 @@ object Aliases {
 }
 
 import Aliases._
+import Assertions._
 
-case class RelationalScheme(columns: Vector[String], map: Environment, grouped: Option[Set[String]]) {
+case class RelationalScheme(columns: Vector[String], map: Map[String, Type], grouped: Option[Set[String]]) {
   def environment(): Environment = map
+
+  def ++(other: RelationalScheme): RelationalScheme =
+    RelationalScheme(this.columns ++ other.columns,
+        this.map ++ other.map,
+        (this.grouped, other.grouped) match {
+          case (None, g2) => g2
+          case (g1, None) => g1
+          case (Some(g1), Some(g2)) => Some(g1 ++ g2)
+        })
+
+  def toNullable() : RelationalScheme =
+    RelationalScheme(this.columns,
+      this.map map { case (name, ty: Type) => (name, ty.toNullable()) },
+      this.grouped)
+
+  def difference(other: RelationalScheme): RelationalScheme = {
+    val cols2 = other.columns.toSet
+    val cols = this.columns.filter(!cols2.contains(_))
+    ensure(!cols.isEmpty)
+    RelationalScheme(cols,
+      this.map.filterKeys(k => !cols.contains(k)),
+      this.grouped.map(cs => cs -- cols))
+  }
+
+  def toEnvironment(): Environment = this.map
+
 }
 
 object RelationalScheme {
@@ -71,6 +98,15 @@ sealed abstract class Query {
     }
     this.project(base.map(k => (k, Expression.makeAttributeRef(k))) ++ alist)
   }
+
+  def restrictOuter(exp: Expression): Query = OuterRestriction(exp, this)
+
+  def *(other: Query): Query = Product(this, other)
+  def leftOuterProduct(other: Query): Query = LeftOuterProduct(this, other)
+  def /(other: Query): Query = Quotient(this, other)
+  def union(other: Query): Query = Union(this, other)
+  def intersection(other: Query): Query = Intersection(this, other)
+  def difference(other: Query): Query = Difference(this, other)
 }
 
 object Query {
@@ -100,7 +136,7 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
 
 case class Restriction(exp: Expression, query: Query) extends Query {
   def computeScheme(env: Environment): RelationalScheme = {
-    assert(exp.getType(composeEnvironments(query.getScheme(env).environment(), env)) == Type.boolean,
+    ensure(exp.getType(composeEnvironments(query.getScheme(env).environment(), env)) == Type.boolean,
            "not a boolean expression")
     query.computeScheme(env)
   }
@@ -108,10 +144,98 @@ case class Restriction(exp: Expression, query: Query) extends Query {
 
 case class OuterRestriction(exp: Expression, query: Query) extends Query {
   def computeScheme(env: Environment): RelationalScheme = {
-    assert(exp.getType(composeEnvironments(query.getScheme(env).environment(), env)) == Type.boolean,
+    ensure(exp.getType(composeEnvironments(query.getScheme(env).environment(), env)) == Type.boolean,
            "not a boolean expression")
     query.computeScheme(env)
   }
 }
 
+trait Combination {
+  val query1: Query
+  val query2: Query
+}
 
+case class Product(query1: Query, query2: Query) extends Query with Combination {
+  def computeScheme(env: Environment): RelationalScheme = {
+    val r1 = query1.getScheme(env)
+    val r2 = query2.getScheme(env)
+    val a1 = r1.map
+    val a2 = r2.map
+    for ((k, _) <- a1)
+      ensure(!a2.contains(k))
+    r1 ++ r2
+  }
+}
+
+case class LeftOuterProduct(query1: Query, query2: Query) extends Query with Combination {
+  def computeScheme(env: Environment): RelationalScheme = {
+    val r1 = query1.getScheme(env)
+    val r2 = query2.getScheme(env).toNullable()
+    val a1 = r1.map
+    val a2 = r2.map
+    for ((k, _) <- a1)
+      ensure(!a2.contains(k))
+    r1 ++ r2
+  }
+}
+
+case class Quotient(query1: Query, query2: Query) extends Query with Combination {
+  def computeScheme(env: Environment): RelationalScheme = {
+    val s1 = query1.getScheme(env)
+    val s2 = query2.getScheme(env)
+    val a1 = s1.map
+    val a2 = s2.map
+    for ((k, v) <- a2)
+      a1.get(k) match {
+        case Some(p2) => ensure(v == p2)
+        case _ => ()
+      }
+    s1.difference(s2)
+  }
+}
+
+abstract class SetCombination extends Query with Combination {
+  def computeScheme(env: Environment): RelationalScheme = {
+    val s1 = query1.getScheme(env)
+    val s2 = query2.getScheme(env)
+    ensure(s1 == s2)
+    s1
+  }
+}
+
+case class Union(val query1: Query, val query2: Query) extends SetCombination
+case class Intersection(val query1: Query, val query2: Query) extends SetCombination
+case class Difference(val query1: Query, val query2: Query) extends SetCombination
+
+sealed trait Direction {
+  case object Ascending
+  case object Descending
+}
+
+case class Order(alist: Seq[(Expression, Direction)], query: Query) extends Query {
+  def computeScheme(env: Environment): RelationalScheme = {
+    val s = query.getScheme(env)
+    val env2 = composeEnvironments(s.toEnvironment(), env)
+    for ((exp, _) <- alist) {
+      val t = exp.getType(env2)
+      ensure(t.isOrdered)
+    }
+    s
+  }
+}
+
+case class Top(offset: Int, count: Int, query: Query) extends Query {
+  def computeScheme(env: Environment): RelationalScheme =
+    query.getScheme(env)
+}
+
+case class Group(columns: Set[String], query: Query) extends Query {
+  def computeScheme(env: Environment): RelationalScheme = {
+    val s = query.getScheme(env)
+    val g = s.grouped match {
+      case None => columns
+      case Some(grouped) => grouped.union(columns)
+    }
+    s.copy(grouped = Some(g))
+  }
+}

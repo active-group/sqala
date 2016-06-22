@@ -1,13 +1,11 @@
 package de.ag.sqala
 
-trait Type
-
-trait BaseType extends Type {
+trait Type {
   def name: String
   def contains(value: Any): Boolean
   def isNullable: Boolean
-  def toNullable(): BaseType
-  def toNonNullable(): BaseType
+  def toNullable(): Type
+  def toNonNullable(): Type
   def isNumeric: Boolean
   def isOrdered: Boolean
 }
@@ -17,7 +15,7 @@ case class AtomicType(val name: String,
                       val isNumeric: Boolean = false,
                       val isOrdered: Boolean = false,
                       val isNullable: Boolean = false)
-    extends BaseType {
+    extends Type {
   def contains(value: Any) = predicate(value)
   def toNullable() = this.copy(isNullable=true)
   def toNonNullable() = this.copy(isNullable=false)
