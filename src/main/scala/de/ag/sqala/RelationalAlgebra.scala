@@ -207,9 +207,11 @@ case class Union(val query1: Query, val query2: Query) extends SetCombination
 case class Intersection(val query1: Query, val query2: Query) extends SetCombination
 case class Difference(val query1: Query, val query2: Query) extends SetCombination
 
-sealed trait Direction {
-  case object Ascending
-  case object Descending
+sealed trait Direction
+
+object Direction {
+  case object Ascending extends Direction
+  case object Descending extends Direction
 }
 
 case class Order(alist: Seq[(Expression, Direction)], query: Query) extends Query {
