@@ -107,11 +107,19 @@ sealed abstract class Query {
   def union(other: Query): Query = Union(this, other)
   def intersection(other: Query): Query = Intersection(this, other)
   def difference(other: Query): Query = Difference(this, other)
+
+  def group(columns: Set[String]): Query =
+    Group(columns, this)
+
+  def top(offset: Int, count: Int, query: Query): Query =
+    Top(offset, count, query)
 }
 
 object Query {
   def makeBaseRelation[H](name: String, scheme: RelationalScheme, handle: H): Query =
     BaseRelation(name, scheme, handle)
+
+  val empty = EmptyQuery
 }
 
 case class BaseRelation[H](name: String, scheme: RelationalScheme, handle: H) extends Query {
