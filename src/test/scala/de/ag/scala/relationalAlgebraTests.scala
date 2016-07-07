@@ -80,6 +80,9 @@ object RelationalAlgebraTests extends SimpleTestSuite {
     } catch {
       case _ : AssertionError => // wanted
     }
+  }
 
+  test("allgemeine Verständnistests") {
+    //assertEquals(tbl1.getScheme(Map("three" -> Type.string)), 0)
   }
 }
