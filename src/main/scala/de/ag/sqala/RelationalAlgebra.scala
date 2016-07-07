@@ -29,12 +29,13 @@ case class RelationalScheme(columns: Vector[String], map: Map[String, Type], gro
       this.map map { case (name, ty: Type) => (name, ty.toNullable()) },
       this.grouped)
 
+  // In postgreSQL: EXCEPT
   def difference(other: RelationalScheme): RelationalScheme = {
     val cols2 = other.columns.toSet
     val cols = this.columns.filter(!cols2.contains(_))
     ensure(!cols.isEmpty)
     RelationalScheme(cols,
-      this.map.filterKeys(k => !cols.contains(k)),
+      this.map.filterKeys(k => cols.contains(k)),
       this.grouped.map(cs => cs -- cols))
   }
 
