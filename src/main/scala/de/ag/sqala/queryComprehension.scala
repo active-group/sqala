@@ -22,6 +22,8 @@ case class Relation(alias: Alias, scheme: RelationalScheme) {
 }
 
 case class QueryMonad[A](transform: State => (A, State)) {
+  import QueryMonad._
+
   def map[B](f: A => B): QueryMonad[B] =
     QueryMonad { st0: State =>
                   val (a, st1) = transform(st0)
@@ -33,6 +35,18 @@ case class QueryMonad[A](transform: State => (A, State)) {
                  val (a, st1) = transform(st0)
                  val qm = f(a)
                  qm.transform(st1) }
+
+  def union(p2: Comprehension)(implicit ev:  QueryMonad[A] =:= Comprehension): Comprehension =
+    combination(Union, (s1, s2) => s1, this, p2)
+
+  def intersect(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
+    combination(Intersection, (s1, s2) => s1, this, p2)
+
+  def divide(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
+    combination(Quotient, (s1, s2) => s1.difference(s2), this, p2)
+
+  def subtract(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
+    combination(Difference, (s1, s2) => s1, this, p2)
 
   def run(state: QueryMonad.State = emptyState) =
     transform(state)
@@ -151,20 +165,6 @@ object QueryMonad {
       (rel2, state2) = prod2.run(State(state1.alias, query0))
       res <- combination1(op, computeScheme, query0, rel1, state1.query, rel2, state2.query, alias0)
     } yield res
-
-  // FIXME: these can be methods in QueryMonad, with the right type restriction
-  // But Mike needs to lookup how that works, and is sitting on a traint
-  def union(p1: Comprehension, p2: Comprehension): Comprehension =
-    combination(Union, (s1, s2) => s1, p1, p2)
-
-  def intersect(p1: Comprehension, p2: Comprehension): Comprehension =
-    combination(Intersection, (s1, s2) => s1, p1, p2)
-
-  def divide(p1: Comprehension, p2: Comprehension): Comprehension =
-    combination(Quotient, (s1, s2) => s1.difference(s2), p1, p2)
-
-  def subtract(p1: Comprehension, p2: Comprehension): Comprehension =
-    combination(Difference, (s1, s2) => s1, p1, p2)
 
   def order(alist: Seq[(Expression, Direction)]): QueryMonad[Unit] =
     for {
