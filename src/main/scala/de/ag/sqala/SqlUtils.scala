@@ -6,29 +6,37 @@ object SqlUtils {
 
   // TODO write tests + look at types + return print or String ?!
 
-  // TODO types
+  // TODO types - until now not needed
   def putPaddingIfNonNull(lis: List[Any], proc: List[Any] => Any) : Option[Any] = {
     if(lis.isEmpty) None
     else Some(proc(lis))
   }
 
   // Statt nil use Option
-  def defaultPutAlias(alias: Option[String]) : Option[String] = {
-    if(alias.isDefined) Some(" AS "+alias.get)
-    else None
+  def defaultPutAlias(alias: Option[String]) : String = {
+    if(alias.isDefined) " AS "+alias.get
+    else
+      throw new AssertionError("Alias is not defined!")
   }
 
   def putDummyAlias(alias: Option[String]) : String =
-    defaultPutAlias(alias).getOrElse("AS "+"1") // gensym TODO
+    defaultPutAlias(alias) // gensym TODO
 
-  // TODO type value; check type correctness of value
-  def putLiteral(typ: Type, value: Any) : (String, (Type, Any)) =
-    ("?", (typ, value))
+  // TODO type value [evt. use Generics ??]; check type correctness of value
+  def putLiteral(typ: Type, value: Any) : (String, Seq[(Type, Any)]) =
+    ("?", Seq((typ, value)))
 
-  def putAlias(alias: Option[String]) : Option[String] = defaultPutAlias(alias)
+  def putAlias(alias: Option[String]) : Option[String] =
+    alias.flatMap(x => Some(defaultPutAlias(Some(x))))
 
   def putSqlSelect(sel: SqlSelect) : String =  List().mkString(" ")
 
-  def putJoiningInfix[A](lis: List[A], between: String, proc: (A) => String) : String =
+  def putJoiningInfix[A](lis: Seq[A], between: String, proc: (A) => String) : String =
     lis.map(proc).mkString(between)
+
+  def putJoiningInfixWP[A](lis: Seq[A], between: String, proc: (A) => (String, Seq[(Type, Any)])) : PutSQL.SqlWithParams = {
+    val tempSeq = lis.map(proc)
+    (Some(tempSeq.map(_._1).mkString(between)), tempSeq.map(_._2).flatten)
+  }
+
 }
