@@ -109,11 +109,14 @@ sealed abstract class Query {
   def intersection(other: Query): Query = Intersection(this, other)
   def difference(other: Query): Query = Difference(this, other)
 
+  def order(alist: Seq[(Expression, Direction)]): Query =
+    Order(alist, this)
+
   def group(columns: Set[String]): Query =
     Group(columns, this)
 
-  def top(offset: Int, count: Int, query: Query): Query =
-    Top(offset, count, query)
+  def top(offset: Int, count: Int): Query =
+    Top(offset, count, this)
 }
 
 object Query {

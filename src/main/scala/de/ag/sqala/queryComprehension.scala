@@ -6,13 +6,24 @@ import QueryMonad._
 // track the current state and later rebuild the resulting, correct references when
 // running the query monad
 case class Relation(alias: Alias, scheme: RelationalScheme) {
-  def !(n: String) = {
+  def !(n: String): Expression = {
     assert(this.scheme.map.contains(n))
     Expression.makeAttributeRef(freshName(n, this.alias))
   }
+
+  def buildQueryNScheme(): QueryMonad[(Query, RelationalScheme)] =
+    for {
+      state <- getState
+      alist = scheme.columns.map { k => (k, this!k) }
+    } yield (state.query.project(alist), scheme)
+
+  def buildQuery(): QueryMonad[Query] =
+    buildQueryNScheme().map(_._1)
 }
 
 case class QueryMonad[A](transform: State => (A, State)) {
+  import QueryMonad._
+
   def map[B](f: A => B): QueryMonad[B] =
     QueryMonad { st0: State =>
                   val (a, st1) = transform(st0)
@@ -24,14 +35,36 @@ case class QueryMonad[A](transform: State => (A, State)) {
                  val (a, st1) = transform(st0)
                  val qm = f(a)
                  qm.transform(st1) }
+
+  def union(p2: Comprehension)(implicit ev:  QueryMonad[A] =:= Comprehension): Comprehension =
+    combination(Union, (s1, s2) => s1, this, p2)
+
+  def intersect(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
+    combination(Intersection, (s1, s2) => s1, this, p2)
+
+  def divide(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
+    combination(Quotient, (s1, s2) => s1.difference(s2), this, p2)
+
+  def subtract(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
+    combination(Difference, (s1, s2) => s1, this, p2)
+
+  def run(state: QueryMonad.State = emptyState) =
+    transform(state)
 }
 
 object QueryMonad {
   type Alias = Int
+  
+  type Comprehension = QueryMonad[Relation]
 
   case class State(alias: Alias, query: Query)
 
   val emptyState = State(0, Query.empty)
+
+  val getState: QueryMonad[State] = QueryMonad { st => (st, st) }
+
+  def putState(st: State): QueryMonad[Unit] =
+    QueryMonad { _ => ((), st) }
 
   def freshName(name: String, alias: Alias): String =
     name + "_" + alias
@@ -56,7 +89,7 @@ object QueryMonad {
     QueryMonad { st0: State => ((), st0.copy(query = q)) }
 
   def addToProduct(makeProduct: (Query, Query) => Query, transformScheme: RelationalScheme => RelationalScheme,
-                   q: Query): QueryMonad[Relation] =
+                   q: Query): Comprehension =
     for {
       alias <- newAlias
       query <- currentQuery
@@ -68,13 +101,13 @@ object QueryMonad {
       _ <- setQuery(makeProduct(query, qq))
     } yield Relation(alias, scheme)
 
-  def embed(q: Query): QueryMonad[Relation] =
+  def embed(q: Query): Comprehension =
     addToProduct(_ * _, identity, q)
 
-  def outer(q: Query): QueryMonad[Relation] =
+  def outer(q: Query): Comprehension =
     addToProduct(_.leftOuterProduct(_), _.toNullable, q)
 
-  def project(alist: Seq[(String, Expression)]): QueryMonad[Relation] =
+  def project(alist: Seq[(String, Expression)]): Comprehension =
     for {
       alias <- newAlias
       query <- currentQuery
@@ -104,4 +137,45 @@ object QueryMonad {
       _ <- setQuery(old.group(colrefs.map { case (r, n) => freshName(n, r.alias) } toSet))
     } yield ()
   }
+
+  def combination1(op: (Query, Query) => Query,
+                   computeScheme: (RelationalScheme, RelationalScheme) => RelationalScheme,
+                   oldQuery: Query,
+                   rel1: Relation, q1: Query, rel2: Relation, q2: Query,
+                   alias: Alias): Comprehension = {
+    val p1 = q1.project(rel1.scheme.columns.map { k => (freshName(k, alias),
+      Expression.makeAttributeRef(freshName(k, rel1.alias)))
+    })
+    val p2 = q2.project(rel2.scheme.columns.map { k => (freshName(k, alias),
+      Expression.makeAttributeRef(freshName(k, rel2.alias)))
+    })
+    for {
+      _ <- setAlias(alias + 1)
+      _ <- setQuery(op(p1, p2) * oldQuery)
+    } yield Relation(alias, computeScheme(rel1.scheme, rel2.scheme))
+  }
+
+  def combination(op: (Query, Query) => Query,
+                  computeScheme: (RelationalScheme, RelationalScheme) => RelationalScheme,
+                  prod1: Comprehension, prod2: Comprehension): Comprehension =
+    for {
+      query0 <- currentQuery
+      alias0 <- currentAlias
+      (rel1, state1) = prod1.run(State(alias0, query0))
+      (rel2, state2) = prod2.run(State(state1.alias, query0))
+      res <- combination1(op, computeScheme, query0, rel1, state1.query, rel2, state2.query, alias0)
+    } yield res
+
+  def order(alist: Seq[(Expression, Direction)]): QueryMonad[Unit] =
+    for {
+      old <- currentQuery
+      _ <- setQuery(old.order(alist))
+    } yield ()
+
+  def top(offset: Int, count: Int): QueryMonad[Unit] =
+    for {
+      old <- currentQuery
+      _ <- setQuery(old.top(offset, count))
+    } yield ()
+
 }
