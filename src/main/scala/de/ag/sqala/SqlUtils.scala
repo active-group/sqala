@@ -39,4 +39,9 @@ object SqlUtils {
     (Some(tempSeq.map(_._1).mkString(between)), tempSeq.map(_._2).flatten)
   }
 
+  def putJoiningInfixWPFix[A](lis: Seq[A], between: String, proc: (A) => (String, Seq[(Type, Any)])) : PutSQL.SqlWithParamsFix = {
+    val tempSeq = lis.map(proc)
+    (tempSeq.map(_._1).mkString(between), tempSeq.map(_._2).flatten)
+  }
+
 }

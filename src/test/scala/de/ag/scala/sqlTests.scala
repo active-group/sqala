@@ -18,7 +18,7 @@ object SqlTests extends SimpleTestSuite {
     // TODO Test more
   }
 
-  test("Expression - opertors / simple Tests") {
+  test("Expression - operators / simple Tests") {
     assertEquals(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionConst(Type.integer, 4), SqlExpressionConst(Type.integer, 5))).toSQL,
       ("(? = ?)", Seq((Type.integer, 4), (Type.integer, 5))))
     assertEquals(SqlExpressionApp(SqlOperator.isNotNull, Seq(SqlExpressionColumn("busy"))).toSQL,

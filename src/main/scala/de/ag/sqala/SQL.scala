@@ -28,6 +28,19 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
     }
   }
 
+  def join(tables: Seq[(String, SqlInterpretations)], outerTables: Seq[(String, SqlInterpretations)]) : SqlWithParams = {
+    val tempTabs = putTables(tables, ", ")
+    val outer = putTables(outerTables, " ON (1=1) LEFT JOIN ")
+    if(outerTables.isEmpty || tables.size == 1) {
+      if(outerTables.isEmpty)
+        (Some("FROM "+tempTabs._1), tempTabs._2)
+      else
+        (Some("FROM "+tempTabs._1+" LEFT JOIN "+outer._1), tempTabs._2++outer._2)
+    } else {
+      (Some(" FROM (SELECT * FROM "+tempTabs._1+") LEFT JOIN "+outer._1), tempTabs._2++outer._2)
+    }
+  }
+
   def expression(expr: SqlExpression) : SqlWithParamsFix = expr.toSQL
 
   def groupBy(grBy: Seq[String]) : SqlWithParams =
@@ -39,6 +52,15 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
     case (sql: String, seqTyps: Seq[(Type, Any)]) =>
       (sql+SqlUtils.defaultPutAlias(Some(alias)), seqTyps)
   }
+
+  def putTables(tables: Seq[(String, SqlInterpretations)], between: String) : SqlWithParamsFix =
+    SqlUtils.putJoiningInfixWPFix[(String, SqlInterpretations)](tables, between, {
+      case (alias: String, select: SqlTable) => putColumnAnAlias((select.name, Seq.empty), alias)
+      case (alias: String, select: SqlInterpretations) => {
+        val temp: SqlWithParamsFix = select.toSQL
+        putColumnAnAlias(("("+temp._1+")", temp._2), alias)
+      }
+    })
 
 
 }
@@ -82,6 +104,7 @@ final case class SqlSelect(
       (Some("SELECT"), Seq.empty),
       (this.options.flatMap(x => Some(x.mkString(" "))), Seq.empty),
       PutSQL.attributes(attributes)
+      // TODO (next) add join ...
     )
     val validSeqMember = tempSeq.filter(_._1.isDefined)
     (validSeqMember.map(_._1.get).mkString(" "), validSeqMember.map(_._2).flatten)
