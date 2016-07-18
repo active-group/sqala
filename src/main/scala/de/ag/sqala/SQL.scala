@@ -23,12 +23,20 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
     else {
       SqlUtils.putJoiningInfixWP[(String, SqlExpression)](atts, ", ", {
         case (col: String, sqlE: SqlExpressionColumn) if col == sqlE.name => (col, Seq.empty)
-        case (col: String, sqlE: SqlExpression) => putColumnAnAlias(expression(sqlE), col)
+        case (col: String, sqlE: SqlExpression) => putColumnAnAlias(expression(sqlE), Some(col))
       })
     }
   }
 
-  def join(tables: Seq[(String, SqlInterpretations)], outerTables: Seq[(String, SqlInterpretations)]) : SqlWithParams = {
+  // FixMe : Zur Info: Weiche hier von dem orginal Sqlosure ab, da die restricts hier direkt dazu implementiert werden sollten!
+  /*
+  Überlegungen dies am sinvollsten zu implementieren...
+  OuterRestrictions = Expressions  ->  Seq[Expressions]
+  Expressions müssen aber auf die Spalten geprüft werden - da beim richtigen JOIN dazugefügt werden müssen -> Wissen über die aktuellen Spalten nötig!!
+    => umgesetzt mit Variable allColumns (enthält nur aktuelle Columns!
+    */
+  // add outer-restricts
+  def join(tables: Seq[(Option[String], SqlInterpretations)], outerTables: Seq[(Option[String], SqlInterpretations)]) : SqlWithParams = {
     val tempTabs = putTables(tables, ", ")
     val outer = putTables(outerTables, " ON (1=1) LEFT JOIN ")
     if(outerTables.isEmpty || tables.size == 1) {
@@ -37,9 +45,12 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
       else
         (Some("FROM "+tempTabs._1+" LEFT JOIN "+outer._1), tempTabs._2++outer._2)
     } else {
-      (Some(" FROM (SELECT * FROM "+tempTabs._1+") LEFT JOIN "+outer._1), tempTabs._2++outer._2)
+      (Some("FROM (SELECT * FROM "+tempTabs._1+") LEFT JOIN "+outer._1), tempTabs._2++outer._2)
     }
   }
+
+  def conditions(exprs: Seq[SqlExpression]) : SqlWithParamsFix =
+    SqlUtils.putJoiningInfixWPFix[SqlExpression](exprs, " AND ", {x: SqlExpression => x.toSQL})
 
   def expression(expr: SqlExpression) : SqlWithParamsFix = expr.toSQL
 
@@ -48,15 +59,15 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
 
 
   /** */
-  def putColumnAnAlias(expr: SqlWithParamsFix, alias: String): SqlWithParamsFix = expr match {
+  def putColumnAnAlias(expr: SqlWithParamsFix, alias: Option[String]): SqlWithParamsFix = expr match {
     case (sql: String, seqTyps: Seq[(Type, Any)]) =>
-      (sql+SqlUtils.defaultPutAlias(Some(alias)), seqTyps)
+      (sql+SqlUtils.defaultPutAlias(alias), seqTyps)
   }
 
-  def putTables(tables: Seq[(String, SqlInterpretations)], between: String) : SqlWithParamsFix =
-    SqlUtils.putJoiningInfixWPFix[(String, SqlInterpretations)](tables, between, {
-      case (alias: String, select: SqlTable) => putColumnAnAlias((select.name, Seq.empty), alias)
-      case (alias: String, select: SqlInterpretations) => {
+  def putTables(tables: Seq[(Option[String], SqlInterpretations)], between: String) : SqlWithParamsFix =
+    SqlUtils.putJoiningInfixWPFix[(Option[String], SqlInterpretations)](tables, between, {
+      case (alias: Option[String], select: SqlSelectTable) => putColumnAnAlias((select.name, Seq.empty), alias)
+      case (alias: Option[String], select: SqlInterpretations) => {
         val temp: SqlWithParamsFix = select.toSQL
         putColumnAnAlias(("("+temp._1+")", temp._2), alias)
       }
@@ -72,28 +83,29 @@ trait SqlInterpretations {
     * @return (SQL-Query, Seq[(Typ, Wert)]    : Als Seq wird der Datentyp und der Wert und die Variable übermittelt
     */
   def toSQL : PutSQL.SqlWithParamsFix
-  def isExpression : Boolean
+  val allColumns : Seq[String]
 }
 /*
-  LIKE: Table, Select, Select-Combine, Select-Empty
+  LIKE: Table, Select, Select-Combine, Select-Empty -- FIXME SelectEmpty ist als SQL nicht ausführbar/einbettbar !!
  */
 
-final case class SqlTable(
+
+final case class SqlSelectTable(
                          name: String,
                          schema: RelationalScheme
                          ) extends SqlInterpretations {
-  override def toSQL : (String, Seq[(Type, Any)]) = ("SELECT * FROM "+name, Seq.empty)
-  override def isExpression = false
+  override def toSQL : PutSQL.SqlWithParamsFix = ("SELECT * FROM "+name, Seq.empty)
+  override val allColumns = schema.columns
 }
 
 final case class SqlSelect(
                             options: Option[Seq[String]], // like DISTINCT, ALL ...
                             attributes: Seq[(String, SqlExpression)], // column, expression
-                            //nullary: Boolean, // FixME : was ist damit gemeint
-                            tables: Seq[(String, SqlInterpretations)],
-                            outerTables: Seq[(String, SqlInterpretations)],
+                            //nullary: Boolean, // FixME : was ist damit gemeint ?
+                            tables: Seq[(Option[String], SqlInterpretations)],
+                            outerTables: Seq[(Option[String], SqlInterpretations)],
                             criteria: Any, // where
-                            outerCriteria: Any, // left join ... on
+                            outerCriteria: Seq[SqlExpression], // left join ... on
                             groupBy: Seq[String],
                             having: Any,
                             orderBy: Any
@@ -103,14 +115,20 @@ final case class SqlSelect(
     val tempSeq : Seq[(Option[String], Seq[(Type, Any)])] = Seq(
       (Some("SELECT"), Seq.empty),
       (this.options.flatMap(x => Some(x.mkString(" "))), Seq.empty),
-      PutSQL.attributes(attributes)
+      PutSQL.attributes(attributes),
+      PutSQL.join(tables, outerTables)
       // TODO (next) add join ...
     )
     val validSeqMember = tempSeq.filter(_._1.isDefined)
     (validSeqMember.map(_._1.get).mkString(" "), validSeqMember.map(_._2).flatten)
   }
 
-  override def isExpression = false
+  override val allColumns = {
+    if(attributes.isEmpty)
+      ???
+    else
+      attributes.map(_._1)
+  }
 
   /*
   def putSqlJoin : Option[(String, Seq[(Type, Any)])] = {
@@ -123,28 +141,57 @@ final case class SqlSelect(
   }*/
 }
 
-sealed trait CombineOperation
-object CombineOperation {
-  case object Union extends CombineOperation
-  case object Intersection extends CombineOperation
-  case object Difference extends CombineOperation
-}
+
+/**
+  * CombineOperation like UNION, INTERSECT ...
+  */
 
 final case class SqlSelectCombine(
-                                 operation: CombineOperation,
-                                 left: SqlSelect,
-                                 right: SqlSelect
-                                 )
+                                   operation: SqlCombineOperator,
+                                   left: SqlInterpretations,
+                                   right: SqlInterpretations
+                                 ) extends SqlInterpretations {
+  override def toSQL : PutSQL.SqlWithParamsFix =
+    operation.toSQL(left.toSQL, right.toSQL)
+  override val allColumns = left.allColumns // in PostgreSQL werden die Namen der Spalten des linken Ausdrucks übernommen
+}
 
+sealed trait SqlCombineOperator {
+  def toSQL(left: PutSQL.SqlWithParamsFix, right: PutSQL.SqlWithParamsFix) : PutSQL.SqlWithParamsFix = {
+    ("("+left._1+") "+getOpName+" ("+right._1+")", left._2++right._2)
+  }
+  protected val getOpName : String
+}
+
+object SqlCombineOperator {
+  case object Union extends SqlCombineOperator {
+    protected val getOpName = "UNION"
+  }
+  case object Intersection extends SqlCombineOperator {
+    protected val getOpName = "INTERSECT"
+  }
+  case object Difference extends SqlCombineOperator {
+    protected val getOpName = "EXCEPT"
+  }
+}
+
+
+
+
+
+
+
+/*
 final case class SqlSelectTable(
                                name: String
-                               )
+                               )*/
 
-object SqlSelectEmpty
+object SqlSelectEmpty // TODO
 
-trait SqlExpression extends SqlInterpretations {
-  override def toSQL : PutSQL.SqlWithParamsFix = ("", Seq.empty) // TODO : default-Wert entfernen, wenn untenstehende Expressions implementiert
-  override def isExpression = true
+
+
+trait SqlExpression { // kein SqlInterpretations, da nicht eigenständig ausführbar
+  def toSQL : PutSQL.SqlWithParamsFix = ("", Seq.empty) // TODO : default-Wert entfernen, wenn untenstehende Expressions implementiert
 }
 
 case class SqlExpressionColumn(name: String) extends SqlExpression {
@@ -161,19 +208,23 @@ case class SqlExpressionExists(select: SqlSelect) extends SqlExpression
 case class SqlExpressionTuple() extends SqlExpression
 case class SqlExpressionSubquery(query: Query) extends SqlExpression
 
+// FixMe bereits irgendwo enthalten :
+case class SqlExpressionOr(left: Any, right: Any) extends SqlExpression
+// And is default
+
 object SQL {
   // TODO add universe ?!
-  def makeSqlTable(name: String, schema: RelationalScheme) : BaseRelation[SqlTable] =
-    BaseRelation(name, schema, SqlTable(name, schema))
+  /*def makeSqlTable(name: String, schema: RelationalScheme) : BaseRelation[SqlSelectTable] =
+    BaseRelation(name, schema, SqlSelectTable(name, schema))*/
 
-  def makeSqlSelect(attributes: Seq[(String, SqlExpression)], tables: Seq[(String, SqlInterpretations)]) : SqlSelect =
+  def makeSqlSelect(attributes: Seq[(String, SqlExpression)], tables: Seq[(Option[String], SqlInterpretations)]) : SqlSelect =
     SqlSelect(None, attributes, tables, Seq.empty,
-      None, None,
+      None, Seq.empty,
       Seq.empty, None, None)
 
-  def makeSqlSelect(options: Seq[String], attributes: Seq[(String, SqlExpression)], tables: Seq[(String, SqlInterpretations)]) : SqlSelect =
+  def makeSqlSelect(options: Seq[String], attributes: Seq[(String, SqlExpression)], tables: Seq[(Option[String], SqlInterpretations)]) : SqlSelect =
     SqlSelect(Some(options), attributes, tables, Seq.empty,
-      None, None,
+      None, Seq.empty,
       Seq.empty, None, None)
 
   //def newSqlSelect: SqlSelect = SqlSelect(???)
@@ -189,6 +240,18 @@ object Ascending extends SqlOrder
 object Descending extends SqlOrder
 
 
+
+
+
+
+/**
+  * A SqlOperator is e.g. a equality-check in the WHERE-clause
+ *
+  * @param name   the character/-s which used in sql
+  * @param arity  the arity defined in SqlOperatorArity
+  * @param extra  a optional extra String, which is needed in some Arities (like BETWEEN ... 'AND' ...)
+  *               BETWEEN is the name an AND is defined in EXTRA, so the arity can be used for other operators like this
+  */
 
 case class SqlOperator(name: String, arity: SqlOperatorArity, extra: Option[String] = None)
 
@@ -242,6 +305,11 @@ object SqlOperator {
   def toSQL(rator : SqlOperator, rands: Seq[PutSQL.SqlWithParamsFix]) : PutSQL.SqlWithParamsFix =
     rator.arity.toSql(rator, rands)
 }
+
+
+/**
+  * Arity for the SqlOperators
+  */
 
 trait SqlOperatorArity {
   /**

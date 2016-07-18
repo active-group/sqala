@@ -5,18 +5,12 @@ import minitest._
 
 object SqlTests extends SimpleTestSuite {
 
-  // TODO test more over the small functions in PutSQL & SqlUtils
-  val att1 = Seq(("first", SqlExpressionColumn("first")), ("abc", SqlExpressionColumn("second")))
-  val att2 = Seq(("blub", SqlExpressionConst(Type.string, "")), ("blubStr", SqlExpressionConst(Type.string, "X")),
-    ("blub2", SqlExpressionConst(Type.integer, 4)))
+  val tbl1 = SqlSelectTable("personen", RelationalScheme.make(Seq(("id", Type.integer), ("first", Type.string), ("last", Type.string))))
+  val adr1 = SqlSelectTable("addresses", RelationalScheme.make(Seq(("city", Type.string))))
+  val firmAddr = SqlSelectTable("firm_address", RelationalScheme.make(Seq(("orte", Type.string))))
+  val standorte = SqlSelectTable("standorte", RelationalScheme.make(Seq(("orte", Type.string))))
 
-  test("PutSQL - attributes (& putLiteral)") {
-    assertEquals(PutSQL.attributes(Seq.empty), (Some("*"), Seq.empty))
-    assertEquals(PutSQL.attributes(att1), (Some("first, second AS abc"), Seq.empty))
-    assertEquals(PutSQL.attributes(att2), (Some("? AS blub, ? AS blubStr, ? AS blub2"),
-      Seq((Type.string, ""), (Type.string, "X"), (Type.integer, 4))))
-    // TODO Test more
-  }
+  val select1 = SQL.makeSqlSelect(Seq.empty, Seq((None, tbl1)))
 
   test("Expression - operators / simple Tests") {
     assertEquals(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionConst(Type.integer, 4), SqlExpressionConst(Type.integer, 5))).toSQL,
@@ -33,19 +27,30 @@ object SqlTests extends SimpleTestSuite {
   }
 
 
+  test("SelectCombineOperations") {
+    assertEquals(SqlSelectCombine(SqlCombineOperator.Union, adr1, firmAddr).toSQL,
+      ("(SELECT * FROM addresses) UNION (SELECT * FROM firm_address)", Seq.empty))
+    assertEquals(SqlSelectCombine(
+      SqlCombineOperator.Difference,
+      SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("city")), ("xx", SqlExpressionConst(Type.string, "BlX"))), Seq((None, adr1))),
+      SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("orte")), ("xx", SqlExpressionConst(Type.string, "Nn"))), Seq((None, standorte)))).toSQL,
+      ("(SELECT city, ? AS xx FROM addresses) EXCEPT (SELECT orte AS city, ? AS xx FROM standorte)", Seq((Type.string, "BlX"), (Type.string, "Nn"))))
+  }
 
 
-  val tbl1 = SqlTable("personen", RelationalScheme(
-    Vector[String]("id", "first", "last"),
-    Map("id" -> Type.integer, "first" -> Type.string, "last" -> Type.string),
-    None))
-
-  val select1 = SQL.makeSqlSelect(Seq.empty, Seq(("personen", tbl1)))
 
   test("toSQL / simple Querys") {
     assertEquals(tbl1.toSQL, ("SELECT * FROM personen", Seq.empty))
     // TODO Zwischenergebnisse Ergebnis vervollständigt sich noch
-    assertEquals(select1.toSQL, ("SELECT *", Seq.empty))
+    assertEquals(select1.toSQL, ("SELECT * FROM personen", Seq.empty))
+    assertEquals(SQL.makeSqlSelect(Seq.empty, Seq((Some("personen"), tbl1))).toSQL,
+      ("SELECT * FROM personen AS personen", Seq.empty))
+  }
+
+
+
+  test("joins") {
+
   }
 
 

@@ -13,16 +13,19 @@ object SqlUtils {
   }
 
   // Statt nil use Option
-  def defaultPutAlias(alias: Option[String]) : String = {
-    if(alias.isDefined) " AS "+alias.get
+  def defaultPutAlias(alias: Option[String]) : String = alias match {
+    case Some(al) => " AS "+al
+    case None => ""
+    /*if(alias.isDefined) " AS "+alias.get
     else
-      throw new AssertionError("Alias is not defined!")
+      throw new AssertionError("Alias is not defined!")*/
   }
 
   def putDummyAlias(alias: Option[String]) : String =
     defaultPutAlias(alias) // gensym TODO
 
-  // TODO type value [evt. use Generics ??]; check type correctness of value
+  // TODO type value; check type correctness of value
+  // z.B. check like typ.contains(value) - evt. done before
   def putLiteral(typ: Type, value: Any) : (String, Seq[(Type, Any)]) =
     ("?", Seq((typ, value)))
 
