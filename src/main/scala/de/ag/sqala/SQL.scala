@@ -36,7 +36,8 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
     => umgesetzt mit Variable allColumns (enthält nur aktuelle Columns!
     */
   // add outer-restricts
-  def join(tables: Seq[(Option[String], SqlInterpretations)], outerTables: Seq[(Option[String], SqlInterpretations)]) : SqlWithParams = {
+  def join(tables: Seq[(Option[String], SqlInterpretations)], outerTables: Seq[(Option[String], SqlInterpretations)],
+           outerCriteria: Seq[SqlExpression]) : SqlWithParams = {
     val tempTabs = putTables(tables, ", ")
     val outer = putTables(outerTables, " ON (1=1) LEFT JOIN ")
     if(outerTables.isEmpty || tables.size == 1) {
@@ -73,6 +74,12 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
       }
     })
 
+  def surroundSqlString(before: String, sql : PutSQL.SqlWithParamsFix, after: String) : PutSQL.SqlWithParamsFix =
+    (before+sql._1+after, sql._2)
+
+  def concatSQL(sqls : Seq[PutSQL.SqlWithParamsFix]) : PutSQL.SqlWithParamsFix =
+    (sqls.map(x => x._1).mkString(""), sqls.map(x => x._2).flatten)
+
 
 }
 
@@ -90,9 +97,9 @@ trait SqlInterpretations {
 
 
 final case class SqlSelectTable(
-                         name: String,
-                         schema: RelationalScheme
-                         ) extends SqlInterpretations {
+                                 name: String,
+                                 schema: RelationalScheme
+                               ) extends SqlInterpretations {
   override def toSQL : PutSQL.SqlWithParamsFix = ("SELECT * FROM "+name, Seq.empty)
 }
 
@@ -114,8 +121,12 @@ final case class SqlSelect(
       (Some("SELECT"), Seq.empty),
       (this.options.flatMap(x => Some(x.mkString(" "))), Seq.empty),
       PutSQL.attributes(attributes),
-      PutSQL.join(tables, outerTables)
+      PutSQL.join(tables, outerTables, outerCriteria)
       // TODO (next) add join ...
+      // Having
+      // Group By
+      // ORder
+      // extra (Top, Limit ..)
     )
     val validSeqMember = tempSeq.filter(_._1.isDefined)
     (validSeqMember.map(_._1.get).mkString(" "), validSeqMember.map(_._2).flatten)
@@ -147,9 +158,10 @@ final case class SqlSelectCombine(
 }
 
 sealed trait SqlCombineOperator {
-  def toSQL(left: PutSQL.SqlWithParamsFix, right: PutSQL.SqlWithParamsFix) : PutSQL.SqlWithParamsFix = {
-    ("("+left._1+") "+getOpName+" ("+right._1+")", left._2++right._2)
-  }
+  def toSQL(left: PutSQL.SqlWithParamsFix, right: PutSQL.SqlWithParamsFix) : PutSQL.SqlWithParamsFix =
+    PutSQL.concatSQL(Seq(
+      PutSQL.surroundSqlString("(", left, ") "+getOpName),
+      PutSQL.surroundSqlString(" (", right, ")")))
   protected val getOpName : String
 }
 
@@ -171,10 +183,6 @@ object SqlCombineOperator {
 
 
 
-/*
-final case class SqlSelectTable(
-                               name: String
-                               )*/
 
 object SqlSelectEmpty // TODO
 
@@ -187,7 +195,8 @@ trait SqlExpression { // kein SqlInterpretations, da nicht eigenständig ausfüh
 case class SqlExpressionColumn(name: String) extends SqlExpression {
   override def toSQL : PutSQL.SqlWithParamsFix = (name, Seq.empty)
 }
-case class SqlExpressionApp(rator: SqlOperator, rands: Seq[SqlExpression]) extends SqlExpression {
+case class SqlExpressionApp(rator: SqlOperator,
+                            rands: Seq[SqlExpression]) extends SqlExpression {
   override def toSQL : PutSQL.SqlWithParamsFix = SqlOperator.toSQL(rator, rands.map(x => x.toSQL))
 }
 case class SqlExpressionConst(typ: Type, value: Any) extends SqlExpression {
@@ -199,39 +208,52 @@ case class SqlExpressionCase(input: Option[SqlExpression],
   override def toSQL : PutSQL.SqlWithParamsFix = {
     if(branches.isEmpty)
       throw new AssertionError("Invalid branche-size (=0) in SqlExpressionCase")
-    val sqlInput : PutSQL.SqlWithParamsFix = {
-      if(input.isDefined)
-        input.get.toSQL
-      else ("", Seq.empty)
-    }
-    val sqlBranches : PutSQL.SqlWithParamsFix = SqlUtils.putJoiningInfixWPFix[(SqlExpression, SqlExpression)](branches, " ", {
-      case (exWhen: SqlExpression, exThen: SqlExpression) => {
-        val sqlWhen : PutSQL.SqlWithParamsFix = exWhen.toSQL
-        val sqlThen : PutSQL.SqlWithParamsFix = exThen.toSQL
-        ("WHEN "+sqlWhen._1+" THEN "+sqlThen._1, sqlWhen._2++sqlThen._2)
-      }
-    })
-    if(default.isDefined) {
-      val sqlDefault: PutSQL.SqlWithParamsFix = default.get.toSQL
-      ("(CASE "+sqlInput._1+" "+sqlBranches._1 + " ELSE "+sqlDefault._1+" END)", sqlInput._2++sqlBranches._2++sqlDefault._2)
-    } else
-      ("(CASE "+sqlInput._1+" "+sqlBranches._1+" END)", sqlInput._2++sqlBranches._2)
+    else
+      PutSQL.surroundSqlString("(CASE ",
+        PutSQL.concatSQL(Seq(
+          // optional value behinde CASE
+          {if(input.isDefined)
+            PutSQL.surroundSqlString("", input.get.toSQL, " ")
+          else ("", Seq.empty)},
+          // WHEN ... THEN ... - part
+          SqlUtils.putJoiningInfixWPFix[(SqlExpression, SqlExpression)](branches, " ", {
+            case (exWhen: SqlExpression, exThen: SqlExpression) => {
+              val sqlWhen : PutSQL.SqlWithParamsFix = exWhen.toSQL
+              val sqlThen : PutSQL.SqlWithParamsFix = exThen.toSQL
+              ("WHEN "+sqlWhen._1+" THEN "+sqlThen._1, sqlWhen._2++sqlThen._2)
+            }}),
+          // optional default
+          {if(default.isDefined)
+            PutSQL.surroundSqlString(" ELSE ", default.get.toSQL, "")
+          else ("", Seq.empty)}
+        )),
+      " END)")
   }
 }
-case class SqlExpressionExists(select: SqlSelect) extends SqlExpression
+case class SqlExpressionExists(select: SqlInterpretations) extends SqlExpression {
+  override def toSQL : PutSQL.SqlWithParamsFix =
+    PutSQL.surroundSqlString("EXISTS (", select.toSQL, ")")
+}
 case class SqlExpressionTuple(expressions: Seq[SqlExpression]) extends SqlExpression {
-  override def toSQL : PutSQL.SqlWithParamsFix = {
-    val temp : PutSQL.SqlWithParamsFix = SqlUtils.putJoiningInfixWPFix[SqlExpression](expressions, ", ", {
+  override def toSQL : PutSQL.SqlWithParamsFix =
+    PutSQL.surroundSqlString("(", SqlUtils.putJoiningInfixWPFix[SqlExpression](expressions, ", ", {
       e: SqlExpression => e.toSQL
-    })
-    ("(" + temp._1 + ")", temp._2)
-  }
+    }), ")")
 }
-case class SqlExpressionSubquery(query: Query) extends SqlExpression
+case class SqlExpressionSubquery(query: SqlInterpretations) extends SqlExpression {
+  override def toSQL : PutSQL.SqlWithParamsFix =
+    PutSQL.surroundSqlString("(", query.toSQL, ")")
+}
 
-// FixMe bereits irgendwo enthalten :
-case class SqlExpressionOr(left: Any, right: Any) extends SqlExpression
-// And is default
+// AND & OR
+case class SqlExpressionOr(exps: Seq[SqlExpression]) extends SqlExpression {
+  override def toSQL : PutSQL.SqlWithParamsFix =
+    PutSQL.surroundSqlString("(", SqlUtils.putJoiningInfixWPFix[SqlExpression](exps, " OR ", { e => e.toSQL }), ")")
+}
+case class SqlExpressionAnd(exps: Seq[SqlExpression]) extends SqlExpression {
+  override def toSQL : PutSQL.SqlWithParamsFix =
+    PutSQL.surroundSqlString("(", SqlUtils.putJoiningInfixWPFix[SqlExpression](exps, " AND ", { e => e.toSQL }), ")")
+}
 
 object SQL {
   // TODO add universe ?!

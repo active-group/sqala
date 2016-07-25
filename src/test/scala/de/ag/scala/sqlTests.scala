@@ -12,6 +12,22 @@ object SqlTests extends SimpleTestSuite {
 
   val select1 = SQL.makeSqlSelect(Seq.empty, Seq((None, tbl1)))
 
+  val tbl2 = SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("city")), ("xx", SqlExpressionConst(Type.string, "BlX"))), Seq((None, adr1)))
+  val tbl2S = ("(SELECT city, ? AS xx FROM addresses)", Seq((Type.string, "BlX")))
+  val tbl3 = SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("orte")), ("xx", SqlExpressionConst(Type.string, "Nn"))), Seq((None, standorte)))
+  val tbl3S = ("(SELECT orte AS city, ? AS xx FROM standorte)", Seq((Type.string, "Nn")))
+
+  val longExpr = SqlExpressionOr(Seq(
+    SqlExpressionExists(tbl2),
+    SqlExpressionAnd(Seq(
+      SqlExpressionApp(SqlOperator.isNotNull, Seq(SqlExpressionColumn("house"))),
+      SqlExpressionApp(SqlOperator.neq, Seq(SqlExpressionColumn("door"), SqlExpressionConst(Type.string, "closed")))
+    )),
+    SqlExpressionApp(SqlOperator.isNull, Seq(SqlExpressionColumn("house")))
+  ))
+  val longExpr1T = ("(EXISTS "+tbl2S._1+" OR ((house) IS NOT NULL AND (door <> ?)) OR (house) IS NULL)", tbl2S._2++Seq((Type.string, "closed")))
+
+
   test("Expression (App) / simple Tests") {
     assertEquals(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionConst(Type.integer, 4), SqlExpressionConst(Type.integer, 5))).toSQL,
       ("(? = ?)", Seq((Type.integer, 4), (Type.integer, 5))))
@@ -30,6 +46,7 @@ object SqlTests extends SimpleTestSuite {
   test("Expression (others)") {
     assertEquals(SqlExpressionColumn("blub").toSQL, ("blub", Seq.empty))
     assertEquals(SqlExpressionConst(Type.integer, 5).toSQL, ("?", Seq((Type.integer, 5))))
+
     // Tuple
     assertEquals(SqlExpressionTuple(Seq(SqlExpressionConst(Type.integer, 5))).toSQL, ("(?)", Seq((Type.integer, 5))))
     assertEquals(SqlExpressionTuple(Seq(
@@ -39,12 +56,13 @@ object SqlTests extends SimpleTestSuite {
           SqlExpressionConst(Type.string, "Alter"))),
         SqlExpressionColumn("name"))).toSQL,
       ("(?, ((age = ?), ?), name)", Seq((Type.integer, 5), (Type.integer, 95), (Type.string, "Alter"))))
+
     // Case
     assertEquals(SqlExpressionCase(None, Seq(
       (SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("age"), SqlExpressionConst(Type.integer, 30))),
         SqlExpressionColumn("gebjahr"))),
       None).toSQL,
-      ("(CASE  WHEN (age = ?) THEN gebjahr END)", Seq((Type.integer, 30))))
+      ("(CASE WHEN (age = ?) THEN gebjahr END)", Seq((Type.integer, 30))))
     assertEquals(SqlExpressionCase(Some(SqlExpressionColumn("flag")), Seq(
       (SqlExpressionConst(Type.integer, 1), SqlExpressionColumn("wert1")),
       (SqlExpressionConst(Type.integer, 2), SqlExpressionColumn("wert2")),
@@ -58,6 +76,17 @@ object SqlTests extends SimpleTestSuite {
     } catch {
       case _ : AssertionError => // wanted
     }
+
+    // Exists
+    assertEquals(SqlExpressionExists(adr1).toSQL, ("EXISTS (SELECT * FROM addresses)", Seq.empty))
+    assertEquals(SqlExpressionExists(tbl3).toSQL, ("EXISTS "+tbl3S._1, tbl3S._2))
+
+    // subQuery
+    assertEquals(SqlExpressionSubquery(adr1).toSQL, ("(SELECT * FROM addresses)", Seq.empty))
+    assertEquals(SqlExpressionSubquery(tbl3).toSQL, tbl3S)
+
+    // AND and OR
+    assertEquals(longExpr.toSQL, longExpr1T)
   }
 
 
@@ -83,11 +112,7 @@ object SqlTests extends SimpleTestSuite {
     }
 
     withAll(adr1, firmAddr, "(SELECT * FROM addresses)", "(SELECT * FROM firm_address)", Seq.empty, Seq.empty)
-    withAll(
-      SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("city")), ("xx", SqlExpressionConst(Type.string, "BlX"))), Seq((None, adr1))),
-      SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("orte")), ("xx", SqlExpressionConst(Type.string, "Nn"))), Seq((None, standorte))),
-      "(SELECT city, ? AS xx FROM addresses)",  "(SELECT orte AS city, ? AS xx FROM standorte)", Seq((Type.string, "BlX")), Seq((Type.string, "Nn"))
-    )
+    withAll(tbl2, tbl3, tbl2S._1, tbl3S._1, tbl2S._2, tbl3S._2)
   }
 
 

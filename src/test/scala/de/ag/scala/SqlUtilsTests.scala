@@ -40,6 +40,18 @@ object SqlUtilsTests extends SimpleTestSuite {
       (Some("FROM tabelleA LEFT JOIN tabelleA AS t1 ON (1=1) LEFT JOIN tabelleB AS t2 ON (1=1) LEFT JOIN tabelleA AS tt"), Seq.empty))
   }
 
+  test("surround and concat SQL") {
+    assertEquals(PutSQL.surroundSqlString("", ("blublba", Seq((Type.string, "bla"))), ""), ("blublba", Seq((Type.string, "bla"))))
+    assertEquals(PutSQL.surroundSqlString("y", ("blublba", Seq((Type.string, "bla"))), "<"), ("yblublba<", Seq((Type.string, "bla"))))
+    assertEquals(PutSQL.concatSQL(Seq.empty), ("", Seq.empty))
+    assertEquals(PutSQL.concatSQL(Seq(
+      ("a", Seq((Type.boolean, true))),
+      ("b", Seq((Type.integer, 3), (Type.string, "a"))),
+      ("d", Seq.empty),
+      ("c", Seq((Type.integer, -1))))),
+      ("abdc", Seq((Type.boolean, true), (Type.integer, 3), (Type.string, "a"), (Type.integer, -1))))
+  }
+
   /*
 
   Ein paar Gedankengänge ...
