@@ -12,7 +12,7 @@ object SqlTests extends SimpleTestSuite {
 
   val select1 = SQL.makeSqlSelect(Seq.empty, Seq((None, tbl1)))
 
-  test("Expression - operators / simple Tests") {
+  test("Expression (App) / simple Tests") {
     assertEquals(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionConst(Type.integer, 4), SqlExpressionConst(Type.integer, 5))).toSQL,
       ("(? = ?)", Seq((Type.integer, 4), (Type.integer, 5))))
     assertEquals(SqlExpressionApp(SqlOperator.isNotNull, Seq(SqlExpressionColumn("busy"))).toSQL,
@@ -27,14 +27,67 @@ object SqlTests extends SimpleTestSuite {
   }
 
 
+  test("Expression (others)") {
+    assertEquals(SqlExpressionColumn("blub").toSQL, ("blub", Seq.empty))
+    assertEquals(SqlExpressionConst(Type.integer, 5).toSQL, ("?", Seq((Type.integer, 5))))
+    // Tuple
+    assertEquals(SqlExpressionTuple(Seq(SqlExpressionConst(Type.integer, 5))).toSQL, ("(?)", Seq((Type.integer, 5))))
+    assertEquals(SqlExpressionTuple(Seq(
+        SqlExpressionConst(Type.integer, 5),
+        SqlExpressionTuple(Seq(
+          SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("age"), SqlExpressionConst(Type.integer, 95))),
+          SqlExpressionConst(Type.string, "Alter"))),
+        SqlExpressionColumn("name"))).toSQL,
+      ("(?, ((age = ?), ?), name)", Seq((Type.integer, 5), (Type.integer, 95), (Type.string, "Alter"))))
+    // Case
+    assertEquals(SqlExpressionCase(None, Seq(
+      (SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("age"), SqlExpressionConst(Type.integer, 30))),
+        SqlExpressionColumn("gebjahr"))),
+      None).toSQL,
+      ("(CASE  WHEN (age = ?) THEN gebjahr END)", Seq((Type.integer, 30))))
+    assertEquals(SqlExpressionCase(Some(SqlExpressionColumn("flag")), Seq(
+      (SqlExpressionConst(Type.integer, 1), SqlExpressionColumn("wert1")),
+      (SqlExpressionConst(Type.integer, 2), SqlExpressionColumn("wert2")),
+      (SqlExpressionConst(Type.integer, 3), SqlExpressionConst(Type.integer, -1))),
+      Some(SqlExpressionConst(Type.integer, -2))).toSQL,
+      ("(CASE flag WHEN ? THEN wert1 WHEN ? THEN wert2 WHEN ? THEN ? ELSE ? END)",
+        Seq((Type.integer, 1), (Type.integer, 2), (Type.integer, 3), (Type.integer, -1), (Type.integer, -2))))
+    try {
+      val t1 = SqlExpressionCase(Some(SqlExpressionColumn("blub")), Seq.empty, Some(SqlExpressionColumn("foo"))).toSQL
+      fail()
+    } catch {
+      case _ : AssertionError => // wanted
+    }
+  }
+
+
+
+
+
   test("SelectCombineOperations") {
-    assertEquals(SqlSelectCombine(SqlCombineOperator.Union, adr1, firmAddr).toSQL,
-      ("(SELECT * FROM addresses) UNION (SELECT * FROM firm_address)", Seq.empty))
-    assertEquals(SqlSelectCombine(
-      SqlCombineOperator.Difference,
+    // Test all known CombineOpterators
+    def withAll(sqlI1: SqlInterpretations, sqlI2: SqlInterpretations, strLeft: String, strRight: String,
+                paramsLeft: Seq[(Type, String)], paramsRight: Seq[(Type, String)]) = {
+      val check : Seq[(SqlCombineOperator, String)] = Seq(
+        (SqlCombineOperator.Union, " UNION "),
+        (SqlCombineOperator.Intersection, " INTERSECT "),
+        (SqlCombineOperator.Difference, " EXCEPT "))
+      for (elem <- check) {
+        assertEquals(SqlSelectCombine(elem._1, sqlI1, sqlI2).toSQL,
+          (strLeft+elem._2+strRight, paramsLeft++paramsRight))
+        // should also work the other way round; is symetrisch
+        // -> Result of the Query could be different but the way get the Query is the same
+        assertEquals(SqlSelectCombine(elem._1, sqlI2, sqlI1).toSQL,
+          (strRight+elem._2+strLeft, paramsRight++paramsLeft))
+      }
+    }
+
+    withAll(adr1, firmAddr, "(SELECT * FROM addresses)", "(SELECT * FROM firm_address)", Seq.empty, Seq.empty)
+    withAll(
       SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("city")), ("xx", SqlExpressionConst(Type.string, "BlX"))), Seq((None, adr1))),
-      SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("orte")), ("xx", SqlExpressionConst(Type.string, "Nn"))), Seq((None, standorte)))).toSQL,
-      ("(SELECT city, ? AS xx FROM addresses) EXCEPT (SELECT orte AS city, ? AS xx FROM standorte)", Seq((Type.string, "BlX"), (Type.string, "Nn"))))
+      SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("orte")), ("xx", SqlExpressionConst(Type.string, "Nn"))), Seq((None, standorte))),
+      "(SELECT city, ? AS xx FROM addresses)",  "(SELECT orte AS city, ? AS xx FROM standorte)", Seq((Type.string, "BlX")), Seq((Type.string, "Nn"))
+    )
   }
 
 

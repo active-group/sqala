@@ -42,7 +42,7 @@ object SqlUtilsTests extends SimpleTestSuite {
 
   /*
 
-  Ein paar Gedankengänge
+  Ein paar Gedankengänge ...
 
 SELECT *
 FROM (VALUES (1, 'b'), (2, 'a')) AS t1 (id,nam)
@@ -77,7 +77,7 @@ LEFT OUTER JOIN (VALUES (5,'x'), (6,'x')) t3 (id,nam) ON t1.nam = t3.nam
  => (1=1) kann nicht pauschal bei LEFT JOIN verwendet werden.
 
 
-In Sqloure wird:
+In Sqloure:
 
   (sqlosure.sql-put/sql-select->string
           (query->sql

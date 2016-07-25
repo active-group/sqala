@@ -83,7 +83,6 @@ trait SqlInterpretations {
     * @return (SQL-Query, Seq[(Typ, Wert)]    : Als Seq wird der Datentyp und der Wert und die Variable übermittelt
     */
   def toSQL : PutSQL.SqlWithParamsFix
-  val allColumns : Seq[String]
 }
 /*
   LIKE: Table, Select, Select-Combine, Select-Empty -- FIXME SelectEmpty ist als SQL nicht ausführbar/einbettbar !!
@@ -95,7 +94,6 @@ final case class SqlSelectTable(
                          schema: RelationalScheme
                          ) extends SqlInterpretations {
   override def toSQL : PutSQL.SqlWithParamsFix = ("SELECT * FROM "+name, Seq.empty)
-  override val allColumns = schema.columns
 }
 
 final case class SqlSelect(
@@ -123,13 +121,6 @@ final case class SqlSelect(
     (validSeqMember.map(_._1.get).mkString(" "), validSeqMember.map(_._2).flatten)
   }
 
-  override val allColumns = {
-    if(attributes.isEmpty)
-      ???
-    else
-      attributes.map(_._1)
-  }
-
   /*
   def putSqlJoin : Option[(String, Seq[(Type, Any)])] = {
     if(outerTables.isEmpty || tables.size == 1) {
@@ -153,7 +144,6 @@ final case class SqlSelectCombine(
                                  ) extends SqlInterpretations {
   override def toSQL : PutSQL.SqlWithParamsFix =
     operation.toSQL(left.toSQL, right.toSQL)
-  override val allColumns = left.allColumns // in PostgreSQL werden die Namen der Spalten des linken Ausdrucks übernommen
 }
 
 sealed trait SqlCombineOperator {
@@ -203,9 +193,40 @@ case class SqlExpressionApp(rator: SqlOperator, rands: Seq[SqlExpression]) exten
 case class SqlExpressionConst(typ: Type, value: Any) extends SqlExpression {
   override def toSQL : PutSQL.SqlWithParamsFix = SqlUtils.putLiteral(typ, value)
 }
-case class SqlExpressionCase() extends SqlExpression
+case class SqlExpressionCase(input: Option[SqlExpression],
+                             branches: Seq[(SqlExpression, SqlExpression)],
+                             default: Option[SqlExpression]) extends SqlExpression {
+  override def toSQL : PutSQL.SqlWithParamsFix = {
+    if(branches.isEmpty)
+      throw new AssertionError("Invalid branche-size (=0) in SqlExpressionCase")
+    val sqlInput : PutSQL.SqlWithParamsFix = {
+      if(input.isDefined)
+        input.get.toSQL
+      else ("", Seq.empty)
+    }
+    val sqlBranches : PutSQL.SqlWithParamsFix = SqlUtils.putJoiningInfixWPFix[(SqlExpression, SqlExpression)](branches, " ", {
+      case (exWhen: SqlExpression, exThen: SqlExpression) => {
+        val sqlWhen : PutSQL.SqlWithParamsFix = exWhen.toSQL
+        val sqlThen : PutSQL.SqlWithParamsFix = exThen.toSQL
+        ("WHEN "+sqlWhen._1+" THEN "+sqlThen._1, sqlWhen._2++sqlThen._2)
+      }
+    })
+    if(default.isDefined) {
+      val sqlDefault: PutSQL.SqlWithParamsFix = default.get.toSQL
+      ("(CASE "+sqlInput._1+" "+sqlBranches._1 + " ELSE "+sqlDefault._1+" END)", sqlInput._2++sqlBranches._2++sqlDefault._2)
+    } else
+      ("(CASE "+sqlInput._1+" "+sqlBranches._1+" END)", sqlInput._2++sqlBranches._2)
+  }
+}
 case class SqlExpressionExists(select: SqlSelect) extends SqlExpression
-case class SqlExpressionTuple() extends SqlExpression
+case class SqlExpressionTuple(expressions: Seq[SqlExpression]) extends SqlExpression {
+  override def toSQL : PutSQL.SqlWithParamsFix = {
+    val temp : PutSQL.SqlWithParamsFix = SqlUtils.putJoiningInfixWPFix[SqlExpression](expressions, ", ", {
+      e: SqlExpression => e.toSQL
+    })
+    ("(" + temp._1 + ")", temp._2)
+  }
+}
 case class SqlExpressionSubquery(query: Query) extends SqlExpression
 
 // FixMe bereits irgendwo enthalten :
