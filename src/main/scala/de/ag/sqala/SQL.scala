@@ -1,5 +1,6 @@
 package de.ag.sqala
 
+import de.ag.sqala
 
 
 object PutSQL { // TODO zusammenlegen mit SqlUtils
@@ -8,7 +9,7 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
     * String : SQL-Statment
     * Seq[(Type, Any)] : (Datentyp, fester Wert) -> ersetzt später z.B. ein Fragezeichen
     */
-  type SqlWithParams = (Option[String], Seq[(Type, Any)])
+  type SqlWithParams = Option[(String, Seq[(Type, Any)])]
   type SqlWithParamsFix = (String, Seq[(Type, Any)])
 
 
@@ -19,7 +20,7 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
 
   def attributes(atts: Seq[(String, SqlExpression)]) : SqlWithParams = {
     if(atts.isEmpty)
-      (Some("*"), Seq.empty)
+      Some(("*", Seq.empty))
     else {
       SqlUtils.putJoiningInfixWP[(String, SqlExpression)](atts, ", ", {
         case (col: String, sqlE: SqlExpressionColumn) if col == sqlE.name => (col, Seq.empty)
@@ -34,29 +35,44 @@ object PutSQL { // TODO zusammenlegen mit SqlUtils
   OuterRestrictions = Expressions  ->  Seq[Expressions]
   Expressions müssen aber auf die Spalten geprüft werden - da beim richtigen JOIN dazugefügt werden müssen -> Wissen über die aktuellen Spalten nötig!!
     => umgesetzt mit Variable allColumns (enthält nur aktuelle Columns!
+
+   ...
+   evt. andere Umsetzung:
+   Tupel/Trippel aus OuterTable und dazu gehörigen Criteria -> die direkt als ON angefügt werden ?!
     */
   // add outer-restricts
   def join(tables: Seq[(Option[String], SqlInterpretations)], outerTables: Seq[(Option[String], SqlInterpretations)],
            outerCriteria: Seq[SqlExpression]) : SqlWithParams = {
     val tempTabs = putTables(tables, ", ")
-    val outer = putTables(outerTables, " ON (1=1) LEFT JOIN ")
-    if(outerTables.isEmpty || tables.size == 1) {
-      if(outerTables.isEmpty)
-        (Some("FROM "+tempTabs._1), tempTabs._2)
-      else
-        (Some("FROM "+tempTabs._1+" LEFT JOIN "+outer._1), tempTabs._2++outer._2)
-    } else {
-      (Some("FROM (SELECT * FROM "+tempTabs._1+") LEFT JOIN "+outer._1), tempTabs._2++outer._2)
-    }
+    Some(PutSQL.surroundSqlString("FROM ",
+      PutSQL.concatSQL(Seq(
+        {if(outerTables.isEmpty || tables.size == 1)
+          tempTabs
+        else PutSQL.surroundSqlString("(SELECT * FROM ", tempTabs, ")")},
+        {if(outerTables.isEmpty)
+          ("", Seq.empty)
+        else
+          PutSQL.surroundSqlString(" LEFT JOIN ",
+            PutSQL.concatSQL(Seq(
+              putTables(outerTables, " ON (1=1) LEFT JOIN "), // TODO : führt zu Fehlern siehe Kommentar in SqlUtilsTests
+              PutSQL.surroundSqlString(" ON ", // add last ON with all JOIN Criterias
+                conditions(outerCriteria),
+                ""))),
+            "")}
+      )),
+      ""))
   }
 
   def conditions(exprs: Seq[SqlExpression]) : SqlWithParamsFix =
-    SqlUtils.putJoiningInfixWPFix[SqlExpression](exprs, " AND ", {x: SqlExpression => x.toSQL})
+    SqlExpressionAnd(exprs).toSQL // concat via AND
 
   def expression(expr: SqlExpression) : SqlWithParamsFix = expr.toSQL
 
-  def groupBy(grBy: Seq[String]) : SqlWithParams =
-    (Some(SqlUtils.putJoiningInfix[String](grBy, ", ", {case x:String => x})), Seq.empty)
+  def groupBy(grBy: Option[Seq[String]]) : SqlWithParams =
+    grBy.flatMap(g => Some((SqlUtils.putJoiningInfix[String](g, ", ", { case x: String => x }), Seq.empty)))
+
+  def having(hav: Option[Seq[SqlExpression]]) : SqlWithParams =
+    hav.flatMap(e => Some(SqlExpressionAnd(e).toSQL))
 
 
   /** */
@@ -109,27 +125,30 @@ final case class SqlSelect(
                             //nullary: Boolean, // FixME : was ist damit gemeint ?
                             tables: Seq[(Option[String], SqlInterpretations)],
                             outerTables: Seq[(Option[String], SqlInterpretations)],
-                            criteria: Any, // where
+                            criteria: Seq[SqlExpression], // where
                             outerCriteria: Seq[SqlExpression], // left join ... on
-                            groupBy: Seq[String],
-                            having: Any,
+                            groupBy: Option[Seq[String]],
+                            having: Option[Seq[SqlExpression]], // FixMe: evt Aggregation einschränken - bzw. diese nur hier und nicht in Criteria zulassen ?!
                             orderBy: Any
                             //extra: Any // ??? was ist da mit gemeint
                           ) extends SqlInterpretations {
   override def toSQL : PutSQL.SqlWithParamsFix = {
-    val tempSeq : Seq[(Option[String], Seq[(Type, Any)])] = Seq(
-      (Some("SELECT"), Seq.empty),
-      (this.options.flatMap(x => Some(x.mkString(" "))), Seq.empty),
+    val tempSeq : Seq[PutSQL.SqlWithParams] = Seq(
+      Some(("SELECT", Seq.empty)),
+      this.options.flatMap(x => Some((x.mkString(" "), Seq.empty))),
       PutSQL.attributes(attributes),
-      PutSQL.join(tables, outerTables, outerCriteria)
-      // TODO (next) add join ...
-      // Having
-      // Group By
+      PutSQL.join(tables, outerTables, outerCriteria),
+      PutSQL.having(having),
+      PutSQL.groupBy(groupBy)
       // ORder
       // extra (Top, Limit ..)
     )
+    SqlUtils.putJoiningInfixWPFix[PutSQL.SqlWithParams](tempSeq.filter(_.isDefined), " ",
+      {x => x.get})
+    //PutSQL.concatSQL(.map(_.get))
+    /*
     val validSeqMember = tempSeq.filter(_._1.isDefined)
-    (validSeqMember.map(_._1.get).mkString(" "), validSeqMember.map(_._2).flatten)
+    (validSeqMember.map(_._1.get).mkString(" "), validSeqMember.map(_._2).flatten)*/
   }
 
   /*
@@ -188,8 +207,13 @@ object SqlSelectEmpty // TODO
 
 
 
+
+
+
+
+
 trait SqlExpression { // kein SqlInterpretations, da nicht eigenständig ausführbar
-  def toSQL : PutSQL.SqlWithParamsFix = ("", Seq.empty) // TODO : default-Wert entfernen, wenn untenstehende Expressions implementiert
+  def toSQL : PutSQL.SqlWithParamsFix
 }
 
 case class SqlExpressionColumn(name: String) extends SqlExpression {
@@ -246,14 +270,35 @@ case class SqlExpressionSubquery(query: SqlInterpretations) extends SqlExpressio
 }
 
 // AND & OR
-case class SqlExpressionOr(exps: Seq[SqlExpression]) extends SqlExpression {
-  override def toSQL : PutSQL.SqlWithParamsFix =
-    PutSQL.surroundSqlString("(", SqlUtils.putJoiningInfixWPFix[SqlExpression](exps, " OR ", { e => e.toSQL }), ")")
+case class SqlExpressionOr(exprs: Seq[SqlExpression]) extends SqlExpression {
+  override def toSQL : PutSQL.SqlWithParamsFix = {
+    if (exprs.size == 1)
+      exprs(0).toSQL
+    else
+      PutSQL.surroundSqlString("(", SqlUtils.putJoiningInfixWPFix[SqlExpression](exprs, " OR ", { e => e.toSQL }), ")")
+  }
 }
-case class SqlExpressionAnd(exps: Seq[SqlExpression]) extends SqlExpression {
-  override def toSQL : PutSQL.SqlWithParamsFix =
-    PutSQL.surroundSqlString("(", SqlUtils.putJoiningInfixWPFix[SqlExpression](exps, " AND ", { e => e.toSQL }), ")")
+case class SqlExpressionAnd(exprs: Seq[SqlExpression]) extends SqlExpression {
+  override def toSQL : PutSQL.SqlWithParamsFix = {
+    if (exprs.size == 1)
+      exprs(0).toSQL
+    else
+      PutSQL.surroundSqlString("(", SqlUtils.putJoiningInfixWPFix[SqlExpression](exprs, " AND ", { e => e.toSQL }), ")")
+  }
 }
+
+
+// SQL Aggregation
+/*
+case class SqlAggregationApp(rator: SqlAggOperator,
+                             rands: Seq[SqlExpression]) extends SqlAggregation {
+override def toSQL : PutSQL.SqlWithParamsFix = SqlOperator.toSQL(rator, rands.map(x => x.toSQL))
+}*/
+
+
+
+
+
 
 object SQL {
   // TODO add universe ?!
@@ -262,18 +307,13 @@ object SQL {
 
   def makeSqlSelect(attributes: Seq[(String, SqlExpression)], tables: Seq[(Option[String], SqlInterpretations)]) : SqlSelect =
     SqlSelect(None, attributes, tables, Seq.empty,
-      None, Seq.empty,
-      Seq.empty, None, None)
+      Seq.empty, Seq.empty,
+      None, None, None)
 
   def makeSqlSelect(options: Seq[String], attributes: Seq[(String, SqlExpression)], tables: Seq[(Option[String], SqlInterpretations)]) : SqlSelect =
     SqlSelect(Some(options), attributes, tables, Seq.empty,
-      None, Seq.empty,
-      Seq.empty, None, None)
-
-  //def newSqlSelect: SqlSelect = SqlSelect(???)
-
-  //def isSqlOrder
-  // def isSqlCombineOp
+      Seq.empty, Seq.empty,
+      None, None, None)
 }
 
 sealed trait SqlOrder
@@ -281,7 +321,6 @@ sealed trait SqlOrder
 object Ascending extends SqlOrder
 
 object Descending extends SqlOrder
-
 
 
 
@@ -296,7 +335,9 @@ object Descending extends SqlOrder
   *               BETWEEN is the name an AND is defined in EXTRA, so the arity can be used for other operators like this
   */
 
-case class SqlOperator(name: String, arity: SqlOperatorArity, extra: Option[String] = None)
+case class SqlOperator(name: String,
+                       arity: SqlOperatorArity,
+                       extra: Option[String] = None)
 
 object SqlOperator {
   val eq : SqlOperator = SqlOperator("=", SqlOperatorArity.Infix)
@@ -333,6 +374,7 @@ object SqlOperator {
   val isNotNull : SqlOperator = SqlOperator("IS NOT NULL", SqlOperatorArity.Postfix)
   val length : SqlOperator = SqlOperator("LENGTH", SqlOperatorArity.Prefix)
 
+  // FIXME : Aggregations - separat definieren like SqlAggregation ??
   val count : SqlOperator = SqlOperator("COUNT", SqlOperatorArity.Prefix)
   val countAll : SqlOperator = SqlOperator("COUNT", SqlOperatorArity.Prefix)
   val sum : SqlOperator = SqlOperator("SUM", SqlOperatorArity.Prefix)

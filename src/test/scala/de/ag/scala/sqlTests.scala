@@ -39,6 +39,10 @@ object SqlTests extends SimpleTestSuite {
       ("age BETWEEN ? AND ?", Seq((Type.integer, 20), (Type.integer, 40))))
     assertEquals(SqlExpressionApp(SqlOperator.concat, Seq(SqlExpressionConst(Type.string, "xx"), SqlExpressionColumn("arg"))).toSQL,
       ("CONCAT(?,arg)", Seq((Type.string, "xx"))))
+    assertEquals(SqlExpressionApp(SqlOperator.gt, Seq(
+      SqlExpressionApp(SqlOperator.sum, Seq(SqlExpressionColumn("stueck"))),
+      SqlExpressionConst(Type.integer, 10))).toSQL,
+      ("(SUM(stueck) > ?)", Seq((Type.integer, 10))))
     // ToDo Test more, test other operators
   }
 

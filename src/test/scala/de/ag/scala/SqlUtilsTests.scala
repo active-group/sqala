@@ -16,10 +16,10 @@ object SqlUtilsTests extends SimpleTestSuite {
     ("blub2", SqlExpressionConst(Type.integer, 4)))
 
   test("PutSQL - attributes (& putLiteral)") {
-    assertEquals(PutSQL.attributes(Seq.empty), (Some("*"), Seq.empty))
-    assertEquals(PutSQL.attributes(att1), (Some("first, second AS abc"), Seq.empty))
-    assertEquals(PutSQL.attributes(att2), (Some("? AS blub, ? AS blubStr, ? AS blub2"),
-      Seq((Type.string, ""), (Type.string, "X"), (Type.integer, 4))))
+    assertEquals(PutSQL.attributes(Seq.empty), Some(("*", Seq.empty)))
+    assertEquals(PutSQL.attributes(att1), Some(("first, second AS abc", Seq.empty)))
+    assertEquals(PutSQL.attributes(att2), Some(("? AS blub, ? AS blubStr, ? AS blub2",
+      Seq((Type.string, ""), (Type.string, "X"), (Type.integer, 4)))))
     // TODO Test more
   }
 
@@ -28,16 +28,19 @@ object SqlUtilsTests extends SimpleTestSuite {
   val tbl3 = SQL.makeSqlSelect(Seq(("a", SqlExpressionColumn("b"))), Seq((Some("t1"), tbl1)))
 
   test("join") {
-    assertEquals(PutSQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), (Some("FROM tabelleA"), Seq.empty))
-    assertEquals(PutSQL.join(Seq((Some("A"), tbl1)), Seq.empty, Seq.empty), (Some("FROM tabelleA AS A"), Seq.empty))
+    assertEquals(PutSQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA", Seq.empty)))
+    assertEquals(PutSQL.join(Seq((Some("A"), tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS A", Seq.empty)))
     assertEquals(PutSQL.join(Seq((None, tbl1), (None, tbl2), (Some("tdx"), tbl3)), Seq.empty, Seq.empty),
-      (Some("FROM tabelleA, tabelleB, (SELECT b AS a FROM tabelleA AS t1) AS tdx"), Seq.empty))
-    assertEquals(PutSQL.join(Seq((None, tbl1)), Seq((Some("tx"), tbl2)), Seq.empty),
-      (Some("FROM tabelleA LEFT JOIN tabelleB AS tx"), Seq.empty)) // FIXME ON ... (e.g. a=b) fehlt noch
-    assertEquals(PutSQL.join(Seq((None, tbl1), (Some("tdx"), tbl3)), Seq((None, tbl2)), Seq.empty),
-    (Some("FROM (SELECT * FROM tabelleA, (SELECT b AS a FROM tabelleA AS t1) AS tdx) LEFT JOIN tabelleB"), Seq.empty))
-    assertEquals(PutSQL.join(Seq((None, tbl1)), Seq((Some("t1"), tbl1), (Some("t2"), tbl2), (Some("tt"), tbl1)), Seq.empty),
-      (Some("FROM tabelleA LEFT JOIN tabelleA AS t1 ON (1=1) LEFT JOIN tabelleB AS t2 ON (1=1) LEFT JOIN tabelleA AS tt"), Seq.empty))
+      Some(("FROM tabelleA, tabelleB, (SELECT b AS a FROM tabelleA AS t1) AS tdx", Seq.empty)))
+    assertEquals(PutSQL.join(Seq((None, tbl1)), Seq((Some("tx"), tbl2)),
+      Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("a"), SqlExpressionColumn("b"))))),
+      Some(("FROM tabelleA LEFT JOIN tabelleB AS tx ON (a = b)", Seq.empty)))
+    assertEquals(PutSQL.join(Seq((None, tbl1), (Some("tdx"), tbl3)), Seq((None, tbl2)),
+      Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("a"), SqlExpressionColumn("b"))))),
+      Some(("FROM (SELECT * FROM tabelleA, (SELECT b AS a FROM tabelleA AS t1) AS tdx) LEFT JOIN tabelleB ON (a = b)", Seq.empty)))
+    assertEquals(PutSQL.join(Seq((None, tbl1)), Seq((Some("t1"), tbl1), (Some("t2"), tbl2), (Some("tt"), tbl1)),
+      Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("b"), SqlExpressionColumn("a"))))),
+      Some(("FROM tabelleA LEFT JOIN tabelleA AS t1 ON (1=1) LEFT JOIN tabelleB AS t2 ON (1=1) LEFT JOIN tabelleA AS tt ON (b = a)", Seq.empty)))
   }
 
   test("surround and concat SQL") {
