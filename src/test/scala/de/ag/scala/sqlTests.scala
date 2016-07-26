@@ -43,7 +43,17 @@ object SqlTests extends SimpleTestSuite {
       SqlExpressionApp(SqlOperator.sum, Seq(SqlExpressionColumn("stueck"))),
       SqlExpressionConst(Type.integer, 10))).toSQL,
       ("(SUM(stueck) > ?)", Seq((Type.integer, 10))))
-    // ToDo Test more, test other operators
+    assertEquals(longExpr.toSQL, longExpr1T)
+    assertEquals(SqlExpressionOr(Seq(
+      longExpr,
+      SqlExpressionExists(tbl1),
+      SqlExpressionApp(SqlOperator.leq, Seq(
+        SqlExpressionColumn("v"),
+        SqlExpressionSubquery(SQL.makeSqlSelect(
+          Seq(("c", SqlExpressionApp(SqlOperator.count, Seq(SqlExpressionColumn("c"))))),
+          Seq((None, standorte))))
+      )))).toSQL,
+      ("("+longExpr1T._1+" OR EXISTS (SELECT * FROM personen) OR (v <= (SELECT COUNT(c) AS c FROM standorte)))", longExpr1T._2))
   }
 
 
@@ -122,41 +132,6 @@ object SqlTests extends SimpleTestSuite {
 
 
 
-  test("having") {
-    assertEquals(SQL.having(None), None)
-    assertEquals(SQL.having(Some(Seq.empty)), None)
-    assertEquals(SQL.having(Some(Seq(longExpr))), Some(("HAVING " + longExpr1T._1, longExpr1T._2)))
-    assertEquals(SQL.having(Some(Seq(
-      SqlExpressionApp(SqlOperator.between, Seq(SqlExpressionColumn("valueA"), SqlExpressionConst(Type.integer, 4), SqlExpressionConst(Type.integer, 10))),
-      SqlExpressionExists(adr1)
-    ))),
-      Some(("HAVING ((valueA BETWEEN ? AND ?) AND EXISTS (SELECT * FROM addresses))", Seq((Type.integer, 4), (Type.integer, 10)))))
-  }
-
-  test("group by") {
-    assertEquals(SQL.groupBy(None), None)
-    assertEquals(SQL.groupBy(Some(Seq.empty)), None)
-    assertEquals(SQL.groupBy(Some(Seq("blub"))), Some(("GROUP BY blub", Seq.empty)))
-    assertEquals(SQL.groupBy(Some(Seq("one", "two"))), Some(("GROUP BY one, two", Seq.empty)))
-  }
-
-  test("order") {
-    assertEquals(SQL.orderBy(None), None)
-    assertEquals(SQL.orderBy(Some(Seq.empty)), None)
-    assertEquals(SQL.orderBy(Some(Seq(("one", SqlOrderAscending)))), Some(("ORDER BY one ASC", Seq.empty)))
-    assertEquals(SQL.orderBy(Some(Seq(("one", SqlOrderDescending), ("third", SqlOrderAscending)))),
-      Some(("ORDER BY one DESC, third ASC", Seq.empty)))
-  }
-
-  test("extra") {
-    assertEquals(SQL.extra(None), None)
-    assertEquals(SQL.extra(Some(Seq.empty)), None)
-    assertEquals(SQL.extra(Some(Seq("LIMIT 1", ",", "5"))), Some(("LIMIT 1 , 5", Seq.empty)))
-  }
-
-
-
-
   test("toSQL / simple Querys") {
     assertEquals(SqlSelectEmpty.toSQL, ("", Seq.empty))
     assertEquals(tbl1.toSQL, ("SELECT * FROM personen", Seq.empty))
@@ -181,6 +156,7 @@ object SqlTests extends SimpleTestSuite {
       Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("bab"), SqlExpressionColumn("blad")))),
       None, None, None, Some(Seq("LIMIT 5"))).toSQL,
       ("SELECT * FROM (SELECT * FROM personen AS one, firm_address) LEFT JOIN (SELECT city, ? AS xx FROM addresses) AS bl "
+        // FixMe: Bei PostgreSQL könnte es zu Problemen kommen, da die innere Query ein Alias haben sollte
         +"ON (bab = blad) WHERE (fabbs) IS NULL LIMIT 5", Seq((Type.string, "BlX"))))
     assertEquals(SqlSelect(None, Seq(("idc", SqlExpressionColumn("idc")), ("countThem", SqlExpressionApp(SqlOperator.count, Seq(SqlExpressionColumn("idc"))))),
       Seq((Some("one"), tbl1)), Seq((Some("bl"), tbl2)),

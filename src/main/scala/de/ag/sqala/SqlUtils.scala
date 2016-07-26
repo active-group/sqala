@@ -38,7 +38,7 @@ object SqlUtils {
     * Set Literal
     *   -> Values which are replaced '?' in SQL
     */
-  // TODO type value; check type correctness of value
+  // TODO type value; check type correctness of value ??
   // z.B. check like typ.contains(value) - evt. done before
   def putLiteral(typ: Type, value: Any) : (String, Seq[(Type, Any)]) =
     ("?", Seq((typ, value)))
@@ -47,10 +47,8 @@ object SqlUtils {
   /**
     * execute the procedure on every element of the sequence, then concat them and set the 'between'-String between them
     */
-  def putJoiningInfixOption[A](lis: Seq[A], between: String, proc: (A) => (String, Seq[(Type, Any)])) : SQL.SqlReturnOption = {
-    val tempSeq = lis.map(proc)
-    Some((tempSeq.map(_._1).mkString(between), tempSeq.map(_._2).flatten))
-  }
+  def putJoiningInfixOption[A](lis: Seq[A], between: String, proc: (A) => (String, Seq[(Type, Any)])) : SQL.SqlReturnOption =
+    Some(putJoiningInfix(lis, between, proc))
 
   def putJoiningInfix[A](lis: Seq[A], between: String, proc: (A) => (String, Seq[(Type, Any)])) : SQL.SqlReturn = {
     val tempSeq = lis.map(proc)

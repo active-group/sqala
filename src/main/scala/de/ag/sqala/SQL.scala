@@ -95,27 +95,17 @@ object SQL {
       "GROUP BY "))
 
   def having(hav: Option[Seq[SqlExpression]]) : SqlReturnOption =
-    hav.flatMap({
-      case e: Seq[SqlExpression] if !e.isEmpty => Some(SqlUtils.surroundSQL(
-        "HAVING ", SqlExpressionAnd(e).toSQL, ""))
-      case _ => None
-    })
+    hav.flatMap(h => SqlUtils.putPaddingIfNonNull[SqlExpression](h, e => SqlExpressionAnd(e).toSQL,
+      "HAVING "))
 
   def orderBy(ordBy: Option[Seq[(String, SqlOrder)]]) : SqlReturnOption =
-    ordBy.flatMap({
-      case o: Seq[(String, SqlOrder)] if !o.isEmpty => Some(SqlUtils.concatSQL(Seq(
-        ("ORDER BY ", Seq.empty),
-        SqlUtils.putJoiningInfix[(String, SqlOrder)](o, ", ",
-          {case (s: String, ord: SqlOrder) => ord.toSQL(s)})
-      )))
-      case _ => None
-    })
+    ordBy.flatMap(o => SqlUtils.putPaddingIfNonNull[(String, SqlOrder)](o,
+      tup => SqlUtils.putJoiningInfix[(String, SqlOrder)](tup, ", ",
+          {case (s: String, ord: SqlOrder) => ord.toSQL(s)}),
+      "ORDER BY "))
 
   def extra(v: Option[Seq[String]]) : SqlReturnOption =
-    v.flatMap({
-      case v: Seq[String] if !v.isEmpty => Some((v.mkString(" "), Seq.empty))
-      case _ => None
-    })
+    v.flatMap(sq => SqlUtils.putPaddingIfNonNull[String](sq, s => (s.mkString(" "), Seq.empty), ""))
 
   // Collection of Conditions
   def conditions(exprs: Seq[SqlExpression]) : SqlReturn =
@@ -140,9 +130,6 @@ trait SqlInterpretations {
     */
   def toSQL : SQL.SqlReturn
 }
-/*
-  LIKE: Table, Select, Select-Combine, Select-Empty -- FIXME SelectEmpty ist als SQL nicht ausführbar/einbettbar !!
- */
 
 
 final case class SqlSelectTable(
@@ -155,7 +142,7 @@ final case class SqlSelectTable(
 final case class SqlSelect(
                             options: Option[Seq[String]], // like DISTINCT, ALL ...
                             attributes: Seq[(String, SqlExpression)], // column, expression
-                            //nullary: Boolean, // FixME : was ist damit gemeint ?
+                            //nullary: Boolean, // TODO : was ist damit gemeint ?
                             tables: Seq[(Option[String], SqlInterpretations)],
                             outerTables: Seq[(Option[String], SqlInterpretations)],
                             criteria: Seq[SqlExpression], // WHERE ...
