@@ -4,21 +4,15 @@ import de.ag.sqala._
 import minitest._
 
 object SqlUtilsTests extends SimpleTestSuite {
-  // + SqlPut tests aus SQL - SqlPut und SqUtil soll noch zusammengefügt werden
-  test("putPaddingOfNonNull") {
 
-  }// vermutlich nicht mehr benötigt - wird bisher nicht genutzt
-
-
-  // TODO test more over the small functions in PutSQL & SqlUtils
   val att1 = Seq(("first", SqlExpressionColumn("first")), ("abc", SqlExpressionColumn("second")))
   val att2 = Seq(("blub", SqlExpressionConst(Type.string, "")), ("blubStr", SqlExpressionConst(Type.string, "X")),
     ("blub2", SqlExpressionConst(Type.integer, 4)))
 
-  test("PutSQL - attributes (& putLiteral)") {
-    assertEquals(PutSQL.attributes(Seq.empty), Some(("*", Seq.empty)))
-    assertEquals(PutSQL.attributes(att1), Some(("first, second AS abc", Seq.empty)))
-    assertEquals(PutSQL.attributes(att2), Some(("? AS blub, ? AS blubStr, ? AS blub2",
+  test("attributes (& putLiteral)") {
+    assertEquals(SQL.attributes(Seq.empty), Some(("*", Seq.empty)))
+    assertEquals(SQL.attributes(att1), Some(("first, second AS abc", Seq.empty)))
+    assertEquals(SQL.attributes(att2), Some(("? AS blub, ? AS blubStr, ? AS blub2",
       Seq((Type.string, ""), (Type.string, "X"), (Type.integer, 4)))))
     // TODO Test more
   }
@@ -28,26 +22,26 @@ object SqlUtilsTests extends SimpleTestSuite {
   val tbl3 = SQL.makeSqlSelect(Seq(("a", SqlExpressionColumn("b"))), Seq((Some("t1"), tbl1)))
 
   test("join") {
-    assertEquals(PutSQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA", Seq.empty)))
-    assertEquals(PutSQL.join(Seq((Some("A"), tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS A", Seq.empty)))
-    assertEquals(PutSQL.join(Seq((None, tbl1), (None, tbl2), (Some("tdx"), tbl3)), Seq.empty, Seq.empty),
+    assertEquals(SQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA", Seq.empty)))
+    assertEquals(SQL.join(Seq((Some("A"), tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS A", Seq.empty)))
+    assertEquals(SQL.join(Seq((None, tbl1), (None, tbl2), (Some("tdx"), tbl3)), Seq.empty, Seq.empty),
       Some(("FROM tabelleA, tabelleB, (SELECT b AS a FROM tabelleA AS t1) AS tdx", Seq.empty)))
-    assertEquals(PutSQL.join(Seq((None, tbl1)), Seq((Some("tx"), tbl2)),
+    assertEquals(SQL.join(Seq((None, tbl1)), Seq((Some("tx"), tbl2)),
       Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("a"), SqlExpressionColumn("b"))))),
       Some(("FROM tabelleA LEFT JOIN tabelleB AS tx ON (a = b)", Seq.empty)))
-    assertEquals(PutSQL.join(Seq((None, tbl1), (Some("tdx"), tbl3)), Seq((None, tbl2)),
+    assertEquals(SQL.join(Seq((None, tbl1), (Some("tdx"), tbl3)), Seq((None, tbl2)),
       Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("a"), SqlExpressionColumn("b"))))),
       Some(("FROM (SELECT * FROM tabelleA, (SELECT b AS a FROM tabelleA AS t1) AS tdx) LEFT JOIN tabelleB ON (a = b)", Seq.empty)))
-    assertEquals(PutSQL.join(Seq((None, tbl1)), Seq((Some("t1"), tbl1), (Some("t2"), tbl2), (Some("tt"), tbl1)),
+    assertEquals(SQL.join(Seq((None, tbl1)), Seq((Some("t1"), tbl1), (Some("t2"), tbl2), (Some("tt"), tbl1)),
       Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("b"), SqlExpressionColumn("a"))))),
       Some(("FROM tabelleA LEFT JOIN tabelleA AS t1 ON (1=1) LEFT JOIN tabelleB AS t2 ON (1=1) LEFT JOIN tabelleA AS tt ON (b = a)", Seq.empty)))
   }
 
   test("surround and concat SQL") {
-    assertEquals(PutSQL.surroundSqlString("", ("blublba", Seq((Type.string, "bla"))), ""), ("blublba", Seq((Type.string, "bla"))))
-    assertEquals(PutSQL.surroundSqlString("y", ("blublba", Seq((Type.string, "bla"))), "<"), ("yblublba<", Seq((Type.string, "bla"))))
-    assertEquals(PutSQL.concatSQL(Seq.empty), ("", Seq.empty))
-    assertEquals(PutSQL.concatSQL(Seq(
+    assertEquals(SqlUtils.surroundSQL("", ("blublba", Seq((Type.string, "bla"))), ""), ("blublba", Seq((Type.string, "bla"))))
+    assertEquals(SqlUtils.surroundSQL("y", ("blublba", Seq((Type.string, "bla"))), "<"), ("yblublba<", Seq((Type.string, "bla"))))
+    assertEquals(SqlUtils.concatSQL(Seq.empty), ("", Seq.empty))
+    assertEquals(SqlUtils.concatSQL(Seq(
       ("a", Seq((Type.boolean, true))),
       ("b", Seq((Type.integer, 3), (Type.string, "a"))),
       ("d", Seq.empty),

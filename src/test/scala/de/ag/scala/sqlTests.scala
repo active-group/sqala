@@ -36,7 +36,7 @@ object SqlTests extends SimpleTestSuite {
     assertEquals(SqlExpressionApp(SqlOperator.bitNot, Seq(SqlExpressionColumn("set"))).toSQL,
       ("~(set)", Seq.empty))
     assertEquals(SqlExpressionApp(SqlOperator.between, Seq(SqlExpressionColumn("age"), SqlExpressionConst(Type.integer, 20), SqlExpressionConst(Type.integer, 40))).toSQL,
-      ("age BETWEEN ? AND ?", Seq((Type.integer, 20), (Type.integer, 40))))
+      ("(age BETWEEN ? AND ?)", Seq((Type.integer, 20), (Type.integer, 40))))
     assertEquals(SqlExpressionApp(SqlOperator.concat, Seq(SqlExpressionConst(Type.string, "xx"), SqlExpressionColumn("arg"))).toSQL,
       ("CONCAT(?,arg)", Seq((Type.string, "xx"))))
     assertEquals(SqlExpressionApp(SqlOperator.gt, Seq(
@@ -121,18 +121,79 @@ object SqlTests extends SimpleTestSuite {
 
 
 
-  test("toSQL / simple Querys") {
-    assertEquals(tbl1.toSQL, ("SELECT * FROM personen", Seq.empty))
-    // TODO Zwischenergebnisse Ergebnis vervollständigt sich noch
-    assertEquals(select1.toSQL, ("SELECT * FROM personen", Seq.empty))
-    assertEquals(SQL.makeSqlSelect(Seq.empty, Seq((Some("personen"), tbl1))).toSQL,
-      ("SELECT * FROM personen AS personen", Seq.empty))
+
+  test("having") {
+    assertEquals(SQL.having(None), None)
+    assertEquals(SQL.having(Some(Seq.empty)), None)
+    assertEquals(SQL.having(Some(Seq(longExpr))), Some(("HAVING " + longExpr1T._1, longExpr1T._2)))
+    assertEquals(SQL.having(Some(Seq(
+      SqlExpressionApp(SqlOperator.between, Seq(SqlExpressionColumn("valueA"), SqlExpressionConst(Type.integer, 4), SqlExpressionConst(Type.integer, 10))),
+      SqlExpressionExists(adr1)
+    ))),
+      Some(("HAVING ((valueA BETWEEN ? AND ?) AND EXISTS (SELECT * FROM addresses))", Seq((Type.integer, 4), (Type.integer, 10)))))
+  }
+
+  test("group by") {
+    assertEquals(SQL.groupBy(None), None)
+    assertEquals(SQL.groupBy(Some(Seq.empty)), None)
+    assertEquals(SQL.groupBy(Some(Seq("blub"))), Some(("GROUP BY blub", Seq.empty)))
+    assertEquals(SQL.groupBy(Some(Seq("one", "two"))), Some(("GROUP BY one, two", Seq.empty)))
+  }
+
+  test("order") {
+    assertEquals(SQL.orderBy(None), None)
+    assertEquals(SQL.orderBy(Some(Seq.empty)), None)
+    assertEquals(SQL.orderBy(Some(Seq(("one", SqlOrderAscending)))), Some(("ORDER BY one ASC", Seq.empty)))
+    assertEquals(SQL.orderBy(Some(Seq(("one", SqlOrderDescending), ("third", SqlOrderAscending)))),
+      Some(("ORDER BY one DESC, third ASC", Seq.empty)))
+  }
+
+  test("extra") {
+    assertEquals(SQL.extra(None), None)
+    assertEquals(SQL.extra(Some(Seq.empty)), None)
+    assertEquals(SQL.extra(Some(Seq("LIMIT 1", ",", "5"))), Some(("LIMIT 1 , 5", Seq.empty)))
   }
 
 
 
-  test("joins") {
 
+  test("toSQL / simple Querys") {
+    assertEquals(SqlSelectEmpty.toSQL, ("", Seq.empty))
+    assertEquals(tbl1.toSQL, ("SELECT * FROM personen", Seq.empty))
+    assertEquals(select1.toSQL, ("SELECT * FROM personen", Seq.empty))
+    assertEquals(SQL.makeSqlSelect(Seq.empty, Seq((Some("personen"), tbl1))).toSQL,
+      ("SELECT * FROM personen AS personen", Seq.empty))
+    assertEquals(SQL.makeSqlSelect(Seq("DISTINCT"), Seq(("id", SqlExpressionColumn("gzd"))), Seq((None, SqlSelectTable("baz", null)))).toSQL,
+      ("SELECT DISTINCT gzd AS id FROM baz", Seq.empty))
+    assertEquals(SqlSelect(Some(Seq("DISTINCT")), Seq(("id", SqlExpressionColumn("gzd"))), Seq((None, SqlSelectTable("baz", null))),
+      Seq.empty, Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("foo"), SqlExpressionConst(Type.string, "bla")))),
+      Seq.empty,None, None, Some(Seq(("b", SqlOrderAscending))), None
+      ).toSQL,
+      ("SELECT DISTINCT gzd AS id FROM baz WHERE (foo = ?) ORDER BY b ASC", Seq((Type.string, "bla"))))
+  }
+
+
+
+  test("complex Sql") {
+    assertEquals(SqlSelect(None, Seq.empty,
+      Seq((Some("one"), tbl1), (None, firmAddr)), Seq((Some("bl"), tbl2)),
+      Seq(SqlExpressionApp(SqlOperator.isNull, Seq(SqlExpressionColumn("fabbs")))),
+      Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("bab"), SqlExpressionColumn("blad")))),
+      None, None, None, Some(Seq("LIMIT 5"))).toSQL,
+      ("SELECT * FROM (SELECT * FROM personen AS one, firm_address) LEFT JOIN (SELECT city, ? AS xx FROM addresses) AS bl "
+        +"ON (bab = blad) WHERE (fabbs) IS NULL LIMIT 5", Seq((Type.string, "BlX"))))
+    assertEquals(SqlSelect(None, Seq(("idc", SqlExpressionColumn("idc")), ("countThem", SqlExpressionApp(SqlOperator.count, Seq(SqlExpressionColumn("idc"))))),
+      Seq((Some("one"), tbl1)), Seq((Some("bl"), tbl2)),
+      Seq(SqlExpressionApp(SqlOperator.isNull, Seq(SqlExpressionColumn("fabbs")))),
+      Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("bab"), SqlExpressionColumn("blad")))),
+      Some(Seq("idc")),
+      Some(Seq(SqlExpressionApp(SqlOperator.gt, Seq(SqlExpressionApp(SqlOperator.count, Seq(SqlExpressionColumn("idc"))), SqlExpressionConst(Type.integer, 9))))),
+      Some(Seq(("countThem", SqlOrderDescending))), Some(Seq("LIMIT 5"))).toSQL,
+      ("SELECT idc, COUNT(idc) AS countThem"
+        +" FROM personen AS one LEFT JOIN (SELECT city, ? AS xx FROM addresses) AS bl"
+        +" ON (bab = blad) WHERE (fabbs) IS NULL"
+        +" GROUP BY idc HAVING (COUNT(idc) > ?)"
+        +" ORDER BY countThem DESC LIMIT 5", Seq((Type.string, "BlX"), (Type.integer, 9))))
   }
 
 
