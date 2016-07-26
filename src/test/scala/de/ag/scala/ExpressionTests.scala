@@ -40,11 +40,10 @@ object ExpressionTests extends SimpleTestSuite {
     assertEquals(const2.getType(env2), Type.integer)
     assertEquals(const3.getType(env1), Type.boolean)
 
+    
     assertEquals(Aggregation(AggregationOp.Count, ref2).getType(env2), Type.integer)
     testOnError[Expression](Aggregation(AggregationOp.Sum, const1), x => x.getType(env1))
 
-    def checkOnBothEnvsForIntAgg(aggOp: AggregationOp) = {
-    }
     val allIntAggOps : Seq[AggregationOp] = Seq(AggregationOp.Sum, AggregationOp.Avg,
       AggregationOp.StdDev, AggregationOp.StdDevP, AggregationOp.Var, AggregationOp.VarP)
     for (op <- allIntAggOps) {
