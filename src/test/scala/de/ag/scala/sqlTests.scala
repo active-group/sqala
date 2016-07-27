@@ -77,6 +77,14 @@ object SqlTests extends SimpleTestSuite {
         SqlExpressionColumn("gebjahr"))),
       None).toSQL,
       ("(CASE WHEN (age = ?) THEN gebjahr END)", Seq((Type.integer, 30))))
+    assertEquals(SqlExpressionCase(None, Seq(
+      (SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("age"), SqlExpressionConst(Type.integer, 30))),
+        SqlExpressionColumn("gebjahr")),
+      (SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("age"), SqlExpressionConst(Type.integer, 35))),
+        SqlExpressionApp(SqlOperator.plus, Seq(SqlExpressionColumn("gebjahr"), SqlExpressionConst(Type.integer, 1))))),
+      Some(SqlExpressionApp(SqlOperator.minus, Seq(SqlExpressionColumn("gebjahr"), SqlExpressionConst(Type.integer, 10))))).toSQL,
+      ("(CASE WHEN (age = ?) THEN gebjahr WHEN (age = ?) THEN (gebjahr + ?) ELSE (gebjahr - ?) END)",
+        Seq((Type.integer, 30), (Type.integer, 35), (Type.integer, 1), (Type.integer, 10))))
     assertEquals(SqlExpressionCase(Some(SqlExpressionColumn("flag")), Seq(
       (SqlExpressionConst(Type.integer, 1), SqlExpressionColumn("wert1")),
       (SqlExpressionConst(Type.integer, 2), SqlExpressionColumn("wert2")),
@@ -86,6 +94,7 @@ object SqlTests extends SimpleTestSuite {
         Seq((Type.integer, 1), (Type.integer, 2), (Type.integer, 3), (Type.integer, -1), (Type.integer, -2))))
     try {
       val t1 = SqlExpressionCase(Some(SqlExpressionColumn("blub")), Seq.empty, Some(SqlExpressionColumn("foo"))).toSQL
+      // fail because the WHEN-THEN part/seq is empty!
       fail()
     } catch {
       case _ : AssertionError => // wanted

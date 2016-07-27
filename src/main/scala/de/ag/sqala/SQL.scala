@@ -284,6 +284,7 @@ case class SqlExpressionSubquery(query: SqlInterpretations) extends SqlExpressio
 }
 
 // AND & OR
+// also implemented in SqlExpressionApp - but there can only be
 case class SqlExpressionOr(exprs: Seq[SqlExpression]) extends SqlExpression {
   override def toSQL : SQL.SqlReturn = {
     if (exprs.size == 1)

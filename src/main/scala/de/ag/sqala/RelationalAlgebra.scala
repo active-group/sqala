@@ -215,7 +215,8 @@ abstract class SetCombination extends Query with Combination {
   def computeScheme(env: Environment): RelationalScheme = {
     val s1 = query1.getScheme(env)
     val s2 = query2.getScheme(env)
-    ensure(s1 == s2)
+    // FIXED : ensure(s1 == s2) ist falsch ... die Typen + die Reihenfolge müssen passen, die Spaltennamen nicht!
+    ensure(s1.columns.map(c => s1.map.get(c)) == s2.columns.map(c => s2.map.get(c)))
     s1
   }
 }

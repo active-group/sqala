@@ -17,6 +17,9 @@ object RelationalAlgebraTests extends SimpleTestSuite {
                                     RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer),
                                       ("three", Type.integer), ("four", Type.string))),
                                     "handle4")
+  val tbl5 = Query.makeBaseRelation("tbl4",
+    RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer), ("three", Type.boolean))),
+    "handle5")
 
   test("projections") {
     val p = tbl1.project(Seq(("two", Expression.makeAttributeRef("two")),
@@ -44,6 +47,39 @@ object RelationalAlgebraTests extends SimpleTestSuite {
   test("restrictions") {
     val p = tbl1.restrict(Expression.makeConst(Type.boolean, true))
     assertEquals(p.getScheme(), tbl1.getScheme())
+    assertEquals(p, Restriction(Expression.makeConst(Type.boolean, true), tbl1))
+
+    // Also Test on Application
+    assertEquals(tbl1.restrict(Application(
+      Rator("any", _.head),  Seq(Expression.makeConst(Type.boolean, "a"), Expression.makeConst(Type.boolean, "b")))).getScheme(),
+      tbl1.getScheme())
+    assertEquals(tbl1.restrict(Application(
+      Rator("any", _.head),  Seq(Expression.makeConst(Type.boolean, "a"), Expression.makeConst(Type.string, "b")))).getScheme(),
+      tbl1.getScheme())
+    try {
+      val v1 = tbl1.restrict(Application(Rator("any", _.head),
+        Seq(Expression.makeConst(Type.string, "a"), Expression.makeConst(Type.boolean, "b")))).getScheme()
+      fail()
+    } catch {
+      case _ : AssertionError => // wanted
+    }
+  }
+
+  test("combinations") {
+    assertEquals(Union(tbl1, tbl1).getScheme(), tbl1.getScheme())
+    try {
+      val v1 = Union(tbl1, tbl2).getScheme()
+      fail()
+    } catch {
+      case _ : AssertionError => // wanted
+    }
+    try {
+      val v1 = Union(tbl1, tbl4).getScheme()
+      fail()
+    } catch {
+      case _ : AssertionError => // wanted
+    }
+    assertEquals(Intersection(tbl2, tbl3).getScheme(), tbl2.getScheme())
   }
 
   test("extend") {
@@ -54,7 +90,6 @@ object RelationalAlgebraTests extends SimpleTestSuite {
                                            ("three", Type.integer), ("four", Type.integer))))
   }
 
-  // TODO: Nochmal genauer mit Verwendung Quotient anschauen. (Note für mich/Sabrina)
   test("difference") {
     assertEquals(tbl1.getScheme().difference(RelationalScheme.make(Seq(("two", Type.integer)))),
       RelationalScheme.make(Seq(("one", Type.string))))
@@ -82,7 +117,14 @@ object RelationalAlgebraTests extends SimpleTestSuite {
     }
   }
 
-  test("allgemeine Verständnistests") {
-    //assertEquals(tbl1.getScheme(Map("three" -> Type.string)), 0)
+  test("order") {
+    assertEquals(Order(Seq(("one", Direction.Ascending)), tbl5).getScheme(), tbl5.getScheme())
+    assertEquals(Order(Seq(("two", Direction.Descending)), tbl5).getScheme(), tbl5.getScheme())
+    try {
+      val v1 = Order(Seq(("three", Direction.Ascending)), tbl5).getScheme()
+      fail()
+    } catch {
+      case _ : AssertionError => // wanted
+    }
   }
 }
