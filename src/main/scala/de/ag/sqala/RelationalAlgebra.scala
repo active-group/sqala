@@ -121,8 +121,12 @@ sealed abstract class Query {
 }
 
 object Query {
+  /**
+    * handle could be a SqlTable or ...
+    */
   def makeBaseRelation[H](name: String, scheme: RelationalScheme, handle: H): Query =
     BaseRelation(name, scheme, handle)
+
 
   val empty = EmptyQuery
 }
