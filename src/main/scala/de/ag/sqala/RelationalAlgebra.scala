@@ -226,12 +226,12 @@ object Direction {
   case object Descending extends Direction
 }
 
-case class Order(alist: Seq[(Expression, Direction)], query: Query) extends Query {
+case class Order(alist: Seq[(String, Direction)], query: Query) extends Query {
   def computeScheme(env: Environment): RelationalScheme = {
     val s = query.getScheme(env)
     val env2 = composeEnvironments(s.toEnvironment(), env)
-    for ((exp, _) <- alist) {
-      val t = exp.getType(env2)
+    for ((col, _) <- alist) {
+      val t = env2(col)
       ensure(t.isOrdered)
     }
     s
