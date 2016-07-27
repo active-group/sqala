@@ -166,7 +166,7 @@ object QueryMonad {
       res <- combination1(op, computeScheme, query0, rel1, state1.query, rel2, state2.query, alias0)
     } yield res
 
-  def order(alist: Seq[(Expression, Direction)]): QueryMonad[Unit] =
+  def order(alist: Seq[(String, Direction)]): QueryMonad[Unit] =
     for {
       old <- currentQuery
       _ <- setQuery(old.order(alist))

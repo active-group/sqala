@@ -41,6 +41,7 @@ case class RelationalScheme(columns: Vector[String], map: Map[String, Type], gro
 
   def toEnvironment(): Environment = this.map
 
+  def isUnary(): Boolean = columns.length == 1
 }
 
 object RelationalScheme {
@@ -109,7 +110,7 @@ sealed abstract class Query {
   def intersection(other: Query): Query = Intersection(this, other)
   def difference(other: Query): Query = Difference(this, other)
 
-  def order(alist: Seq[(Expression, Direction)]): Query =
+  def order(alist: Seq[(String, Direction)]): Query =
     Order(alist, this)
 
   def group(columns: Set[String]): Query =
