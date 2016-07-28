@@ -14,7 +14,7 @@ object queryComprehensionTest extends SimpleTestSuite {
 
   val qm1 = for {
     t <- QueryMonad.embed(tbl1)
-    p <- QueryMonad.project(Seq(("onex", t, AttributeRef("one"))))
+    p <- QueryMonad.project(Seq(("onex", t.!("one"))))
     // -> Verweis auf Tabelle ?!
   } yield p
 
@@ -47,7 +47,7 @@ object queryComprehensionTest extends SimpleTestSuite {
 
     assertEquals(getRel((for {
       t <- QueryMonad.embed(tbl1)
-      p <- QueryMonad.project(Seq(("one", t, AttributeRef("two")), ("new", t, Expression.makeConst(Type.boolean, true)), ("two", t, AttributeRef("one"))))
+      p <- QueryMonad.project(Seq(("one", t.!("two")), ("new", Expression.makeConst(Type.boolean, true)), ("two", t.!("one"))))
     }yield p).run()), RelationalScheme.make(Seq(("one", Type.integer), ("new", Type.boolean), ("two", Type.string))))
   }
 
@@ -56,7 +56,13 @@ object queryComprehensionTest extends SimpleTestSuite {
       t <- QueryMonad.embed(tbl1)
       res <- QueryMonad.restrict(Application( // FixMe : benötigen hier ebenfalls andere Strukturen um die zugehörige Tabelle bei einer App mit AttRef zu übergeben
         Rator("any", _.head),  Seq(Expression.makeConst(Type.boolean, "a"), Expression.makeConst(Type.boolean, "b"))))
-      p <- QueryMonad.project(Seq(("one", t, AttributeRef("one"))))
+      p <- QueryMonad.project(Seq(("one", t.!("one"))))
     } yield p).run()), RelationalScheme.make(Seq(("one", Type.string))))
+    assertEquals(getRel((for {
+      t <- QueryMonad.embed(tbl1)
+      res <- QueryMonad.restrict(Application(
+        Rator("any2", _.head), Seq(Expression.makeConst(Type.boolean, "a"), t.!("one"))))
+      p <- QueryMonad.project(Seq(("x", t.!("one"))))
+    } yield p).run()), RelationalScheme.make(Seq(("x", Type.string))))
   }
 }

@@ -110,16 +110,16 @@ object QueryMonad {
   // Fixed the problem with add Relation in the Tupel
   // don't know if there now other Problems ... in sqlosure there is also an Relation in the projection
   // Problem war, dass er die Zeile nicht zur Tabelle referenzieren konnte, hat nur mit _0 anhang geklappt -> was ja nicht sein sollte
-  def project(alist: Seq[(String, Relation, Expression)]): Comprehension =
+  def project(alist: Seq[(String, Expression)]): Comprehension =
     for {
       alias <- newAlias
       query <- currentQuery
-      query1 = query.extend(alist.map { case (k, r, v) => (freshName(k, alias), v) })
+      query1 = query.extend(alist.map { case (k, v) => (freshName(k, alias), v) })
       _ <- setQuery(query1)
     } yield Relation(alias,
               { val scheme = query.getScheme()
                 val env = scheme.toEnvironment()
-                RelationalScheme.make(alist.map { case (k, r, v) => (k, v.getType(r.scheme.map)) }) })
+                RelationalScheme.make(alist.map { case (k, v) => (k, v.getType(env)) }) })
 
   def restrict(expr: Expression): QueryMonad[Unit] =
     for {
