@@ -9,6 +9,8 @@ sealed trait Expression {
     * that are not inside an application of an aggregate occur in `grouped`.
   */
   def checkGrouped(grouped: Option[Set[String]]): Unit
+
+  def toSqlSelect : SqlExpression = null // TODO : implement everywhere and delete the default-answer here
 }
 
 object Expression {
@@ -26,12 +28,14 @@ case class AttributeRef(name: String) extends Expression {
     }
     ()
   }
+  override def toSqlSelect : SqlExpression = SqlExpressionColumn(name)
 }
 
 case class Const(ty: Type, value: Any) extends Expression {
   override def getType(env: Environment): Type = ty
   override def isAggregate = false
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
+  override def toSqlSelect : SqlExpression = SqlExpressionConst(ty, value)
 }
 
 case class Null(ty: Type) extends Expression {

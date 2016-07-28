@@ -50,6 +50,10 @@ case class QueryMonad[A](transform: State => (A, State)) {
 
   def run(state: QueryMonad.State = emptyState) =
     transform(state)
+
+  def buildQuery(state: QueryMonad.State = emptyState) : Query = run() match {
+    case (r: Relation, s: State) => Projection(r.scheme.columns.map({case s => (s, AttributeRef(freshName(s, r.alias)))}), s.query)
+  }
 }
 
 object QueryMonad {
@@ -107,9 +111,6 @@ object QueryMonad {
   def outer(q: Query): Comprehension =
     addToProduct(_.leftOuterProduct(_), _.toNullable, q)
 
-  // Fixed the problem with add Relation in the Tupel
-  // don't know if there now other Problems ... in sqlosure there is also an Relation in the projection
-  // Problem war, dass er die Zeile nicht zur Tabelle referenzieren konnte, hat nur mit _0 anhang geklappt -> was ja nicht sein sollte
   def project(alist: Seq[(String, Expression)]): Comprehension =
     for {
       alias <- newAlias
