@@ -1,6 +1,7 @@
 package de.ag.sqala
 
 import Aliases._
+import de.ag.sqala.AggregationOp.Count
 
 sealed trait Expression {
   def getType(env: Environment): Type
@@ -10,7 +11,7 @@ sealed trait Expression {
   */
   def checkGrouped(grouped: Option[Set[String]]): Unit
 
-  def toSqlSelect : SqlExpression = null // TODO : implement everywhere and delete the default-answer here
+  def toSqlExpression : SqlExpression
 }
 
 object Expression {
@@ -28,28 +29,32 @@ case class AttributeRef(name: String) extends Expression {
     }
     ()
   }
-  override def toSqlSelect : SqlExpression = SqlExpressionColumn(name)
+  override def toSqlExpression : SqlExpression = SqlExpressionColumn(name)
 }
 
 case class Const(ty: Type, value: Any) extends Expression {
   override def getType(env: Environment): Type = ty
   override def isAggregate = false
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
-  override def toSqlSelect : SqlExpression = SqlExpressionConst(ty, value)
+  override def toSqlExpression : SqlExpression = SqlExpressionConst(ty, value)
 }
 
 case class Null(ty: Type) extends Expression {
   override def getType(env: Environment): Type = ty
   override def isAggregate = false
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
+  override def toSqlExpression : SqlExpression = SqlExpressionNull
 }
 
-case class Rator(name: String, rangeType: Seq[Type] => Type)
+case class Rator(name: String, rangeType: Seq[Type] => Type) {
+  def toSqlSelect: SqlOperator = ??? // TODO Expression.Rator translate to SqlOperator
+}
 
 case class Application(rator: Rator, rands: Seq[Expression]) extends Expression {
   override def getType(env: Environment): Type = rator.rangeType(rands.map(_.getType(env)))
   override def isAggregate = false
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
+  override def toSqlExpression : SqlExpression = SqlExpressionApp(rator.toSqlSelect, rands.map(e => e.toSqlExpression))
 }
 
 case class Tuple(exprs: Seq[Expression]) extends Expression {
@@ -61,6 +66,8 @@ case class Tuple(exprs: Seq[Expression]) extends Expression {
       e.checkGrouped(grouped)
 
   override def isAggregate: Boolean = false
+
+  override def toSqlExpression : SqlExpression = SqlExpressionTuple(exprs.map(e => e.toSqlExpression))
 }
 
 sealed trait AggregationOp
@@ -99,6 +106,18 @@ case class Aggregation(op: AggregationOp, exp: Expression) extends Expression {
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
 
   override def isAggregate: Boolean = true
+
+  override def toSqlExpression : SqlExpression = SqlExpressionApp(op match {
+    case AggregationOp.Count   => SqlOperator.count
+    case AggregationOp.Sum     => SqlOperator.sum
+    case AggregationOp.Avg     => SqlOperator.avg
+    case AggregationOp.Min     => SqlOperator.min
+    case AggregationOp.Max     => SqlOperator.max
+    case AggregationOp.StdDev  => SqlOperator.stdDev
+    case AggregationOp.StdDevP => SqlOperator.stdDevP
+    case AggregationOp.Var     => SqlOperator.vari
+    case AggregationOp.VarP    => SqlOperator.varP
+  }, Seq(exp.toSqlExpression))
 }
 
 sealed trait AggregationAllOp
@@ -113,6 +132,10 @@ case class AggregationAll(op: AggregationAllOp) extends Expression {
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
 
   override def isAggregate: Boolean = true
+
+  override def toSqlExpression : SqlExpression = SqlExpressionApp(op match {
+    case AggregationAllOp.CountAll => SqlOperator.countAll
+  }, Seq())
 }
 
 case class Case(alist: Seq[(Expression, Expression)], default: Expression) extends Expression {
@@ -136,6 +159,8 @@ case class Case(alist: Seq[(Expression, Expression)], default: Expression) exten
   }
 
   override def isAggregate: Boolean = false
+
+  override def toSqlExpression : SqlExpression = SqlExpressionCase(None, alist.map({case (e1, e2) => (e1.toSqlExpression, e2.toSqlExpression)}), Some(default.toSqlExpression))
 }
 
 case class ScalarSubquery(query: Query) extends Expression {
@@ -149,6 +174,8 @@ case class ScalarSubquery(query: Query) extends Expression {
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
 
   override def isAggregate: Boolean = false
+
+  override def toSqlExpression : SqlExpression = SqlExpressionSubquery(query.toSqlSelect())
 }
 
 case class SetSubquery(query: Query) extends Expression {
@@ -162,4 +189,6 @@ case class SetSubquery(query: Query) extends Expression {
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
 
   override def isAggregate: Boolean = false
+
+  override def toSqlExpression : SqlExpression = SqlExpressionSubquery(query.toSqlSelect())
 }

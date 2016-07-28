@@ -240,6 +240,9 @@ case class SqlExpressionApp(rator: SqlOperator,
 case class SqlExpressionConst(typ: Type, value: Any) extends SqlExpression {
   override def toSQL : SQL.SqlReturn = SqlUtils.putLiteral(typ, value)
 }
+object SqlExpressionNull extends SqlExpression { // FixMe : ok?
+  override def toSQL : SQL.SqlReturn = ("null", Seq.empty)
+}
 case class SqlExpressionCase(input: Option[SqlExpression],
                              branches: Seq[(SqlExpression, SqlExpression)],
                              default: Option[SqlExpression]) extends SqlExpression {

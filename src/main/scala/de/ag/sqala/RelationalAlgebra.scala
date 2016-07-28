@@ -156,7 +156,7 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
   }
   override def toSqlSelect() = {
     val qSql = query.toSqlSelect()
-    val projAlist : Seq[(String, SqlExpression)] = alist.map({case (s, e) => (s, e.toSqlSelect)})
+    val projAlist : Seq[(String, SqlExpression)] = alist.map({case (s, e) => (s, e.toSqlExpression)})
     SQL.makeSqlSelect(projAlist, Seq((None, query.toSqlSelect()))) // FixMe : None not the best Implementation!!
   }
 }
