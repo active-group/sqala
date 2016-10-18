@@ -68,4 +68,21 @@ object ExpressionTests extends SimpleTestSuite {
   }
 
 
+  test("toSqlExpression") {
+    assertEquals(AttributeRef("blub").toSqlExpression, SqlExpressionColumn("blub"))
+    assertEquals(Const(Type.integer, 4).toSqlExpression, SqlExpressionConst(Type.integer, 4))
+    assertEquals(Null(Type.boolean).toSqlExpression, SqlExpressionNull)
+    // ToDo Test Expression.Application
+    assertEquals(Tuple(Seq(AttributeRef("a"), Const(Type.string, "gahh"))).toSqlExpression,
+      SqlExpressionTuple(Seq(SqlExpressionColumn("a"), SqlExpressionConst(Type.string, "gahh"))))
+    assertEquals(Aggregation(AggregationOp.Sum, AttributeRef("anz")).toSqlExpression,
+      SqlExpressionApp(SqlOperator.sum, Seq(SqlExpressionColumn("anz"))))
+    assertEquals(Case(Seq((Const(Type.integer, 5), AttributeRef("a")), (Const(Type.integer, 8), AttributeRef("b"))),
+      AttributeRef("c")).toSqlExpression,
+      SqlExpressionCase(None, Seq(
+        (SqlExpressionConst(Type.integer, 5), SqlExpressionColumn("a")),
+        (SqlExpressionConst(Type.integer, 8), SqlExpressionColumn("b"))), Some(SqlExpressionColumn("c"))))
+  }
+
+
 }

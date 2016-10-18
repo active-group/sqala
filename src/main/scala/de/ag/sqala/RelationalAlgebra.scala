@@ -122,6 +122,9 @@ sealed abstract class Query {
 
   def top(offset: Int, count: Int): Query =
     Top(offset, count, this)
+
+  // Tranlation in SqlSelect
+  def toSqlSelect() : SqlInterpretations = SqlSelectEmpty // TODO : implement everywhere and delete the default-answer here
 }
 
 object Query {
@@ -138,6 +141,9 @@ case class BaseRelation[H](name: String, scheme: RelationalScheme, handle: H) ex
   override def computeScheme(env: Environment): RelationalScheme = scheme
 
   override def attributeNames(): Set[String] = Set()
+
+  override def toSqlSelect() = SqlSelectTable(name, scheme)
+
 }
 
 case object EmptyQuery extends Query {
@@ -164,6 +170,11 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
     (expNames -- schemeNames) ++ query.attributeNames()
   }
 
+  override def toSqlSelect() = {
+    val qSql = query.toSqlSelect()
+    val projAlist : Seq[(String, SqlExpression)] = alist.map({case (s, e) => (s, e.toSqlExpression)})
+    SQL.makeSqlSelect(projAlist, Seq((None, query.toSqlSelect()))) // FixMe : None not the best Implementation!!
+  }
 }
 
 case class Restriction(exp: Expression, query: Query) extends Query {
@@ -206,6 +217,17 @@ case class Product(query1: Query, query2: Query) extends Query with Combination 
 
   override def attributeNames(): Set[String] =
     query1.attributeNames() ++ query2.attributeNames()
+
+  override def toSqlSelect() = {
+    val q1Sql = query1.toSqlSelect()
+    val q2Sql = query2.toSqlSelect()
+    if(q1Sql == SqlSelectEmpty)
+      q2Sql
+    else if(q2Sql == SqlSelectEmpty)
+      q1Sql
+    else
+      ???
+  }
 }
 
 case class LeftOuterProduct(query1: Query, query2: Query) extends Query with Combination {
