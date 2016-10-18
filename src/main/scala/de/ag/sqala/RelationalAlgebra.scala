@@ -13,6 +13,7 @@ import Aliases._
 import Assertions._
 
 case class RelationalScheme(columns: Vector[String], map: Map[String, Type], grouped: Option[Set[String]]) {
+  // FIXME: why do we have environment() and toEnvironment()
   def environment(): Environment = map
 
   def ++(other: RelationalScheme): RelationalScheme =
@@ -62,6 +63,9 @@ sealed abstract class Query {
     }
 
   def getScheme(): RelationalScheme = computeScheme(emptyEnvironment)
+
+  // helper method for subqueries of expressions
+  def attributeNames(): Set[String]
 
   private def reallyProject(alist: Seq[(String, Expression)]): Query = {
     val baseScheme = this.getScheme()
@@ -127,20 +131,23 @@ object Query {
   def makeBaseRelation[H](name: String, scheme: RelationalScheme, handle: H): Query =
     BaseRelation(name, scheme, handle)
 
-
   val empty = EmptyQuery
 }
 
 case class BaseRelation[H](name: String, scheme: RelationalScheme, handle: H) extends Query {
-  def computeScheme(env: Environment): RelationalScheme = scheme
+  override def computeScheme(env: Environment): RelationalScheme = scheme
+
+  override def attributeNames(): Set[String] = Set()
 }
 
 case object EmptyQuery extends Query {
-  def computeScheme(env: Environment): RelationalScheme = RelationalScheme.empty
+  override def computeScheme(env: Environment): RelationalScheme = RelationalScheme.empty
+
+  override def attributeNames(): Set[String] = Set()
 }
 
 case class Projection(alist: Seq[(String, Expression)], query: Query) extends Query {
-  def computeScheme(env: Environment): RelationalScheme = {
+  override def computeScheme(env: Environment): RelationalScheme = {
     val baseScheme = query.getScheme(env)
     val baseEnv = baseScheme.environment()
     val tyAlist = alist.map({ case (name, exp) => {
@@ -149,22 +156,36 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
       (name, typ) }})
     RelationalScheme.make(tyAlist)
   }
+
+  override def attributeNames(): Set[String] = {
+    val expNames = alist.flatMap { case (_, exp) => exp.attributeNames() }.toSet
+    // FIXME: shouldn't we pass an environment to getScheme?
+    val schemeNames = query.getScheme().environment().keySet
+    (expNames -- schemeNames) ++ query.attributeNames()
+  }
+
 }
 
 case class Restriction(exp: Expression, query: Query) extends Query {
-  def computeScheme(env: Environment): RelationalScheme = {
+  override def computeScheme(env: Environment): RelationalScheme = {
     ensure(exp.getType(composeEnvironments(query.getScheme(env).environment(), env)) == Type.boolean,
            "not a boolean expression")
     query.computeScheme(env)
   }
+
+  override def attributeNames(): Set[String] =
+    (exp.attributeNames() -- query.getScheme().environment().keySet) ++ query.attributeNames()
 }
 
 case class OuterRestriction(exp: Expression, query: Query) extends Query {
-  def computeScheme(env: Environment): RelationalScheme = {
+  override def computeScheme(env: Environment): RelationalScheme = {
     ensure(exp.getType(composeEnvironments(query.getScheme(env).environment(), env)) == Type.boolean,
-           "not a boolean expression")
+      "not a boolean expression")
     query.computeScheme(env)
   }
+
+  override def attributeNames(): Set[String] =
+    (exp.attributeNames() -- query.getScheme().environment().keySet) ++ query.attributeNames()
 }
 
 trait Combination {
@@ -173,7 +194,7 @@ trait Combination {
 }
 
 case class Product(query1: Query, query2: Query) extends Query with Combination {
-  def computeScheme(env: Environment): RelationalScheme = {
+  override def computeScheme(env: Environment): RelationalScheme = {
     val r1 = query1.getScheme(env)
     val r2 = query2.getScheme(env)
     val a1 = r1.map
@@ -182,10 +203,13 @@ case class Product(query1: Query, query2: Query) extends Query with Combination 
       ensure(!a2.contains(k))
     r1 ++ r2
   }
+
+  override def attributeNames(): Set[String] =
+    query1.attributeNames() ++ query2.attributeNames()
 }
 
 case class LeftOuterProduct(query1: Query, query2: Query) extends Query with Combination {
-  def computeScheme(env: Environment): RelationalScheme = {
+  override def computeScheme(env: Environment): RelationalScheme = {
     val r1 = query1.getScheme(env)
     val r2 = query2.getScheme(env).toNullable()
     val a1 = r1.map
@@ -194,10 +218,13 @@ case class LeftOuterProduct(query1: Query, query2: Query) extends Query with Com
       ensure(!a2.contains(k))
     r1 ++ r2
   }
+
+  override def attributeNames(): Set[String] =
+    query1.attributeNames() ++ query2.attributeNames()
 }
 
 case class Quotient(query1: Query, query2: Query) extends Query with Combination {
-  def computeScheme(env: Environment): RelationalScheme = {
+  override def computeScheme(env: Environment): RelationalScheme = {
     val s1 = query1.getScheme(env)
     val s2 = query2.getScheme(env)
     val a1 = s1.map
@@ -209,16 +236,22 @@ case class Quotient(query1: Query, query2: Query) extends Query with Combination
       }
     s1.difference(s2)
   }
+
+  override def attributeNames(): Set[String] =
+    query1.attributeNames() ++ query2.attributeNames()
 }
 
 abstract class SetCombination extends Query with Combination {
-  def computeScheme(env: Environment): RelationalScheme = {
+  override def computeScheme(env: Environment): RelationalScheme = {
     val s1 = query1.getScheme(env)
     val s2 = query2.getScheme(env)
     // FIXED : ensure(s1 == s2) ist falsch ... die Typen + die Reihenfolge müssen passen, die Spaltennamen nicht!
     ensure(s1.columns.map(c => s1.map.get(c)) == s2.columns.map(c => s2.map.get(c)))
     s1
   }
+
+  override def attributeNames(): Set[String] =
+    query1.attributeNames() ++ query2.attributeNames()
 }
 
 case class Union(val query1: Query, val query2: Query) extends SetCombination
@@ -233,7 +266,7 @@ object Direction {
 }
 
 case class Order(alist: Seq[(String, Direction)], query: Query) extends Query {
-  def computeScheme(env: Environment): RelationalScheme = {
+  override def computeScheme(env: Environment): RelationalScheme = {
     val s = query.getScheme(env)
     val env2 = composeEnvironments(s.toEnvironment(), env)
     for ((col, _) <- alist) {
@@ -242,15 +275,21 @@ case class Order(alist: Seq[(String, Direction)], query: Query) extends Query {
     }
     s
   }
+
+  override def attributeNames(): Set[String] =
+    (alist.map(_._1).toSet -- query.getScheme().environment().keySet) ++ query.attributeNames()
 }
 
 case class Top(offset: Int, count: Int, query: Query) extends Query {
-  def computeScheme(env: Environment): RelationalScheme =
+  override def computeScheme(env: Environment): RelationalScheme =
     query.getScheme(env)
+
+  override def attributeNames(): Set[String] =
+    query.attributeNames()
 }
 
 case class Group(columns: Set[String], query: Query) extends Query {
-  def computeScheme(env: Environment): RelationalScheme = {
+  override def computeScheme(env: Environment): RelationalScheme = {
     val s = query.getScheme(env)
     val g = s.grouped match {
       case None => columns
@@ -258,4 +297,7 @@ case class Group(columns: Set[String], query: Query) extends Query {
     }
     s.copy(grouped = Some(g))
   }
+
+  override def attributeNames(): Set[String] =
+    (columns -- query.getScheme().environment().keySet) ++ query.attributeNames()
 }

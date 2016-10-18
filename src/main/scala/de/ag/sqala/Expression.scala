@@ -9,6 +9,9 @@ sealed trait Expression {
     * that are not inside an application of an aggregate occur in `grouped`.
   */
   def checkGrouped(grouped: Option[Set[String]]): Unit
+
+  /** Return all attribute names that occur in the expression. */
+  def attributeNames(): Set[String]
 }
 
 object Expression {
@@ -26,18 +29,21 @@ case class AttributeRef(name: String) extends Expression {
     }
     ()
   }
+  override def attributeNames(): Set[String] = Set(name)
 }
 
 case class Const(ty: Type, value: Any) extends Expression {
   override def getType(env: Environment): Type = ty
   override def isAggregate = false
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
+  override def attributeNames(): Set[String] = Set()
 }
 
 case class Null(ty: Type) extends Expression {
   override def getType(env: Environment): Type = ty
   override def isAggregate = false
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
+  override def attributeNames(): Set[String] = Set()
 }
 
 case class Rator(name: String, rangeType: Seq[Type] => Type)
@@ -46,6 +52,8 @@ case class Application(rator: Rator, rands: Seq[Expression]) extends Expression 
   override def getType(env: Environment): Type = rator.rangeType(rands.map(_.getType(env)))
   override def isAggregate = false
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
+  override def attributeNames(): Set[String] =
+    rands.flatMap(_.attributeNames()).toSet
 }
 
 case class Tuple(exprs: Seq[Expression]) extends Expression {
@@ -57,6 +65,9 @@ case class Tuple(exprs: Seq[Expression]) extends Expression {
       e.checkGrouped(grouped)
 
   override def isAggregate: Boolean = false
+
+  override def attributeNames(): Set[String] =
+    exprs.flatMap(_.attributeNames()).toSet
 }
 
 sealed trait AggregationOp
@@ -95,6 +106,8 @@ case class Aggregation(op: AggregationOp, exp: Expression) extends Expression {
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
 
   override def isAggregate: Boolean = true
+
+  override def attributeNames(): Set[String] = exp.attributeNames()
 }
 
 sealed trait AggregationAllOp
@@ -109,6 +122,9 @@ case class AggregationAll(op: AggregationAllOp) extends Expression {
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
 
   override def isAggregate: Boolean = true
+
+  // FIXME: does this get us to empty tuples at some point?
+  override def attributeNames(): Set[String] = Set()
 }
 
 case class Case(alist: Seq[(Expression, Expression)], default: Expression) extends Expression {
@@ -132,6 +148,10 @@ case class Case(alist: Seq[(Expression, Expression)], default: Expression) exten
   }
 
   override def isAggregate: Boolean = false
+
+  override def attributeNames(): Set[String] =
+    alist.flatMap { case (te, e) => te.attributeNames().union(e.attributeNames()) }
+      .toSet.union(default.attributeNames())
 }
 
 case class ScalarSubquery(query: Query) extends Expression {
@@ -145,6 +165,9 @@ case class ScalarSubquery(query: Query) extends Expression {
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
 
   override def isAggregate: Boolean = false
+
+  override def attributeNames(): Set[String] =
+    query.attributeNames()
 }
 
 case class SetSubquery(query: Query) extends Expression {
@@ -158,4 +181,7 @@ case class SetSubquery(query: Query) extends Expression {
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
 
   override def isAggregate: Boolean = false
+
+  override def attributeNames(): Set[String] =
+    query.attributeNames()
 }

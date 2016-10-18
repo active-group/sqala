@@ -1,6 +1,7 @@
 package de.ag.sqala
 
 import QueryMonad._
+import scala.language.postfixOps
 
 // is used as the state of the query monad. This is used to
 // track the current state and later rebuild the resulting, correct references when
