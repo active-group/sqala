@@ -21,9 +21,16 @@ object Expression {
   def makeAttributeRef(name: String): Expression = AttributeRef(name)
   def makeConst(ty: Type, value: Any): Expression = Const(ty, value)
   def makeNull(ty: Type): Expression = Null(ty)
+  def makeApplication(rator: Rator, rands: Expression*): Expression =
+    Application(rator, rands)
   def makeTuple(exprs: Expression*): Expression = Tuple(exprs)
   def makeAggregation(op: AggregationOp, exp: Expression): Expression =
     Aggregation(op, exp)
+  def aggregationCountAll: Expression = AggregationAll(AggregationAllOp.CountAll)
+  def makeCase(alist: Seq[(Expression, Expression)], default: Expression): Expression =
+    Case(alist, default)
+  def makeScalarSubquery(query: Query): Expression = ScalarSubquery(query)
+  def makeSetSubquery(query: Query): Expression = SetSubquery(query)
 }
 
 case class AttributeRef(name: String) extends Expression {
