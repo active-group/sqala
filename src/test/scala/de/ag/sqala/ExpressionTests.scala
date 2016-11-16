@@ -84,5 +84,15 @@ object ExpressionTests extends SimpleTestSuite {
         (SqlExpressionConst(Type.integer, 8), SqlExpressionColumn("b"))), Some(SqlExpressionColumn("c"))))
   }
 
+  test("attributeNames") {
+    import de.ag.sqala.Expression._
+    assertEquals(makeAttributeRef("blub").attributeNames(), Set("blub"))
+    assertEquals(makeConst(Type.integer, 4).attributeNames(), Set())
+    assertEquals(makeNull(Type.boolean).attributeNames(), Set())
+    assertEquals(makeTuple(makeAttributeRef("a"), makeConst(Type.string, "gahh")).attributeNames(),
+      Set("a"))
+
+  }
+
 
 }
