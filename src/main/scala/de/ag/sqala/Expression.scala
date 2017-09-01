@@ -216,7 +216,7 @@ case class SetSubquery(query: Query) extends Expression {
   override def getType(env: Environment): Type = {
     val scheme = query.getScheme(env)
     if (!scheme.isUnary())
-      throw new AssertionError("subquery mus have unary scheme")
+      throw new AssertionError("subquery must have unary scheme")
     Type.set(scheme.map(scheme.columns.head))
   }
 
