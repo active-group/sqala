@@ -49,6 +49,10 @@ case class QueryMonad[A](transform: State => (A, State)) {
   def subtract(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
     combination(Difference, (s1, s2) => s1, this, p2)
 
+  /**
+    * 
+    * See [[buildQuery]] for a convenient way to get the monad result.
+    */
   def run(state: QueryMonad.State = emptyState) =
     transform(state)
 

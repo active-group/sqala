@@ -67,12 +67,12 @@ case class SetType(member: Type) extends Type {
 }
 
 object Type {
-  val string = new AtomicType("string", _.isInstanceOf[String], isNumeric = false, isOrdered = true,
+  val string = AtomicType("string", _.isInstanceOf[String], isNumeric = false, isOrdered = true,
     sqlForm = {v => "'"+v.toString+"'"})
-  val boolean = new AtomicType("boolean", _.isInstanceOf[Boolean], isNumeric = false, isOrdered = false)
+  val boolean = AtomicType("boolean", _.isInstanceOf[Boolean], isNumeric = false, isOrdered = false)
   def isInteger(x: Any): Boolean =
     x.isInstanceOf[Integer] || x.isInstanceOf[Long]
-  val integer = new AtomicType("integer", isInteger, isNumeric = true, isOrdered = true)
+  val integer = AtomicType("integer", isInteger, isNumeric = true, isOrdered = true)
   def product(componentTypes: Seq[Type]): Type = ProductType(componentTypes)
   def set(member: Type): Type = SetType(member)
 }
