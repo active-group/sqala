@@ -133,7 +133,7 @@ object QueryMonad {
       _ <- setQuery(old.restrict(expr))
     } yield ()
 
-  def restrictOutr(expr: Expression): QueryMonad[Unit] =
+  def restrictOuter(expr: Expression): QueryMonad[Unit] =
     for {
       old <- currentQuery
       _ <- setQuery(old.restrictOuter(expr))
