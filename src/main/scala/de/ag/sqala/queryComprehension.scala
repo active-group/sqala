@@ -56,7 +56,7 @@ case class QueryMonad[A](transform: State => (A, State)) {
   def run(state: QueryMonad.State = emptyState) =
     transform(state)
 
-  def buildQuery(state: QueryMonad.State = emptyState) : Query = run() match {
+  def buildQuery(state: QueryMonad.State = emptyState) : Query = run(state) match {
     case (r: Relation, s: State) => Projection(r.scheme.columns.map({case s => (s, AttributeRef(freshName(s, r.alias)))}), s.query)
   }
 }
