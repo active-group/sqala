@@ -187,4 +187,10 @@ object QueryMonad {
       _ <- setQuery(old.top(offset, count))
     } yield ()
 
+  def subquery(c: Comprehension): QueryMonad[Query] =
+    for {
+      st <- getState
+      q = c.buildQuery(st)
+      _ <- putState(st)
+    } yield q
 }
