@@ -2,7 +2,7 @@ package de.ag.sqala
 
 trait Type {
   def name: String
-  def contains(value: Any): Boolean
+  def coerce(value: Any): Option[Any]
   def isNullable: Boolean
   def toNullable(): Type
   def toNonNullable(): Type
@@ -11,18 +11,35 @@ trait Type {
   def toSqlForm(value: Any) : String
 }
 
-case class AtomicType(name: String,
-                      predicate: (Any) => Boolean,
-                      isNumeric: Boolean = false,
-                      isOrdered: Boolean = false,
-                      isNullable: Boolean = false,
-                      sqlForm: Any => String = {x => x.toString})
+class AtomicType(val name: String,
+  val coercer: (Any) => Option[Any],
+  val isNumeric: Boolean = false,
+  val isOrdered: Boolean = false,
+  val isNullable: Boolean = false,
+  val sqlForm: Any => String = {x => x.toString})
     extends Type {
-  def contains(value: Any) = predicate(value)
+
+  def copy(name: String = name,
+    coercer: (Any) => Option[Any] = coercer,
+    isNumeric: Boolean = isNumeric,
+    isOrdered: Boolean = isOrdered,
+    isNullable: Boolean = isNullable,
+    sqlForm: Any => String = sqlForm) =
+    new AtomicType(name, coerce, isNumeric, isOrdered, isNullable, sqlForm)
+
+  def coerce(value: Any) = this.coercer(value)
   def toNullable() = this.copy(isNullable=true)
   def toNonNullable() = this.copy(isNullable=false)
   def toSqlForm(value: Any) = sqlForm(value)
-  // FIXME: equality?
+
+  // FIXME: stopgap measure
+  override def equals(that: Any): Boolean =
+    that match {
+      case thatT: AtomicType => {
+        (name == thatT.name) && (isNullable == thatT.isNullable)
+      }
+      case _ => false
+    }
 }
 
 // FIXME: flatten component types?
@@ -42,7 +59,7 @@ case class ProductType(componentTypes: Seq[Type]) extends Type {
 
   override def isNullable: Boolean = false
 
-  override def contains(value: Any): Boolean = ??? // FIXME
+  override def coerce(value: Any): Option[Any] = ??? // FIXME
 
   override def toSqlForm(value: Any): String = ??? // FIXME
 }
@@ -61,18 +78,33 @@ case class SetType(member: Type) extends Type {
 
   override def isNullable: Boolean = false
 
-  override def contains(value: Any): Boolean = ??? // FIXME
+  override def coerce(value: Any): Option[Any] = ??? // FIXME
 
   override def toSqlForm(value: Any): String = ??? // FIXME
 }
 
 object Type {
-  val string = AtomicType("string", _.isInstanceOf[String], isNumeric = false, isOrdered = true,
+  case object string extends AtomicType("string",
+    { case s: String => Some(s)
+      case _ => None },
+    isNumeric = false, isOrdered = true,
     sqlForm = {v => "'"+v.toString+"'"})
-  val boolean = AtomicType("boolean", _.isInstanceOf[Boolean], isNumeric = false, isOrdered = false)
-  def isInteger(x: Any): Boolean =
-    x.isInstanceOf[Integer] || x.isInstanceOf[Long]
-  val integer = AtomicType("integer", isInteger, isNumeric = true, isOrdered = true)
+  case object boolean extends AtomicType("boolean",
+    { case b : Boolean => Some(b)
+      case _ => None },
+    isNumeric = false, isOrdered = false)
+  case object integer extends AtomicType("integer",
+    { case i: Int => Some(i.longValue)
+      case l: Long => Some(l)
+      case _ => None },
+    isNumeric = true, isOrdered = true)
+  def isDouble(x: Any): Boolean =
+    x.isInstanceOf[Double]
+  case object double extends AtomicType("double",
+    { case d: Double => Some(d)
+      case d: Float => Some(d.doubleValue)
+      case _ => None },
+    isNumeric = true, isOrdered = true)
   def product(componentTypes: Seq[Type]): Type = ProductType(componentTypes)
   def set(member: Type): Type = SetType(member)
 }

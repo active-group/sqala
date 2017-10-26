@@ -30,7 +30,7 @@ object RelationalAlgebraTests extends SimpleTestSuite {
     assertEquals(p2.getScheme(), RelationalScheme.make(Seq(("twelve", Type.integer))))
     val p3 = tbl1.project(Seq(("two", Expression.makeAttributeRef("two")), ("one", Expression.makeConst(Type.integer, 4))))
     assertEquals(p3.getScheme(), RelationalScheme.make(Seq(("two", Type.integer), ("one", Type.integer))))
-    try { // FIXME : wrong type not detected; perhaps included later ?!
+    try {
       val p4 = tbl1.project(Seq(("two", Expression.makeAttributeRef("two")), ("one", Expression.makeConst(Type.integer, "blub"))))
       //fail("Don't check constant value")
     } catch {
@@ -51,10 +51,10 @@ object RelationalAlgebraTests extends SimpleTestSuite {
 
     // Also Test on Application
     assertEquals(tbl1.restrict(Application(
-      Rator("any", _.head),  Seq(Expression.makeConst(Type.boolean, "a"), Expression.makeConst(Type.boolean, "b")))).getScheme(),
+      Rator("any", _.head),  Seq(Expression.makeConst(Type.boolean, true), Expression.makeConst(Type.boolean, true)))).getScheme(),
       tbl1.getScheme())
     assertEquals(tbl1.restrict(Application(
-      Rator("any", _.head),  Seq(Expression.makeConst(Type.boolean, "a"), Expression.makeConst(Type.string, "b")))).getScheme(),
+      Rator("any", _.head),  Seq(Expression.makeConst(Type.boolean, true), Expression.makeConst(Type.string, "b")))).getScheme(),
       tbl1.getScheme())
     try {
       val v1 = tbl1.restrict(Application(Rator("any", _.head),

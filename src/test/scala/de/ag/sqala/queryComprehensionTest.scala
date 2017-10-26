@@ -92,7 +92,20 @@ object queryComprehensionTest extends SimpleTestSuite {
                 BaseRelation("tbl3", RelationalScheme(Vector("three", "four"), Map("three" -> Type.integer, "four" -> Type.string),None),"handle3"))))))) */
   }
 
-
+  test("subquery") {
+    def q1(e: Expression) =
+      for {
+        t3 <- QueryMonad.embed(tbl3)
+        _ <- QueryMonad.restrict(e)
+      } yield t3
+    val a2 =
+      for {
+        t <- QueryMonad.embed(tbl1)
+        sq <- QueryMonad.subquery(q1(t ! "one"))
+        _ <- QueryMonad.restrict(Expression.makeScalarSubquery(sq))
+      } yield t
+    assertEquals(a2.buildQuery(), null)
+  }
 
 
   test("Translation to SqlSelect") {

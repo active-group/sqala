@@ -3,7 +3,7 @@ package de.ag.scala
 import de.ag.sqala._
 import minitest._
 
-object ExpressionTests extends SimpleTestSuite {
+object ExpressionTest extends SimpleTestSuite {
 
   def testOnError[A](x: A, proc: A => Any) = {
     try {
@@ -28,8 +28,8 @@ object ExpressionTests extends SimpleTestSuite {
   val ref3 = Expression.makeAttributeRef("name")
 
   val const1 = Expression.makeConst(Type.string, "name")
-  val const2 = Expression.makeConst(Type.integer, "id")
-  val const3 = Expression.makeConst(Type.boolean, "isHere")
+  val const2 = Expression.makeConst(Type.integer, 5)
+  val const3 = Expression.makeConst(Type.boolean, true)
 
 
   test("getType") {
@@ -91,6 +91,78 @@ object ExpressionTests extends SimpleTestSuite {
     assertEquals(makeNull(Type.boolean).attributeNames(), Set())
     assertEquals(makeTuple(makeAttributeRef("a"), makeConst(Type.string, "gahh")).attributeNames(),
       Set("a"))
+
+  }
+
+  test("eval") {
+    import de.ag.sqala.Expression._
+    assertEquals(makeNull(Type.boolean).eval(GroupEnvironment.empty), null)
+    assertEquals(makeConst(Type.boolean, true).eval(GroupEnvironment.empty), true)
+    assertEquals(makeAttributeRef("foo").eval(GroupEnvironment.make("foo", Type.boolean, true)), true)
+    assertEquals(makeTuple(makeConst(Type.integer, 1), makeConst(Type.integer, 2), makeConst(Type.integer, 3)).eval(GroupEnvironment.empty)
+      .asInstanceOf[Array[Any]].deep,
+      Array[Any](1, 2, 3).deep)
+
+
+    val plus = Rator("int+", { _ => Type.integer }, { args => args.map(_.asInstanceOf[Long]).sum })
+    assertEquals(makeApplication(plus, makeConst(Type.integer, 23), makeConst(Type.integer, 42)).eval(GroupEnvironment.empty),
+      65)
+
+    {
+      val scheme = RelationalScheme.make("foo", Type.integer)
+      val ge = GroupEnvironment(scheme, Seq(Array(1L),
+        Array(1L),
+        Array(2L),
+        Array(3L),
+        Array(5L)))
+      assertEquals(makeAggregation(AggregationOp.Count, makeAttributeRef("foo")).eval(ge), 5)
+      assertEquals(makeAggregation(AggregationOp.Sum, makeAttributeRef("foo")).eval(ge), 12)
+      assertEquals(makeAggregation(AggregationOp.Min, makeAttributeRef("foo")).eval(ge), 1)
+      assertEquals(makeAggregation(AggregationOp.Max, makeAttributeRef("foo")).eval(ge), 5)
+    }
+
+    {
+      val scheme = RelationalScheme.make("foo", Type.double)
+      val ge = GroupEnvironment(scheme, Seq(Array(1.0),
+        Array(1.0),
+        Array(2.0),
+        Array(3.0),
+        Array(5.0)))
+      assertEquals(makeAggregation(AggregationOp.Count, makeAttributeRef("foo")).eval(ge), 5.0)
+      assertEquals(makeAggregation(AggregationOp.Sum, makeAttributeRef("foo")).eval(ge), 12.0)
+      assertEquals(makeAggregation(AggregationOp.Min, makeAttributeRef("foo")).eval(ge), 1.0)
+      assertEquals(makeAggregation(AggregationOp.Max, makeAttributeRef("foo")).eval(ge), 5.0)
+      assertEquals(makeAggregation(AggregationOp.Avg, makeAttributeRef("foo")).eval(ge), 2.4)
+      assertEquals(makeAggregation(AggregationOp.StdDev, makeAttributeRef("foo")).eval(ge), 1.4966629547095764)
+      assertEquals(makeAggregation(AggregationOp.StdDevP, makeAttributeRef("foo")).eval(ge), 1.6733200530681511)
+      assertEquals(makeAggregation(AggregationOp.Var, makeAttributeRef("foo")).eval(ge), 2.2399999999999998)
+      assertEquals(makeAggregation(AggregationOp.VarP, makeAttributeRef("foo")).eval(ge), 2.8)
+    }
+
+    {
+      val scheme = RelationalScheme.make("foo", Type.integer)
+      val ge = GroupEnvironment(scheme, Seq(Array(1L),
+        Array(1L),
+        Array(2L),
+        Array(3L),
+        Array(5L)))
+      assertEquals(aggregationCountAll.eval(ge), 5)
+    }
+
+    {
+      assertEquals(makeCase(Seq(makeConst(Type.boolean, true) -> makeConst(Type.integer, 1),
+        makeConst(Type.boolean, false) -> makeConst(Type.integer, 2)),
+        makeConst(Type.integer, -1)).eval(GroupEnvironment.empty),
+        1)
+      assertEquals(makeCase(Seq(makeConst(Type.boolean, false) -> makeConst(Type.integer, 1),
+        makeConst(Type.boolean, true) -> makeConst(Type.integer, 2)),
+        makeConst(Type.integer, -1)).eval(GroupEnvironment.empty),
+        2)
+      assertEquals(makeCase(Seq(makeConst(Type.boolean, false) -> makeConst(Type.integer, 1),
+        makeConst(Type.boolean, false) -> makeConst(Type.integer, 2)),
+        makeConst(Type.integer, -1)).eval(GroupEnvironment.empty),
+        -1)
+    }
 
   }
 

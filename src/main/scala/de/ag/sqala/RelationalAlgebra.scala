@@ -13,7 +13,7 @@ import Aliases._
 import Assertions._
 
 case class RelationalScheme(columns: Vector[String], map: Map[String, Type], grouped: Option[Set[String]]) {
-  // FIXME: why do we have environment() and toEnvironment()
+  // FIXME: why do we have environment() and toEnvironment() ... cache the environment!
   def environment(): Environment = map
 
   def ++(other: RelationalScheme): RelationalScheme =
@@ -43,11 +43,30 @@ case class RelationalScheme(columns: Vector[String], map: Map[String, Type], gro
   def toEnvironment(): Environment = this.map
 
   def isUnary(): Boolean = columns.length == 1
+
+  /** find the position of a name within the scheme */
+  def pos(name: String): Int = columns.indexOf(name)
+
+  /*** First, figure out what columns are in this that are also in `s2`.
+   
+   Then, return a function that will accept a row of the same schema
+   as this, and will return a row with exactly those columns.
+
+   Used for implementing quotient.
+   */
+  def makeExtractor(s2: RelationalScheme): IndexedSeq[Any] => IndexedSeq[Any] = {
+    val characteristics = columns.map(s2.map.contains(_))
+    (row: IndexedSeq[Any]) => characteristics.zip(row).filter(_._1).map(_._2)
+  }
+
+
 }
 
 object RelationalScheme {
   def make(alist: Seq[(String, Type)]): RelationalScheme =
     RelationalScheme(alist.map(_._1).toVector, alist.toMap, None)
+
+  def make(name: String, ty: Type): RelationalScheme = make(Seq(name -> ty))
 
   val empty = RelationalScheme(Vector[String](), emptyEnvironment, None)
 }
