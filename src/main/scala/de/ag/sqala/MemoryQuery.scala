@@ -14,7 +14,7 @@ object MemoryQuery {
       GroupEnvironment.make(scheme, row).compose(groupEnv)
 
     q match {
-      case EmptyQuery => Seq.empty
+      case EmptyQuery => Seq(IndexedSeq.empty) // one empty row
       case BaseRelation(name, scheme, handle) => {
         handle match {
           case g: Galaxy => g.enumerate()

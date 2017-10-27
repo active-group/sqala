@@ -8,7 +8,7 @@ import de.ag.sqala.Expression.GroupEnvironment
 object MemoryQueryTest extends SimpleTestSuite {
 
   test("empty") {
-    assertEquals(computeQueryResults(GroupEnvironment.empty, Query.empty), Seq())
+    assertEquals(computeQueryResults(GroupEnvironment.empty, Query.empty), Seq(IndexedSeq.empty))
   }
 
   val b1 = Galaxy.makeBaseRelation("stuff", RelationalScheme.make(Seq("num" -> Type.integer, "str" -> Type.string)),
@@ -17,6 +17,15 @@ object MemoryQueryTest extends SimpleTestSuite {
   test("base") {
     assertEquals(computeQueryResults(GroupEnvironment.empty, b1),
       Seq(IndexedSeq(1L, "foo"), IndexedSeq(2L, "bar")))
+  }
+
+  test("empty product") {
+    // for comprehensions easily create empty * x queries
+    val q = Query.empty * b1
+    assertEquals(
+      computeQueryResults(GroupEnvironment.empty, q),
+      Seq(IndexedSeq(1L, "foo"), IndexedSeq(2L, "bar"))
+    )
   }
 
   test("projection") {
