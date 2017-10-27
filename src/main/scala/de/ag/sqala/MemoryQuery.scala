@@ -8,6 +8,8 @@ object MemoryQuery {
   def computeQueryResults(q: Query): Seq[IndexedSeq[Any]] =
     computeQueryResults(GroupEnvironment.empty, q)
 
+  // FIXME Mike: This needs to be refactored to return a grouped result always. Noticed too late ...
+
   def computeQueryResults(groupEnv: GroupEnvironment, q: Query): Seq[IndexedSeq[Any]] = {
 
     def addValueEnv(scheme: RelationalScheme, row: IndexedSeq[Any]): GroupEnvironment =
