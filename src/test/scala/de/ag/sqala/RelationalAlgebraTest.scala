@@ -1,8 +1,10 @@
 package de.ag.sqala
 
-import minitest._
+import TestUtil.assertEquals
 
-object RelationalAlgebraTests extends SimpleTestSuite {
+import org.scalatest.FunSuite
+
+class RelationalAlgebraTest extends FunSuite {
 
   val tbl1 = Query.makeBaseRelation("tb1",
                                     RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer))),

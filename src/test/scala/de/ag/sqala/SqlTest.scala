@@ -1,31 +1,21 @@
 package de.ag.sqala
 
-import de.ag.sqala._
-import minitest._
+import TestUtil.assertEquals
 
-object SqlTests extends SimpleTestSuite {
+import org.scalatest.FunSuite
+
+class SqlTest extends FunSuite {
+
+  import SqlTest._
 
   val tbl1 = SqlSelectTable("personen", RelationalScheme.make(Seq(("id", Type.integer), ("first", Type.string), ("last", Type.string))))
-  val adr1 = SqlSelectTable("addresses", RelationalScheme.make(Seq(("city", Type.string))))
   val firmAddr = SqlSelectTable("firm_address", RelationalScheme.make(Seq(("orte", Type.string))))
   val standorte = SqlSelectTable("standorte", RelationalScheme.make(Seq(("orte", Type.string))))
 
   val select1 = SQL.makeSqlSelect(Seq.empty, Seq((None, tbl1)))
 
-  val tbl2 = SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("city")), ("xx", SqlExpressionConst(Type.string, "BlX"))), Seq((None, adr1)))
-  val tbl2S = ("(SELECT city, ? AS xx FROM addresses)", Seq((Type.string, "BlX")))
   val tbl3 = SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("orte")), ("xx", SqlExpressionConst(Type.string, "Nn"))), Seq((None, standorte)))
   val tbl3S = ("(SELECT orte AS city, ? AS xx FROM standorte)", Seq((Type.string, "Nn")))
-
-  val longExpr = SqlExpressionOr(Seq(
-    SqlExpressionExists(tbl2),
-    SqlExpressionAnd(Seq(
-      SqlExpressionApp(SqlOperator.isNotNull, Seq(SqlExpressionColumn("house"))),
-      SqlExpressionApp(SqlOperator.neq, Seq(SqlExpressionColumn("door"), SqlExpressionConst(Type.string, "closed")))
-    )),
-    SqlExpressionApp(SqlOperator.isNull, Seq(SqlExpressionColumn("house")))
-  ))
-  val longExpr1T = ("(EXISTS "+tbl2S._1+" OR ((house) IS NOT NULL AND (door <> ?)) OR (house) IS NULL)", tbl2S._2++Seq((Type.string, "closed")))
 
 
   test("Expression (App) / simple Tests") {
@@ -182,4 +172,22 @@ object SqlTests extends SimpleTestSuite {
   }
 
 
+}
+
+object SqlTest {
+
+  val adr1 = SqlSelectTable("addresses", RelationalScheme.make(Seq(("city", Type.string))))
+  val tbl2 = SQL.makeSqlSelect(Seq(("city", SqlExpressionColumn("city")), ("xx", SqlExpressionConst(Type.string, "BlX"))), Seq((None, adr1)))
+  val tbl2S = ("(SELECT city, ? AS xx FROM addresses)", Seq((Type.string, "BlX")))
+
+  val longExpr = SqlExpressionOr(Seq(
+    SqlExpressionExists(tbl2),
+    SqlExpressionAnd(Seq(
+      SqlExpressionApp(SqlOperator.isNotNull, Seq(SqlExpressionColumn("house"))),
+      SqlExpressionApp(SqlOperator.neq, Seq(SqlExpressionColumn("door"), SqlExpressionConst(Type.string, "closed")))
+    )),
+    SqlExpressionApp(SqlOperator.isNull, Seq(SqlExpressionColumn("house")))
+  ))
+
+  val longExpr1T = ("(EXISTS "+tbl2S._1+" OR ((house) IS NOT NULL AND (door <> ?)) OR (house) IS NULL)", tbl2S._2++Seq((Type.string, "closed")))
 }

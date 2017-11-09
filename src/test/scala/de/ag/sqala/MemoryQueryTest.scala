@@ -1,11 +1,12 @@
 package de.ag.sqala
 
-import de.ag.sqala._
-import de.ag.sqala.MemoryQuery._
-import minitest._
-import de.ag.sqala.Expression.GroupEnvironment
+import MemoryQuery._
+import Expression.GroupEnvironment
+import TestUtil.assertEquals
 
-object MemoryQueryTest extends SimpleTestSuite {
+import org.scalatest.FunSuite
+
+class MemoryQueryTest extends FunSuite {
 
   test("empty") {
     assertEquals(computeQueryResults(GroupEnvironment.empty, Query.empty), Seq(IndexedSeq.empty))

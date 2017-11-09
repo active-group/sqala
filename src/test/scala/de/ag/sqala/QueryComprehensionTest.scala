@@ -1,10 +1,11 @@
 package de.ag.sqala
 
-import de.ag.sqala.QueryMonad.State
-import de.ag.sqala._
-import minitest.SimpleTestSuite
+import QueryMonad.State
+import TestUtil.assertEquals
 
-object queryComprehensionTest extends SimpleTestSuite {
+import org.scalatest.FunSuite
+
+class QueryComprehensionTest extends FunSuite {
 
   // Versuche
   val tbl1 = Query.makeBaseRelation("tb1",

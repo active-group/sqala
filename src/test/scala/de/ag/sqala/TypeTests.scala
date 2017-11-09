@@ -1,8 +1,11 @@
 package de.ag.sqala
 
-import minitest._
+import TestUtil.assertEquals
 
-object TypeTests extends SimpleTestSuite {
+import org.scalatest.FunSuite
+
+class TypeTests extends FunSuite {
+
   test("nullability") {
     val n = Type.string.toNullable()
     assert(!Type.string.isNullable)

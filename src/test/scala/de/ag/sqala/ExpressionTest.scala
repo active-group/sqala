@@ -1,9 +1,10 @@
 package de.ag.sqala
 
-import de.ag.sqala._
-import minitest._
+import TestUtil.assertEquals
 
-object ExpressionTest extends SimpleTestSuite {
+import org.scalatest.FunSuite
+
+class ExpressionTest extends FunSuite {
 
   def testOnError[A](x: A, proc: A => Any) = {
     try {

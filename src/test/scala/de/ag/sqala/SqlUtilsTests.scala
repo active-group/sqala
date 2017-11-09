@@ -1,9 +1,10 @@
 package de.ag.sqala
 
-import de.ag.sqala._
-import minitest._
+import TestUtil.assertEquals
 
-object SqlUtilsTests extends SimpleTestSuite {
+import org.scalatest.FunSuite
+
+class SqlUtilsTest extends FunSuite {
 
   val att1 = Seq(("first", SqlExpressionColumn("first")), ("abc", SqlExpressionColumn("second")))
   val att2 = Seq(("blub", SqlExpressionConst(Type.string, "")), ("blubStr", SqlExpressionConst(Type.string, "X")),
@@ -166,10 +167,10 @@ In Sqloure:
   test("having") {
     assertEquals(SQL.having(None), None)
     assertEquals(SQL.having(Some(Seq.empty)), None)
-    assertEquals(SQL.having(Some(Seq(SqlTests.longExpr))), Some(("HAVING " + SqlTests.longExpr1T._1, SqlTests.longExpr1T._2)))
+    assertEquals(SQL.having(Some(Seq(SqlTest.longExpr))), Some(("HAVING " + SqlTest.longExpr1T._1, SqlTest.longExpr1T._2)))
     assertEquals(SQL.having(Some(Seq(
       SqlExpressionApp(SqlOperator.between, Seq(SqlExpressionColumn("valueA"), SqlExpressionConst(Type.integer, 4), SqlExpressionConst(Type.integer, 10))),
-      SqlExpressionExists(SqlTests.adr1)
+      SqlExpressionExists(SqlTest.adr1)
     ))),
       Some(("HAVING ((valueA BETWEEN ? AND ?) AND EXISTS (SELECT * FROM addresses))", Seq((Type.integer, 4), (Type.integer, 10)))))
   }
