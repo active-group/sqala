@@ -14,7 +14,6 @@ class QueryComprehensionTest extends FunSuite {
   val tbl3 = Query.makeBaseRelation("tbl3",
     RelationalScheme.make(Seq(("three", Type.integer), ("four", Type.string))),
     "handle3")
-  val stat = QueryMonad.State(0, null)
 
   val qm1 = for {
     t <- QueryMonad.embed(tbl1)
@@ -27,7 +26,7 @@ class QueryComprehensionTest extends FunSuite {
 
   def getQuery(stat: (Any, State)) : Query = stat._2.query
 
-  test("first tests - projektion") {
+  test("first tests - projection") {
     assertEquals(QueryMonad.embed(tbl1).run(),
       (Relation(0, RelationalScheme(Vector("one", "two"), Map("one" -> Type.string, "two" -> Type.integer), None)),
         State(1, Product(
@@ -48,13 +47,13 @@ class QueryComprehensionTest extends FunSuite {
     assertEquals(getRel((for {
       t <- QueryMonad.embed(tbl1)
       res <- QueryMonad.restrict(Application(
-        Rator("any", _.head),  Seq(Expression.makeConst(Type.boolean, "a"), Expression.makeConst(Type.boolean, "b"))))
+        Rator("any", _.head),  Seq(Expression.makeConst(Type.boolean, true), Expression.makeConst(Type.boolean, false))))
       p <- QueryMonad.project(Seq(("one", t.!("one"))))
     } yield p).run()), RelationalScheme.make(Seq(("one", Type.string))))
     assertEquals(getRel((for {
       t <- QueryMonad.embed(tbl1)
       res <- QueryMonad.restrict(Application(
-        Rator("any2", _.head), Seq(Expression.makeConst(Type.boolean, "a"), t.!("one"))))
+        Rator("any2", _.head), Seq(Expression.makeConst(Type.boolean, true), t.!("one"))))
       p <- QueryMonad.project(Seq(("x", t.!("one"))))
     } yield p).run()), RelationalScheme.make(Seq(("x", Type.string))))
   }
