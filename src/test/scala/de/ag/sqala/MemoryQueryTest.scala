@@ -1,4 +1,4 @@
-package de.ag.scala
+package de.ag.sqala
 
 import de.ag.sqala._
 import de.ag.sqala.MemoryQuery._

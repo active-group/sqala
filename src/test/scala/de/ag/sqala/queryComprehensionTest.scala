@@ -1,4 +1,4 @@
-package de.ag.scala
+package de.ag.sqala
 
 import de.ag.sqala.QueryMonad.State
 import de.ag.sqala._
