@@ -7,7 +7,6 @@ import org.scalatest.FunSuite
 
 class QueryComprehensionTest extends FunSuite {
 
-  // Versuche
   val tbl1 = Query.makeBaseRelation("tb1",
     RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer))),
     "handle1")
@@ -20,37 +19,31 @@ class QueryComprehensionTest extends FunSuite {
     p <- QueryMonad.project(Seq(("onex", t.!("one"))))
   } yield p
 
-  def getRel[A](stat: (A, State)): Any = stat._1 match {
-    case Relation(_, scheme: RelationalScheme) => scheme
-  }
-
-  def getQuery(stat: (Any, State)): Query = stat._2.query
+  def getRelationalScheme(stat: (Relation, State)): RelationalScheme = stat._1.scheme
 
   test("first tests - projection") {
     assertEquals(QueryMonad.embed(tbl1).run(),
       (Relation(0, RelationalScheme(Vector("one", "two"), Map("one" -> Type.string, "two" -> Type.integer), None)),
         State(1, Product(
           EmptyQuery,
-          Projection(Seq(("one_0", AttributeRef("one")), ("two_0", AttributeRef("two"))),
-            BaseRelation("tb1", RelationalScheme(Vector("one", "two"), Map("one" -> Type.string, "two" -> Type.integer), None),
-              "handle1"))))))
-    assertEquals(getRel(QueryMonad.embed(tbl1).run()), RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer))))
-    assertEquals(getRel(qm1.run()), RelationalScheme.make(Seq(("onex", Type.string))))
+          Projection(Seq(("one_0", AttributeRef("one")), ("two_0", AttributeRef("two"))), BaseRelation("tb1", RelationalScheme(Vector("one", "two"), Map("one" -> Type.string, "two" -> Type.integer), None), "handle1"))))))
+    assertEquals(getRelationalScheme(QueryMonad.embed(tbl1).run()), RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer))))
+    assertEquals(getRelationalScheme(qm1.run()), RelationalScheme.make(Seq(("onex", Type.string))))
 
-    assertEquals(getRel((for {
+    assertEquals(getRelationalScheme((for {
       t <- QueryMonad.embed(tbl1)
       p <- QueryMonad.project(Seq(("one", t.!("two")), ("new", Expression.makeConst(Type.boolean, true)), ("two", t.!("one"))))
     } yield p).run()), RelationalScheme.make(Seq(("one", Type.integer), ("new", Type.boolean), ("two", Type.string))))
   }
 
   test("test with restrict on one table") {
-    assertEquals(getRel((for {
+    assertEquals(getRelationalScheme((for {
       t <- QueryMonad.embed(tbl1)
       res <- QueryMonad.restrict(Application(
         Rator("any", _.head), Seq(Expression.makeConst(Type.boolean, true), Expression.makeConst(Type.boolean, false))))
       p <- QueryMonad.project(Seq(("one", t.!("one"))))
     } yield p).run()), RelationalScheme.make(Seq(("one", Type.string))))
-    assertEquals(getRel((for {
+    assertEquals(getRelationalScheme((for {
       t <- QueryMonad.embed(tbl1)
       res <- QueryMonad.restrict(Application(
         Rator("any2", _.head), Seq(Expression.makeConst(Type.boolean, true), t.!("one"))))
@@ -79,7 +72,7 @@ class QueryComprehensionTest extends FunSuite {
   } yield p
 
   test("join two tables") {
-    assertEquals(getRel(join1.run()), RelationalScheme.make(Seq(("Wert1", Type.string), ("Wert2", Type.string))))
+    assertEquals(getRelationalScheme(join1.run()), RelationalScheme.make(Seq(("Wert1", Type.string), ("Wert2", Type.string))))
     assertEquals(join1.run(),
       (Relation(2, RelationalScheme(Vector("Wert1", "Wert2"), Map("Wert1" -> Type.string, "Wert2" -> Type.string), None)),
         State(3, Projection(Vector(("one_0", AttributeRef("one_0")), ("two_0", AttributeRef("two_0")), ("three_1", AttributeRef("three_1")), ("four_1", AttributeRef("four_1")), ("Wert1_2", AttributeRef("one_0")), ("Wert2_2", AttributeRef("four_1"))),
@@ -111,7 +104,7 @@ class QueryComprehensionTest extends FunSuite {
         _ <- QueryMonad.restrict(Expression.makeScalarSubquery(sq))
       } yield t
 
-    assertEquals(getRel(q.run()), RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer))))
+    assertEquals(getRelationalScheme(q.run()), RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer))))
     assertEquals(q.buildQuery(),
       Projection(
         Vector(("one", AttributeRef("one_0")), ("two", AttributeRef("two_0"))),
