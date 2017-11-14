@@ -191,6 +191,5 @@ object QueryMonad {
     for {
       st <- getState
       q = c.buildQuery(st)
-      _ <- putState(st)
     } yield q
 }
