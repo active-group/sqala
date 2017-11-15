@@ -41,9 +41,13 @@ class MemoryQueryTest extends FunSuite {
       assert(ty2 == Type.integer)
       Type.boolean },
     { case Seq(arg1, arg2) =>
-      arg1.asInstanceOf[Long] < arg2.asInstanceOf[Long]
+      println(s"$arg1 <? $arg2")
+      Type.integer.coerce(arg1).get.asInstanceOf[Long] < Type.integer.coerce(arg2).get.asInstanceOf[Long]
     })
 
+  val equalsRator = Rator("=",
+    { case Seq(ty1, ty2) => assert(ty1 == ty2); Type.boolean },
+    { case Seq(arg1, arg2) => arg1 == arg2 })
 
   test("restriction") {
     val q = b1.restrict(Expression.makeApplication(lessThan,
@@ -111,5 +115,43 @@ class MemoryQueryTest extends FunSuite {
         IndexedSeq("a3")))
     assertEquals(computeQueryResults(r / s),
       Seq(IndexedSeq("b1"), IndexedSeq("b4")))
+  }
+
+  test("scalar subquery") {
+    import QueryMonad._
+    import Expression._
+    
+    val s = Galaxy.makeBaseRelation("S",
+      RelationalScheme.make(Seq("A" -> Type.string)),
+      Seq(
+        IndexedSeq("a1"),
+        IndexedSeq("a2"),
+        IndexedSeq("a3")))
+
+    val o = Galaxy.makeBaseRelation("O",
+      RelationalScheme.make(Seq("A" -> Type.string, "V" -> Type.integer)),
+      Seq(
+        IndexedSeq("a1", 42),
+        IndexedSeq("a2", 21),
+        IndexedSeq("a3", 0)))
+
+    def valueOf(id: Expression): QueryMonad[Expression] = {
+      val sub = for {
+        t <- embed(o)
+        _ <- restrict(makeApplication(equalsRator, id, t.!("A")))
+        _ <- top(0, 1)
+        res <- project(Seq("res" -> t.!("V")))
+      } yield res;
+      for {
+        q <- subquery(sub)
+      } yield makeScalarSubquery(q)
+    }
+
+    val q = for {
+      t <- embed(s)
+      v <- valueOf(t.!("A"))
+      res <- project(Seq("id" -> t.!("A"), "value" -> v))
+    } yield res
+    assertEquals(computeQueryResults(q.buildQuery()).toSet, Set(Vector("a1", 42), Vector("a2", 21), Vector("a3", 0)))
   }
 }
