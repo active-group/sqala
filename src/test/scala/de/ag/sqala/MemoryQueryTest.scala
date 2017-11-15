@@ -74,6 +74,13 @@ class MemoryQueryTest extends FunSuite {
       sq2.toSet ++ sq2a.toSet)
   }
 
+  test("top") {
+    assertEquals(computeQueryResults(GroupEnvironment.empty, b2a.top(0, 2)).toSet,
+      sq2a.take(2).toSet)
+    assertEquals(computeQueryResults(GroupEnvironment.empty, b2a.top(1, 2)).toSet,
+      sq2a.drop(1).take(2).toSet)
+  }
+
   test("intersection") {
     assertEquals(computeQueryResults(GroupEnvironment.empty, b2.intersection(b2a)).toSet,
       sq2.toSet.intersect(sq2a.toSet))

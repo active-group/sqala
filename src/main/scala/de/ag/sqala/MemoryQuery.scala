@@ -101,6 +101,10 @@ object MemoryQuery {
           lt(cs1, cs2)
         }
       }
+      case Top(offset, length, q) => {
+        val en = computeQueryResults(groupEnv, q)
+        en.drop(offset).take(length)
+      }
     }
   }
 
