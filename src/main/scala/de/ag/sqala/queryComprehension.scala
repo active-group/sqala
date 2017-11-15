@@ -72,6 +72,8 @@ object QueryMonad {
 
   val getState: QueryMonad[State] = QueryMonad { st => (st, st) }
 
+  def apply[A](x: A): QueryMonad[A] = QueryMonad { s: State => (x, s) }
+
   def putState(st: State): QueryMonad[Unit] =
     QueryMonad { _ => ((), st) }
 
