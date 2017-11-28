@@ -1,5 +1,6 @@
 package de.ag.sqala
 
+// FIXME: can be replaced by require
 object Assertions {
   // like assert, not always on
 
