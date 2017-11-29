@@ -6,6 +6,10 @@ trait F[A[_]] {
   def foo[B](x: A[B]): Int
 }
 
+trait G[A[_]] {
+  def bar[B](x: A[B]): Int
+}
+
 trait Symantics {
   type Repr[_]
 

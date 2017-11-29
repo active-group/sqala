@@ -18,8 +18,11 @@ sealed trait Expression {
   /** Return all attribute names that occur in the expression. */
   def attributeNames(): Set[String]
 
-  /** evaluate expression */
-  def eval(ge: Expression.GroupEnvironment): Any
+  /** evaluate in context that wants a single value */
+  def eval1(group: GroupedResult): Any
+
+  /** evaluate in a context that wants a sequence of values */
+  def evalAll(group: GroupedResult): Seq[Any]
 
   def toSqlExpression : SqlExpression
 }
@@ -38,41 +41,6 @@ object Expression {
     Case(alist, default)
   def makeScalarSubquery(query: Query): Expression = ScalarSubquery(query)
   def makeSetSubquery(query: Query): Expression = SetSubquery(query)
-
-
-  /** A group environment is used for aggregation: An expression like
-    * sum(COL) needs access to not just one value environment, but a
-    * value environment for every row in the group.
-    * 
-    * The scheme field is for figuring out the types of the columns.
-    */
-  case class GroupEnvironment(scheme: RelationalScheme, rows: Seq[IndexedSeq[Any]]) {
-    def lookup(name: String): Any =
-      rows.head(scheme.pos(name))
-
-    def count() = rows.size
-
-    def aggregateEval(expr: Expression): Seq[Any] =
-      rows.map { e => expr.eval(GroupEnvironment.make(scheme, e)) }
-
-    def compose(other: GroupEnvironment): GroupEnvironment = {
-      val newRows = rows.flatMap { row =>
-        other.rows.map(row ++ _)
-      }
-      GroupEnvironment(scheme ++ other.scheme, newRows)
-    }
-  }
-
-  object GroupEnvironment {
-    def make(scheme: RelationalScheme, row: IndexedSeq[Any]): GroupEnvironment =
-      GroupEnvironment(scheme, Seq(row))
-
-    def make(name: String, ty: Type, value: Any): GroupEnvironment =
-      GroupEnvironment(RelationalScheme.make(name, ty), Seq(IndexedSeq[Any](value)))
-
-    val empty = GroupEnvironment.make(RelationalScheme.make(Seq()), Array[Any]())
-
-  }
 }
 
 case class AttributeRef(name: String) extends Expression {
@@ -88,8 +56,22 @@ case class AttributeRef(name: String) extends Expression {
 
   override def attributeNames(): Set[String] = Set(name)
 
-  override def eval(ge: Expression.GroupEnvironment): Any =
-    ge.lookup(name)
+  override def eval1(group: GroupedResult): Any = {
+    group.lookup(name) match {
+      case Left(v) => v
+      case Right(vs) => {
+        assert(vs.size == 1)
+        vs.head
+      }
+    }
+  }
+
+  override def evalAll(group: GroupedResult): Seq[Any] = {
+    group.lookup(name) match {
+      case Left(v) => group.ungroupedRows.map { _ => v }
+      case Right(s) => s
+    }
+  }
 
   override def toSqlExpression : SqlExpression = SqlExpressionColumn(name)
 }
@@ -103,7 +85,10 @@ case class Const(ty: Type, rawValue: Any) extends Expression {
   override def isAggregate = false
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
   override def attributeNames(): Set[String] = Set()
-  override def eval(ge: Expression.GroupEnvironment): Any = value
+  override def eval1(group: GroupedResult): Any = value
+  override def evalAll(group: GroupedResult): Seq[Any] =
+    group.ungroupedRows.map { _ => value }
+
   override def toSqlExpression : SqlExpression = SqlExpressionConst(ty, value)
 }
 
@@ -112,7 +97,10 @@ case class Null(ty: Type) extends Expression {
   override def isAggregate = false
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
   override def attributeNames(): Set[String] = Set()
-  override def eval(ge: Expression.GroupEnvironment): Any = null
+  override def eval1(group: GroupedResult): Any = null
+  override def evalAll(group: GroupedResult): Seq[Any] = 
+    group.ungroupedRows.map { _ => null }
+
   override def toSqlExpression : SqlExpression = SqlExpressionNull
 }
 
@@ -132,8 +120,14 @@ case class Application(rator: Rator, rands: Seq[Expression]) extends Expression 
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
   override def attributeNames(): Set[String] =
     rands.flatMap(_.attributeNames()).toSet
-  override def eval(ge: Expression.GroupEnvironment): Any =
-    rator.apply(rands.map(_.eval(ge)))
+  override def eval1(group: GroupedResult): Any =
+    rator.apply(rands.map(_.eval1(group)))
+  override def evalAll(group: GroupedResult): Seq[Any] = {
+    val cols = rands.map { e => e.evalAll(group) }
+    cols.transpose.map { row =>
+      rator.apply(row)
+    }
+  }
 
   override def toSqlExpression : SqlExpression = SqlExpressionApp(rator.toSqlSelect, rands.map(e => e.toSqlExpression))
 }
@@ -151,27 +145,30 @@ case class Tuple(exprs: Seq[Expression]) extends Expression {
   override def attributeNames(): Set[String] =
     exprs.flatMap(_.attributeNames()).toSet
 
-  override def eval(ge: Expression.GroupEnvironment): Any =
-    exprs.map(_.eval(ge)).toArray[Any]
+  override def eval1(group: GroupedResult): Any =
+    exprs.map(_.eval1(group)).toArray[Any]
+
+  override def evalAll(group: GroupedResult): Seq[Any] =
+    exprs.map { e => e.evalAll(group) }.transpose
 
   override def toSqlExpression : SqlExpression = SqlExpressionTuple(exprs.map(e => e.toSqlExpression))
 }
 
 sealed trait AggregationOp {
-  def eval(ge: Expression.GroupEnvironment, exp: Expression): Any
+  def eval(group: GroupedResult, exp: Expression): Any
 }
 
 object AggregationOp {
   case object Count extends AggregationOp {
-    def eval(ge: Expression.GroupEnvironment, exp: Expression): Any = ge.count()
+    def eval(group: GroupedResult, exp: Expression): Any = group.ungroupedRows.length
   }
 
   case object Sum extends AggregationOp {
-    def eval(ge: Expression.GroupEnvironment, exp: Expression): Any = {
-      exp.getType(ge.scheme.environment) match {
+    def eval(group: GroupedResult, exp: Expression): Any = {
+      exp.getType(group.scheme.environment) match {
         // FIXME: does this work for Int?
-        case Type.integer => ge.aggregateEval(exp).map(_.asInstanceOf[Long]).sum 
-        case Type.double => ge.aggregateEval(exp).map(_.asInstanceOf[Double]).sum 
+        case Type.integer => exp.evalAll(group).map(_.asInstanceOf[Long]).sum
+        case Type.double => exp.evalAll(group).map(_.asInstanceOf[Double]).sum 
         case _ => throw new AssertionError("invalid type for sum aggregation")
       }
     }
@@ -180,25 +177,25 @@ object AggregationOp {
   def average(sq: Seq[Double]): Double = sq.sum / sq.length
 
   case object Avg extends AggregationOp {
-    def eval(ge: Expression.GroupEnvironment, exp: Expression): Any =
-      exp.getType(ge.scheme) match {
-        case Type.double => average(ge.aggregateEval(exp).map(_.asInstanceOf[Double]))
+    def eval(group: GroupedResult, exp: Expression): Any =
+      exp.getType(group.scheme) match {
+        case Type.double => average(exp.evalAll(group).map(_.asInstanceOf[Double]))
         case _ => throw new AssertionError("invalid type for avg aggregation")
       }
   }
   case object Min extends AggregationOp {
-    def eval(ge: Expression.GroupEnvironment, exp: Expression): Any =
-      exp.getType(ge.scheme) match {
-        case Type.integer => ge.aggregateEval(exp).map(_.asInstanceOf[Long]).min
-        case Type.double => ge.aggregateEval(exp).map(_.asInstanceOf[Double]).min
+    def eval(group: GroupedResult, exp: Expression): Any =
+      exp.getType(group.scheme) match {
+        case Type.integer => exp.evalAll(group).map(_.asInstanceOf[Long]).min
+        case Type.double => exp.evalAll(group).map(_.asInstanceOf[Double]).min
         case _ => throw new AssertionError("invalid type for min aggregation")
       }
   }
   case object Max extends AggregationOp {
-    def eval(ge: Expression.GroupEnvironment, exp: Expression): Any =
-      exp.getType(ge.scheme) match {
-        case Type.integer => ge.aggregateEval(exp).map(_.asInstanceOf[Long]).max
-        case Type.double => ge.aggregateEval(exp).map(_.asInstanceOf[Double]).max
+    def eval(group: GroupedResult, exp: Expression): Any =
+      exp.getType(group.scheme) match {
+        case Type.integer => exp.evalAll(group).map(_.asInstanceOf[Long]).max
+        case Type.double => exp.evalAll(group).map(_.asInstanceOf[Double]).max
         case _ => throw new AssertionError("invalid type for max aggregation")
       }
   }
@@ -207,9 +204,9 @@ object AggregationOp {
     Math.sqrt(variance(sq))
 
   case object StdDev extends AggregationOp {
-    def eval(ge: Expression.GroupEnvironment, exp: Expression): Any =
-      exp.getType(ge.scheme) match {
-        case Type.double => standardDeviation(ge.aggregateEval(exp).map(_.asInstanceOf[Double]))
+    def eval(group: GroupedResult, exp: Expression): Any =
+      exp.getType(group.scheme) match {
+        case Type.double => standardDeviation(exp.evalAll(group).map(_.asInstanceOf[Double]))
         case _ => throw new AssertionError("invalid type for avg aggregation")
       }
   }
@@ -218,12 +215,11 @@ object AggregationOp {
     Math.sqrt(variancePopulation(sq))
 
   case object StdDevP extends AggregationOp {
-    def eval(ge: Expression.GroupEnvironment, exp: Expression): Any =
-      exp.getType(ge.scheme) match {
-        case Type.double => standardDeviationPopulation(ge.aggregateEval(exp).map(_.asInstanceOf[Double]))
+    def eval(group: GroupedResult, exp: Expression): Any =
+      exp.getType(group.scheme) match {
+        case Type.double => standardDeviationPopulation(exp.evalAll(group).map(_.asInstanceOf[Double]))
         case _ => throw new AssertionError("invalid type for avg aggregation")
       }
-
   }
 
   def variance(sq: Seq[Double]): Double = {
@@ -236,9 +232,9 @@ object AggregationOp {
   }
 
   case object Var extends AggregationOp {
-    def eval(ge: Expression.GroupEnvironment, exp: Expression): Any =
-      exp.getType(ge.scheme) match {
-        case Type.double => variance(ge.aggregateEval(exp).map(_.asInstanceOf[Double]))
+    def eval(group: GroupedResult, exp: Expression): Any =
+      exp.getType(group.scheme) match {
+        case Type.double => variance(exp.evalAll(group).map(_.asInstanceOf[Double]))
         case _ => throw new AssertionError("invalid type for avg aggregation")
       }
   }
@@ -253,12 +249,11 @@ object AggregationOp {
   }
 
   case object VarP extends AggregationOp {
-    def eval(ge: Expression.GroupEnvironment, exp: Expression): Any =
-      exp.getType(ge.scheme) match {
-        case Type.double => variancePopulation(ge.aggregateEval(exp).map(_.asInstanceOf[Double]))
+    def eval(group: GroupedResult, exp: Expression): Any =
+      exp.getType(group.scheme) match {
+        case Type.double => variancePopulation(exp.evalAll(group).map(_.asInstanceOf[Double]))
         case _ => throw new AssertionError("invalid type for avg aggregation")
       }
-
   }
 }
 
@@ -290,7 +285,12 @@ case class Aggregation(op: AggregationOp, exp: Expression) extends Expression {
 
   override def attributeNames(): Set[String] = exp.attributeNames()
 
-  override def eval(ge: Expression.GroupEnvironment): Any = op.eval(ge, exp)
+  override def eval1(group: GroupedResult): Any = op.eval(group, exp)
+
+  override def evalAll(group: GroupedResult): Seq[Any] = {
+    val v = eval1(group)
+    group.ungroupedRows.map { _ => v }
+  }
 
   override def toSqlExpression : SqlExpression = SqlExpressionApp(op match {
     case AggregationOp.Count   => SqlOperator.count
@@ -306,12 +306,12 @@ case class Aggregation(op: AggregationOp, exp: Expression) extends Expression {
 }
 
 sealed trait AggregationAllOp {
-  def eval(ge: Expression.GroupEnvironment): Any
+  def eval(group: GroupedResult): Any
 }
 
 object AggregationAllOp {
   case object CountAll extends AggregationAllOp {
-    def eval(ge: Expression.GroupEnvironment): Any = ge.count()
+    def eval(group: GroupedResult): Any = group.ungroupedRows.size
   }
 }
 
@@ -325,7 +325,12 @@ case class AggregationAll(op: AggregationAllOp) extends Expression {
   // FIXME: does this get us to empty tuples at some point?
   override def attributeNames(): Set[String] = Set()
 
-  override def eval(ge: Expression.GroupEnvironment): Any = op.eval(ge)
+  override def eval1(group: GroupedResult): Any = op.eval(group)
+
+  override def evalAll(group: GroupedResult): Seq[Any] = {
+    val v = eval1(group)
+    group.ungroupedRows.map { _ => v }
+  }
 
   override def toSqlExpression : SqlExpression = SqlExpressionApp(op match {
     case AggregationAllOp.CountAll => SqlOperator.countAll
@@ -358,12 +363,28 @@ case class Case(alist: Seq[(Expression, Expression)], default: Expression) exten
     alist.flatMap { case (te, e) => te.attributeNames().union(e.attributeNames()) }
       .toSet.union(default.attributeNames())
 
-  override def eval(ge: Expression.GroupEnvironment): Any = {
-    val rest = alist.dropWhile { case (test, _) => !test.eval(ge).asInstanceOf[Boolean] }
+  override def eval1(group: GroupedResult): Any = {
+    val rest = alist.dropWhile { case (test, _) => !test.eval1(group).asInstanceOf[Boolean] }
     if (rest.isEmpty)
-      default.eval(ge)
+      default.eval1(group)
     else
-      rest.head._2.eval(ge)
+      rest.head._2.eval1(group)
+  }
+
+  override def evalAll(group: GroupedResult): Seq[Any] = {
+    // this should possibly be lazy
+    val branches = alist.map { case (test, exp) =>
+      (test.evalAll(group).map(_.asInstanceOf[Boolean]),
+        exp.evalAll(group))
+    }
+    val defaultRes = default.evalAll(group)
+    (0 until group.ungroupedRows.size).map { i =>
+      val rest = branches.dropWhile { case (ts, es) => !ts(i) }
+      if (rest.isEmpty)
+        defaultRes(i)
+      else
+        rest.head._2
+    }
   }
 
   override def toSqlExpression : SqlExpression =
@@ -387,10 +408,11 @@ case class ScalarSubquery(query: Query) extends Expression {
   override def attributeNames(): Set[String] =
     query.attributeNames()
 
-  override def eval(ge: Expression.GroupEnvironment): Any = {
-    val sq = MemoryQuery.computeQueryResults(ge, query)
-    sq.head(0)
-  }
+  override def eval1(group: GroupedResult): Any =
+    MemoryQuery.computeQueryResults(group, query).head.col0
+
+  override def evalAll(group: GroupedResult): Seq[Any] =
+    throw new AssertionError(s"expected sequence of values, but got scalar subquery")
 
   override def toSqlExpression : SqlExpression =
     SqlExpressionSubquery(query.toSqlSelect())
@@ -411,10 +433,11 @@ case class SetSubquery(query: Query) extends Expression {
   override def attributeNames(): Set[String] =
     query.attributeNames()
 
-  override def eval(ge: Expression.GroupEnvironment): Any = {
-    val sq = MemoryQuery.computeQueryResults(ge, query)
-    sq.map(_(0))
-  }
+  override def eval1(group: GroupedResult): Any =
+    throw new AssertionError(s"expected single value, but got scalar subquery")
+
+  override def evalAll(group: GroupedResult): Seq[Any] =
+    MemoryQuery.computeQueryResults(group, query).map(_.col0)
 
   override def toSqlExpression : SqlExpression = SqlExpressionSubquery(query.toSqlSelect())
 }

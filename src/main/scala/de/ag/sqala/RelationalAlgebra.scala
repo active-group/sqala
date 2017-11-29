@@ -1,6 +1,7 @@
 package de.ag.sqala
 
 object Aliases {
+  // FIXME: move this to package object
   type Environment = Map[String, Type]
 
   val emptyEnvironment = Map[String, Type]()
@@ -47,6 +48,35 @@ case class RelationalScheme(columns: Vector[String], map: Map[String, Type], gro
   /** find the position of a name within the scheme */
   def pos(name: String): Int = columns.indexOf(name)
 
+  /** check if the scheme has any grouping */
+  def isGrouped(): Boolean = grouped.isDefined
+
+  lazy val groupedSet = grouped match {
+      case None => Set.empty[String]
+      case Some(s) => s
+    }
+
+  /** positions in either grouped or ungrouped, see `MemoryQuery.Group`*/
+  lazy val groupedUngroupedPosition: Map[String, Either[Int, Int]] =
+    grouped match {
+      case None => columns.map { c => (c, Right(pos(c))) }.toMap
+      case Some(groupedSet) =>
+        columns.foldLeft((0, 0, Map.empty[String, Either[Int, Int]])) { case ((groupedIndex, nonGroupedIndex, map), name) =>
+          if (groupedSet.contains(name))
+            (groupedIndex + 1, nonGroupedIndex, map + (name -> Left(groupedIndex)))
+          else
+            (groupedIndex, nonGroupedIndex + 1, map + (name -> Right(nonGroupedIndex)))
+        }._3
+    }
+
+  /** returns pair of (positions of ungrouped, positions of grouped) */
+  def groupedUngroupedPositions(cols: Seq[String]): (Seq[Int], Seq[Int]) = {
+    val poses = cols.map(groupedUngroupedPosition(_))
+    val groupedPos = poses.flatMap(_.left.toOption)
+    val ungroupedPos = poses.flatMap(_.right.toOption)
+    (groupedPos, ungroupedPos)
+  }
+
   /*** First, figure out what columns are in this that are also in `s2`.
    
    Then, return a function that will accept a row of the same schema
@@ -54,9 +84,9 @@ case class RelationalScheme(columns: Vector[String], map: Map[String, Type], gro
 
    Used for implementing quotient.
    */
-  def makeExtractor(s2: RelationalScheme): IndexedSeq[Any] => IndexedSeq[Any] = {
+  def makeExtractor(s2: RelationalScheme): Row => Row = {
     val characteristics = columns.map(s2.map.contains(_))
-    (row: IndexedSeq[Any]) => characteristics.zip(row).filter(_._1).map(_._2)
+    (row: Row) => characteristics.zip(row).filter(_._1).map(_._2)
   }
 
 
@@ -270,11 +300,18 @@ case class Quotient(query1: Query, query2: Query) extends Query with Combination
     val s2 = query2.getScheme(env)
     val a1 = s1.map
     val a2 = s2.map
-    for ((k, v) <- a2)
+    val grouped = s1.groupedSet
+    for ((k, v) <- a2) {
+      // ensure that query2 has a subscheme of the scheme of query1
       a1.get(k) match {
         case Some(p2) => ensure(v == p2)
         case _ => ()
       }
+      // no column in query2 can be grouped in query1, as we're doing
+      // all-quantification of the values
+      require(!grouped.contains(k))
+    }
+
     s1.difference(s2)
   }
 
@@ -309,6 +346,7 @@ object Direction {
 case class Order(alist: Seq[(String, Direction)], query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
     val s = query.getScheme(env)
+    ensure(!s.isGrouped())
     val env2 = composeEnvironments(s.toEnvironment(), env)
     for ((col, _) <- alist) {
       val t = env2(col)
