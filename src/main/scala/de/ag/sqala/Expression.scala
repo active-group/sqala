@@ -412,7 +412,7 @@ case class ScalarSubquery(query: Query) extends Expression {
     MemoryQuery.computeQueryResults(group, query).head.col0
 
   override def evalAll(group: GroupedResult): Seq[Any] =
-    throw new AssertionError(s"expected sequence of values, but got scalar subquery")
+    MemoryQuery.computeQueryResults(group, query).map(_.col0)
 
   override def toSqlExpression : SqlExpression =
     SqlExpressionSubquery(query.toSqlSelect())
@@ -434,7 +434,7 @@ case class SetSubquery(query: Query) extends Expression {
     query.attributeNames()
 
   override def eval1(group: GroupedResult): Any =
-    throw new AssertionError(s"expected single value, but got scalar subquery")
+    throw new AssertionError(s"expected single value, but got set subquery")
 
   override def evalAll(group: GroupedResult): Seq[Any] =
     MemoryQuery.computeQueryResults(group, query).map(_.col0)
