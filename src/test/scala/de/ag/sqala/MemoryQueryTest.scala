@@ -154,4 +154,37 @@ class MemoryQueryTest extends FunSuite {
     assertEquals(computeQueryResults(q.buildQuery()).flatMap(_.flatten).toSet,
       Set(Vector("a1", 42), Vector("a2", 21), Vector("a3", 0)))
   }
+
+  test("empty scala subquery yields null") {
+    import QueryMonad._
+    import Expression._
+    
+    val s = Galaxy.makeBaseRelation("S",
+      RelationalScheme.make(Seq("A" -> Type.string)),
+      Seq(
+        Row.make("a1")))
+
+    val o = Galaxy.makeBaseRelation("O",
+      RelationalScheme.make(Seq("A" -> Type.string, "V" -> Type.integer)),
+      Seq.empty)
+
+    def valueOf(id: Expression): QueryMonad[Expression] = {
+      val sub = for {
+        t <- embed(o)
+        _ <- restrict(makeApplication(equalsRator, id, t.!("A")))
+        res <- project(Seq("res" -> t.!("V")))
+      } yield res;
+      for {
+        q <- subquery(sub)
+      } yield makeScalarSubquery(q)
+    }
+
+    val q = for {
+      t <- embed(s)
+      v <- valueOf(t.!("A"))
+      res <- project(Seq("id" -> t.!("A"), "value" -> v))
+    } yield res
+    assertEquals(computeQueryResults(q.buildQuery()).flatMap(_.flatten).toSet,
+      Set(Vector("a1", null)))
+  }
 }
