@@ -398,7 +398,7 @@ case class ScalarSubquery(query: Query) extends Expression {
     val scheme = query.getScheme(env)
     if (!scheme.isUnary())
       throw new AssertionError("subquery must have unary scheme")
-    scheme.map(scheme.columns.head)
+    scheme.map(scheme.columns.head).toNullable()
   }
 
   override def checkGrouped(grouped: Option[Set[String]]): Unit = ()
@@ -408,11 +408,16 @@ case class ScalarSubquery(query: Query) extends Expression {
   override def attributeNames(): Set[String] =
     query.attributeNames()
 
-  override def eval1(group: GroupedResult): Any =
-    MemoryQuery.computeQueryResults(group, query).head.col0
+  override def eval1(group: GroupedResult): Any = {
+    val rs = MemoryQuery.computeQueryResults(group, query)
+    if (rs.isEmpty)
+      null
+    else
+      rs.head.col0
+  }
 
   override def evalAll(gr: GroupedResult): Seq[Any] =
-    MemoryQuery.computeQueryResults(gr, query).map(_.col0)
+    gr.oneByOne().map(eval1(_))
 
   override def toSqlExpression : SqlExpression =
     SqlExpressionSubquery(query.toSqlSelect())

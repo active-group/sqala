@@ -71,6 +71,9 @@ case class GroupedResult(scheme: RelationalScheme, groupedRow: Row, ungroupedRow
     }
   }
 
+  def oneByOne(): Seq[GroupedResult] =
+    ungroupedRows.map { row => GroupedResult(scheme, groupedRow, Seq(row)) }
+
 }
 
 object GroupedResult {
