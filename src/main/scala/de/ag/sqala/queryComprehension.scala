@@ -2,6 +2,7 @@ package de.ag.sqala
 
 import QueryMonad._
 import scala.language.postfixOps
+import Aliases._
 
 // is used as the state of the query monad. This is used to
 // track the current state and later rebuild the resulting, correct references when
@@ -55,10 +56,14 @@ case class QueryMonad[A](transform: State => (A, State)) {
     */
   def run(state: QueryMonad.State = emptyState) =
     transform(state)
-
-  def buildQuery(state: QueryMonad.State = emptyState) : Query = run(state) match {
-    case (r: Relation, s: State) => Projection(r.scheme.columns.map({case s => (s, AttributeRef(freshName(s, r.alias)))}), s.query)
-  }
+  
+  def buildQuery(state: QueryMonad.State = emptyState): Query =
+    run(state) match { case (r: Relation, s) =>
+      Projection(
+        r.scheme.columns.map { case s =>
+          (s, AttributeRef(freshName(s, r.alias)))},
+        s.query)
+    }
 }
 
 object QueryMonad {
@@ -66,9 +71,11 @@ object QueryMonad {
   
   type Comprehension = QueryMonad[Relation]
 
-  case class State(alias: Alias, query: Query)
+  // we need the environment for subqueries, where the query providing
+  // the bindings is elsewhere
+  case class State(alias: Alias, query: Query, env: Environment)
 
-  val emptyState = State(0, Query.empty)
+  val emptyState = State(0, Query.empty, emptyEnvironment)
 
   val getState: QueryMonad[State] = QueryMonad { st => (st, st) }
 
@@ -104,13 +111,26 @@ object QueryMonad {
     for {
       alias <- newAlias
       query <- currentQuery
-      scheme = transformScheme(q.getScheme())
+      env <- currentEnvironment
+      qscheme = q.getScheme()
+      qenv = qscheme.environment()
+      scheme = transformScheme(qscheme)
       columns = scheme.columns
       fresh = columns.map { k => freshName(k,alias) }
-      projectAlist = (columns, fresh).zipped.map { (k, fresh) => (fresh, Expression.makeAttributeRef(k)) }
+      ps = (columns, fresh).zipped
+      projectAlist = ps.map { (k, fresh) => (fresh, Expression.makeAttributeRef(k)) }
+      qenvFresh = makeEnvironment(ps.map { (k, fresh) => (fresh, qenv(k)) } :_*)
       qq = q.project(projectAlist)
       _ <- setQuery(makeProduct(query, qq))
+      _ <- setEnvironment(composeEnvironments(env, qenvFresh))
     } yield Relation(alias, scheme)
+
+
+  val currentEnvironment: QueryMonad[Environment] =
+    QueryMonad { st0: State => (st0.env, st0) }
+
+  def setEnvironment(env: Environment): QueryMonad[Unit] =
+    QueryMonad { st0: State => ((), st0.copy(env = env)) }
 
   def embed(q: Query): Comprehension =
     addToProduct(_ * _, identity, q)
@@ -122,12 +142,14 @@ object QueryMonad {
     for {
       alias <- newAlias
       query <- currentQuery
-      query1 = query.extend(alist.map { case (k, v) => (freshName(k, alias), v) })
+      env <- currentEnvironment
+      query1 = query.extend(alist.map { case (k, v) => (freshName(k, alias), v) }, env)
       _ <- setQuery(query1)
+      env1 = composeEnvironments(env,
+        makeEnvironment(alist.map { case (n, e) => (n, e.getType(env)) }:_*))
+      _ <- setEnvironment(env1)
     } yield Relation(alias,
-              { val scheme = query.getScheme()
-                val env = scheme.toEnvironment()
-                RelationalScheme.make(alist.map { case (k, v) => (k, v.getType(env)) }) })
+      RelationalScheme.make(alist.map { case (k, v) => (k, env1(k)) }))
 
   def restrict(expr: Expression): QueryMonad[Unit] =
     for {
@@ -150,10 +172,10 @@ object QueryMonad {
   }
 
   def combination1(op: (Query, Query) => Query,
-                   computeScheme: (RelationalScheme, RelationalScheme) => RelationalScheme,
-                   oldQuery: Query,
-                   rel1: Relation, q1: Query, rel2: Relation, q2: Query,
-                   alias: Alias): Comprehension = {
+    computeScheme: (RelationalScheme, RelationalScheme) => RelationalScheme,
+    oldQuery: Query,
+    rel1: Relation, q1: Query, rel2: Relation, q2: Query,
+    alias: Alias): Comprehension = {
     val p1 = q1.project(rel1.scheme.columns.map { k => (freshName(k, alias),
       Expression.makeAttributeRef(freshName(k, rel1.alias)))
     })
@@ -163,17 +185,22 @@ object QueryMonad {
     for {
       _ <- setAlias(alias + 1)
       _ <- setQuery(op(p1, p2) * oldQuery)
-    } yield Relation(alias, computeScheme(rel1.scheme, rel2.scheme))
+      scheme = computeScheme(rel1.scheme, rel2.scheme)
+      env0 <- currentEnvironment
+      _ <- setEnvironment(composeEnvironments(env0, scheme.environment()))
+    } yield Relation(alias, scheme)
   }
 
-  def combination(op: (Query, Query) => Query,
+    def combination(op: (Query, Query) => Query,
+
                   computeScheme: (RelationalScheme, RelationalScheme) => RelationalScheme,
                   prod1: Comprehension, prod2: Comprehension): Comprehension =
     for {
+      env0 <- currentEnvironment
       query0 <- currentQuery
       alias0 <- currentAlias
-      (rel1, state1) = prod1.run(State(alias0, query0))
-      (rel2, state2) = prod2.run(State(state1.alias, query0))
+      (rel1, state1) = prod1.run(State(alias0, query0, env0))
+      (rel2, state2) = prod2.run(State(state1.alias, query0, env0))
       res <- combination1(op, computeScheme, query0, rel1, state1.query, rel2, state2.query, alias0)
     } yield res
 
@@ -189,9 +216,9 @@ object QueryMonad {
       _ <- setQuery(old.top(offset, count))
     } yield ()
 
-  def subquery(c: Comprehension): QueryMonad[Query] =
+  def subquery(c: Comprehension): QueryMonad[Expression] =
     for {
       st <- getState
-      q = c.buildQuery(st)
-    } yield q
+      q = c.buildQuery(st.copy(query = Query.empty))
+    } yield ScalarSubquery(q)
 }

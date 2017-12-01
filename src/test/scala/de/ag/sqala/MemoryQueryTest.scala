@@ -46,7 +46,8 @@ class MemoryQueryTest extends FunSuite {
 
   val equalsRator = Rator("=",
     { case Seq(ty1, ty2) => assert(ty1 == ty2); Type.boolean },
-    { case Seq(arg1, arg2) => arg1 == arg2 })
+    { case Seq(arg1, arg2) =>
+      arg1 == arg2 })
 
   test("restriction") {
     val q = b1.restrict(Expression.makeApplication(lessThan,
@@ -134,22 +135,18 @@ class MemoryQueryTest extends FunSuite {
         Row.make("a2", 21),
         Row.make("a3", 0)))
 
-    def valueOf(id: Expression): QueryMonad[Expression] = {
-      val sub = for {
+    def valueOf(id: Expression): QueryMonad[Relation] =
+      for {
         t <- embed(o)
         _ <- restrict(makeApplication(equalsRator, id, t.!("A")))
         _ <- top(0, 1)
-        res <- project(Seq("res" -> t.!("V")))
-      } yield res;
-      for {
-        q <- subquery(sub)
-      } yield makeScalarSubquery(q)
-    }
+        q <- project(Seq("res" -> t.!("V")))
+      } yield q
 
     val q = for {
-      t <- embed(s)
-      v <- valueOf(t.!("A"))
-      res <- project(Seq("id" -> t.!("A"), "value" -> v))
+      ts <- embed(s)
+      v <- subquery(valueOf(ts.!("A")))
+      res <- project(Seq("id" -> ts.!("A"), "value" -> v))
     } yield res
     assertEquals(computeQueryResults(q.buildQuery()).flatMap(_.flatten).toSet,
       Set(Vector("a1", 42), Vector("a2", 21), Vector("a3", 0)))

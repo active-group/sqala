@@ -36,7 +36,7 @@ object MemoryQuery {
         val scheme = sub.getScheme(grouped.scheme.environment)
         computeQueryResults(grouped, sub)
           .flatMap { grouped1 =>
-            val tests = exp.evalAll(grouped1).map(_.asInstanceOf[Boolean])
+            val tests = exp.evalAll(grouped.compose(grouped1)).map(_.asInstanceOf[Boolean])
             val rows = grouped1.ungroupedRows.zip(tests).filter(_._2).map(_._1)
             if (rows.isEmpty)
               None
@@ -44,6 +44,7 @@ object MemoryQuery {
               Some(GroupedResult(grouped1.scheme, grouped1.groupedRow, rows))
           }
       }
+
       case Product(q1, q2) => {
         val grs1 = computeQueryResults(grouped, q1)
         val grs2 = computeQueryResults(grouped, q2)

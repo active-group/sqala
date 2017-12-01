@@ -411,8 +411,8 @@ case class ScalarSubquery(query: Query) extends Expression {
   override def eval1(group: GroupedResult): Any =
     MemoryQuery.computeQueryResults(group, query).head.col0
 
-  override def evalAll(group: GroupedResult): Seq[Any] =
-    MemoryQuery.computeQueryResults(group, query).map(_.col0)
+  override def evalAll(gr: GroupedResult): Seq[Any] =
+    MemoryQuery.computeQueryResults(gr, query).map(_.col0)
 
   override def toSqlExpression : SqlExpression =
     SqlExpressionSubquery(query.toSqlSelect())

@@ -8,6 +8,9 @@ object Aliases {
 
   def composeEnvironments(env1: Environment, env2: Environment) =
     env1 ++ env2
+
+  def makeEnvironment(bindings: (String, Type)*): Environment =
+    bindings.toMap
 }
 
 import Aliases._
@@ -116,17 +119,8 @@ sealed abstract class Query {
   // helper method for subqueries of expressions
   def attributeNames(): Set[String]
 
-  private def reallyProject(alist: Seq[(String, Expression)]): Query = {
-    val baseScheme = this.getScheme()
-    val grouped = baseScheme.grouped
-    if (alist.exists({ case (name, exp) => exp.isAggregate })
-        || grouped.isDefined) {
-      // we're doing aggregation
-      for ((_, e) <- alist)
-        e.checkGrouped(grouped)
-    }
+  private def reallyProject(alist: Seq[(String, Expression)]): Query =
     Projection(alist, this)
-  }
 
   def project(alist: Seq[(String, Expression)]): Query = {
     // FIXME: grouping - see really-make-project
@@ -141,8 +135,8 @@ sealed abstract class Query {
 
   def restrict(exp: Expression): Query = Restriction(exp, this)
 
-  def extend(alist: Seq[(String, Expression)]): Query = {
-    val scheme = this.getScheme()
+  def extend(alist: Seq[(String, Expression)], env: Environment = emptyEnvironment): Query = {
+    val scheme = this.getScheme(env)
     val base = scheme.grouped match {
       case Some(grouped) => scheme.columns.filter(grouped.contains(_))
       case None =>
@@ -205,6 +199,13 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
   override def computeScheme(env: Environment): RelationalScheme = {
     val baseScheme = query.getScheme(env)
     val baseEnv = baseScheme.environment()
+    val grouped = baseScheme.grouped
+    if (alist.exists({ case (name, exp) => exp.isAggregate })
+        || grouped.isDefined) {
+      // we're doing aggregation
+      for ((_, e) <- alist)
+        e.checkGrouped(grouped)
+    }
     val tyAlist = alist.map({ case (name, exp) => {
       val typ = exp.getType(composeEnvironments(baseEnv, env))
       // FIXME: check for non-product type
