@@ -1,7 +1,5 @@
 package de.ag.sqala
 
-import Assertions._
-
 case class RelationalScheme(columns: Vector[String], map: Map[String, Type], grouped: Option[Set[String]]) {
   // FIXME: why do we have environment() and toEnvironment() ... cache the environment!
   def environment(): Environment = map
@@ -24,7 +22,7 @@ case class RelationalScheme(columns: Vector[String], map: Map[String, Type], gro
   def difference(other: RelationalScheme): RelationalScheme = {
     val cols2 = other.columns.toSet
     val cols = this.columns.filter(!cols2.contains(_))
-    ensure(!cols.isEmpty)
+    require(!cols.isEmpty)
     RelationalScheme(cols,
       this.map.filterKeys(k => cols.contains(k)),
       this.grouped.map(cs => cs -- cols))
@@ -215,7 +213,7 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
 
 case class Restriction(exp: Expression, query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
-    ensure(exp.getType(Environment.compose(query.getScheme(env).environment(), env)) == Type.boolean,
+    require(exp.getType(Environment.compose(query.getScheme(env).environment(), env)) == Type.boolean,
            "not a boolean expression")
     query.computeScheme(env)
   }
@@ -226,7 +224,7 @@ case class Restriction(exp: Expression, query: Query) extends Query {
 
 case class OuterRestriction(exp: Expression, query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
-    ensure(exp.getType(Environment.compose(query.getScheme(env).environment(), env)) == Type.boolean,
+    require(exp.getType(Environment.compose(query.getScheme(env).environment(), env)) == Type.boolean,
       "not a boolean expression")
     query.computeScheme(env)
   }
@@ -247,7 +245,7 @@ case class Product(query1: Query, query2: Query) extends Query with Combination 
     val a1 = r1.map
     val a2 = r2.map
     for ((k, _) <- a1)
-      ensure(!a2.contains(k))
+      require(!a2.contains(k))
     r1 ++ r2
   }
 
@@ -273,7 +271,7 @@ case class LeftOuterProduct(query1: Query, query2: Query) extends Query with Com
     val a1 = r1.map
     val a2 = r2.map
     for ((k, _) <- a1)
-      ensure(!a2.contains(k))
+      require(!a2.contains(k))
     r1 ++ r2
   }
 
@@ -291,7 +289,7 @@ case class Quotient(query1: Query, query2: Query) extends Query with Combination
     for ((k, v) <- a2) {
       // ensure that query2 has a subscheme of the scheme of query1
       a1.get(k) match {
-        case Some(p2) => ensure(v == p2)
+        case Some(p2) => require(v == p2)
         case _ => ()
       }
       // no column in query2 can be grouped in query1, as we're doing
@@ -310,8 +308,8 @@ abstract class SetCombination extends Query with Combination {
   override def computeScheme(env: Environment): RelationalScheme = {
     val s1 = query1.getScheme(env)
     val s2 = query2.getScheme(env)
-    // FIXED : ensure(s1 == s2) ist falsch ... die Typen + die Reihenfolge müssen passen, die Spaltennamen nicht!
-    ensure(s1.columns.map(c => s1.map.get(c)) == s2.columns.map(c => s2.map.get(c)))
+    // FIXED : require(s1 == s2) ist falsch ... die Typen + die Reihenfolge müssen passen, die Spaltennamen nicht!
+    require(s1.columns.map(c => s1.map.get(c)) == s2.columns.map(c => s2.map.get(c)))
     s1
   }
 
@@ -333,11 +331,11 @@ object Direction {
 case class Order(alist: Seq[(String, Direction)], query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
     val s = query.getScheme(env)
-    ensure(!s.isGrouped())
+    require(!s.isGrouped())
     val env2 = Environment.compose(s.toEnvironment(), env)
     for ((col, _) <- alist) {
       val t = env2(col)
-      ensure(t.isOrdered)
+      require(t.isOrdered)
     }
     s
   }

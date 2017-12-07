@@ -74,12 +74,14 @@ class RelationalAlgebraTest extends FunSuite {
       fail()
     } catch {
       case _ : AssertionError => // wanted
+      case _ : IllegalArgumentException => // or this
     }
     try {
       val v1 = Union(tbl1, tbl4).getScheme()
       fail()
     } catch {
       case _ : AssertionError => // wanted
+      case _ : IllegalArgumentException => // or this
     }
     assertEquals(Intersection(tbl2, tbl3).getScheme(), tbl2.getScheme())
   }
@@ -102,6 +104,7 @@ class RelationalAlgebraTest extends FunSuite {
       fail("The Relation has no columns")
     } catch {
       case _ : AssertionError => // wanted
+      case _ : IllegalArgumentException => // or this
     }
     // FIXME : ignore or throw Error ? - by remove a not exist Column -> i think an Error
     try {
@@ -110,12 +113,14 @@ class RelationalAlgebraTest extends FunSuite {
       //fail("Deleting a not exist Error")
     } catch {
       case _ : AssertionError => // wanted
+      case _ : IllegalArgumentException => // or this
     }
     try { // FIXME : Should the difference look on the Column Name ? - Is the Typ of the column interesting?
     val p = tbl4.getScheme().difference(RelationalScheme.make(Seq(("one", Type.integer))))
       //fail("The Relational Enviroment has the wrong type!")
     } catch {
       case _ : AssertionError => // wanted
+      case _ : IllegalArgumentException => // or this
     }
   }
 
@@ -127,6 +132,7 @@ class RelationalAlgebraTest extends FunSuite {
       fail()
     } catch {
       case _ : AssertionError => // wanted
+      case _ : IllegalArgumentException => // or this
     }
   }
 }
