@@ -1,6 +1,5 @@
 package de.ag.sqala
 
-import Aliases._
 import de.ag.sqala.AggregationOp.Count
 import scala.annotation.tailrec
 

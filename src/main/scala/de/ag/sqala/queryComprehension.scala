@@ -2,7 +2,6 @@ package de.ag.sqala
 
 import QueryMonad._
 import scala.language.postfixOps
-import Aliases._
 
 // is used as the state of the query monad. This is used to
 // track the current state and later rebuild the resulting, correct references when
@@ -75,7 +74,7 @@ object QueryMonad {
   // the bindings is elsewhere
   case class State(alias: Alias, query: Query, env: Environment)
 
-  val emptyState = State(0, Query.empty, emptyEnvironment)
+  val emptyState = State(0, Query.empty, Environment.empty)
 
   val getState: QueryMonad[State] = QueryMonad { st => (st, st) }
 
@@ -119,10 +118,10 @@ object QueryMonad {
       fresh = columns.map { k => freshName(k,alias) }
       ps = (columns, fresh).zipped
       projectAlist = ps.map { (k, fresh) => (fresh, Expression.makeAttributeRef(k)) }
-      qenvFresh = makeEnvironment(ps.map { (k, fresh) => (fresh, qenv(k)) } :_*)
+      qenvFresh = Environment.make(ps.map { (k, fresh) => (fresh, qenv(k)) } :_*)
       qq = q.project(projectAlist)
       _ <- setQuery(makeProduct(query, qq))
-      _ <- setEnvironment(composeEnvironments(env, qenvFresh))
+      _ <- setEnvironment(Environment.compose(env, qenvFresh))
     } yield Relation(alias, scheme)
 
 
@@ -145,8 +144,8 @@ object QueryMonad {
       env <- currentEnvironment
       query1 = query.extend(alist.map { case (k, v) => (freshName(k, alias), v) }, env)
       _ <- setQuery(query1)
-      env1 = composeEnvironments(env,
-        makeEnvironment(alist.map { case (n, e) => (n, e.getType(env)) }:_*))
+      env1 = Environment.compose(env,
+        Environment.make(alist.map { case (n, e) => (n, e.getType(env)) }:_*))
       _ <- setEnvironment(env1)
     } yield Relation(alias,
       RelationalScheme.make(alist.map { case (k, v) => (k, env1(k)) }))
@@ -187,7 +186,7 @@ object QueryMonad {
       _ <- setQuery(op(p1, p2) * oldQuery)
       scheme = computeScheme(rel1.scheme, rel2.scheme)
       env0 <- currentEnvironment
-      _ <- setEnvironment(composeEnvironments(env0, scheme.environment()))
+      _ <- setEnvironment(Environment.compose(env0, scheme.environment()))
     } yield Relation(alias, scheme)
   }
 

@@ -15,11 +15,11 @@ class ExpressionTest extends FunSuite {
     }
   }
 
-  val env1 : Aliases.Environment = Map(
+  val env1 = Environment.make(
     "id" -> Type.integer,
     "name" -> Type.string)
 
-  val env2 : Aliases.Environment = Map(
+  val env2 = Environment.make(
     "id" -> Type.string,
     "isReal" -> Type.boolean
   )

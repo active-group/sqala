@@ -4,8 +4,6 @@ import scala.annotation.tailrec
 
 /*** evaluate a query in memory **/
 object MemoryQuery {
-  import Aliases._
-
   def computeQueryResults(q: Query): Seq[GroupedResult] =
     computeQueryResults(GroupedResult.empty, q)
 

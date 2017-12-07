@@ -1,19 +1,5 @@
 package de.ag.sqala
 
-object Aliases {
-  // FIXME: move this to package object
-  type Environment = Map[String, Type]
-
-  val emptyEnvironment = Map[String, Type]()
-
-  def composeEnvironments(env1: Environment, env2: Environment) =
-    env1 ++ env2
-
-  def makeEnvironment(bindings: (String, Type)*): Environment =
-    bindings.toMap
-}
-
-import Aliases._
 import Assertions._
 
 case class RelationalScheme(columns: Vector[String], map: Map[String, Type], grouped: Option[Set[String]]) {
@@ -101,7 +87,7 @@ object RelationalScheme {
 
   def make(name: String, ty: Type): RelationalScheme = make(Seq(name -> ty))
 
-  val empty = RelationalScheme(Vector[String](), emptyEnvironment, None)
+  val empty = RelationalScheme(Vector[String](), Environment.empty, None)
 }
 
 sealed abstract class Query {
@@ -114,7 +100,7 @@ sealed abstract class Query {
       relSchemeCache.getOrElseUpdate(env, computeScheme(env))
     }
 
-  def getScheme(): RelationalScheme = computeScheme(emptyEnvironment)
+  def getScheme(): RelationalScheme = computeScheme(Environment.empty)
 
   // helper method for subqueries of expressions
   def attributeNames(): Set[String]
@@ -135,7 +121,7 @@ sealed abstract class Query {
 
   def restrict(exp: Expression): Query = Restriction(exp, this)
 
-  def extend(alist: Seq[(String, Expression)], env: Environment = emptyEnvironment): Query = {
+  def extend(alist: Seq[(String, Expression)], env: Environment = Environment.empty): Query = {
     val scheme = this.getScheme(env)
     val base = scheme.grouped match {
       case Some(grouped) => scheme.columns.filter(grouped.contains(_))
@@ -207,7 +193,7 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
         e.checkGrouped(grouped)
     }
     val tyAlist = alist.map({ case (name, exp) => {
-      val typ = exp.getType(composeEnvironments(baseEnv, env))
+      val typ = exp.getType(Environment.compose(baseEnv, env))
       // FIXME: check for non-product type
       (name, typ) }})
     RelationalScheme.make(tyAlist)
@@ -229,7 +215,7 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
 
 case class Restriction(exp: Expression, query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
-    ensure(exp.getType(composeEnvironments(query.getScheme(env).environment(), env)) == Type.boolean,
+    ensure(exp.getType(Environment.compose(query.getScheme(env).environment(), env)) == Type.boolean,
            "not a boolean expression")
     query.computeScheme(env)
   }
@@ -240,7 +226,7 @@ case class Restriction(exp: Expression, query: Query) extends Query {
 
 case class OuterRestriction(exp: Expression, query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
-    ensure(exp.getType(composeEnvironments(query.getScheme(env).environment(), env)) == Type.boolean,
+    ensure(exp.getType(Environment.compose(query.getScheme(env).environment(), env)) == Type.boolean,
       "not a boolean expression")
     query.computeScheme(env)
   }
@@ -348,7 +334,7 @@ case class Order(alist: Seq[(String, Direction)], query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
     val s = query.getScheme(env)
     ensure(!s.isGrouped())
-    val env2 = composeEnvironments(s.toEnvironment(), env)
+    val env2 = Environment.compose(s.toEnvironment(), env)
     for ((col, _) <- alist) {
       val t = env2(col)
       ensure(t.isOrdered)
