@@ -101,6 +101,8 @@ sealed abstract class Query {
   def getScheme(): RelationalScheme = computeScheme(Environment.empty)
 
   // helper method for subqueries of expressions
+  /** assuming this is a subquery of an expression, determine what
+    * attribute names of the underlying query it uses */
   def attributeNames(): Set[String]
 
   private def reallyProject(alist: Seq[(String, Expression)]): Query =
