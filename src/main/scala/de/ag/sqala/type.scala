@@ -117,4 +117,12 @@ object Type {
 
   def product(componentTypes: Seq[Type]): Type = ProductType(componentTypes)
   def set(member: Type): Type = SetType(member)
+
+  def valueLessThan(ty: Type, val1: Any, val2: Any) = {
+    val1 match {
+      case _: String => val1.asInstanceOf[String] < val2.asInstanceOf[String]
+      case _: Long => val1.asInstanceOf[Long] < val2.asInstanceOf[Long]
+      case _: Int => val1.asInstanceOf[Int] < val2.asInstanceOf[Int]
+    }
+  }
 }

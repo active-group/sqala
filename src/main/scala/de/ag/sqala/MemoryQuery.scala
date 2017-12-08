@@ -240,20 +240,11 @@ object MemoryQuery {
     }
   }
 
-  // FIXME: put this in Type
-  def valueLessThan(ty: Type, val1: Any, val2: Any) = {
-    val1 match {
-      case _: String => val1.asInstanceOf[String] < val2.asInstanceOf[String]
-      case _: Long => val1.asInstanceOf[Long] < val2.asInstanceOf[Long]
-      case _: Int => val1.asInstanceOf[Int] < val2.asInstanceOf[Int]
-    }
-  }
-
   /// check if one row is less than another
   def rowLessThan(typesDirs: Seq[(Type, Direction)])(row1: Row, row2: Row): Boolean = {
     for (((ty, dir), (v1, v2)) <- typesDirs.zip(row1.zip(row2))) {
       if (v1 != v2) {
-        val comp = valueLessThan(ty, v1, v2)
+        val comp = Type.valueLessThan(ty, v1, v2)
         dir match {
           case Direction.Ascending => return comp
           case Direction.Descending => return !comp
