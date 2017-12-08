@@ -12,34 +12,31 @@ trait Type {
 }
 
 class AtomicType(val name: String,
+  val getNullable: () => Type,
   val coercer: (Any) => Option[Any],
   val isNumeric: Boolean = false,
   val isOrdered: Boolean = false,
-  val isNullable: Boolean = false,
   val sqlForm: Any => String = {x => x.toString})
     extends Type {
 
-  def copy(name: String = name,
-    coercer: (Any) => Option[Any] = coercer,
-    isNumeric: Boolean = isNumeric,
-    isOrdered: Boolean = isOrdered,
-    isNullable: Boolean = isNullable,
-    sqlForm: Any => String = sqlForm) =
-    new AtomicType(name, coerce, isNumeric, isOrdered, isNullable, sqlForm)
-
+  def isNullable = false
+  lazy val nullable = getNullable()
+  def toNullable() = nullable
+  def toNonNullable() = this
   def coerce(value: Any) = this.coercer(value)
-  def toNullable() = this.copy(isNullable=true)
-  def toNonNullable() = this.copy(isNullable=false)
   def toSqlForm(value: Any) = sqlForm(value)
+}
 
-  // FIXME: stopgap measure
-  override def equals(that: Any): Boolean =
-    that match {
-      case thatT: AtomicType => {
-        (name == thatT.name) && (isNullable == thatT.isNullable)
-      }
-      case _ => false
-    }
+class NullableAtomicType(nonNullable: AtomicType) extends Type {
+  val _name = nonNullable.name + "/nullable"
+  def name: String = _name
+  def coerce(value: Any): Option[Any] = nonNullable.coerce(value)
+  def isNullable: Boolean = true
+  def toNullable(): Type = this
+  def toNonNullable(): Type = nonNullable
+  def isNumeric: Boolean = nonNullable.isNumeric
+  def isOrdered: Boolean = nonNullable.isOrdered
+  def toSqlForm(value: Any): String = nonNullable.toSqlForm(value)
 }
 
 // FIXME: flatten component types?
@@ -85,26 +82,39 @@ case class SetType(member: Type) extends Type {
 
 object Type {
   case object string extends AtomicType("string",
+    { () => stringNullable },
     { case s: String => Some(s)
       case _ => None },
     isNumeric = false, isOrdered = true,
     sqlForm = {v => "'"+v.toString+"'"})
+  case object stringNullable extends NullableAtomicType(string)
+
   case object boolean extends AtomicType("boolean",
+    { () => booleanNullable },
     { case b : Boolean => Some(b)
       case _ => None },
     isNumeric = false, isOrdered = false)
+  case object booleanNullable extends NullableAtomicType(boolean)
+
   case object integer extends AtomicType("integer",
+    { () => integerNullable },
     { case i: Int => Some(i.longValue)
       case l: Long => Some(l)
       case _ => None },
     isNumeric = true, isOrdered = true)
+  case object integerNullable extends NullableAtomicType(integer)
+
   def isDouble(x: Any): Boolean =
     x.isInstanceOf[Double]
+
   case object double extends AtomicType("double",
+    { () => doubleNullable },
     { case d: Double => Some(d)
       case d: Float => Some(d.doubleValue)
       case _ => None },
     isNumeric = true, isOrdered = true)
+  case object doubleNullable extends NullableAtomicType(double)
+
   def product(componentTypes: Seq[Type]): Type = ProductType(componentTypes)
   def set(member: Type): Type = SetType(member)
 }
