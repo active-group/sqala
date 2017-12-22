@@ -105,7 +105,6 @@ case class Null(ty: Type) extends Expression {
 
 case class Rator(name: String, rangeType: Seq[Type] => Type, impl: Seq[Any] => Any) {
   def apply(args: Seq[Any]): Any = impl(args)
-  def toSQLSelect: SQLOperator = ??? // TODO Expression.Rator translate to SQLOperator
 }
 
 object Rator {
@@ -128,7 +127,12 @@ case class Application(rator: Rator, rands: Seq[Expression]) extends Expression 
     }
   }
 
-  override def toSQLExpression : SQLExpression = SQLExpressionApp(rator.toSQLSelect, rands.map(e => e.toSQLExpression))
+  override def toSQLExpression: SQLExpression = {
+    rator match {
+      case has: HasSQLOperator =>
+        SQLExpressionApp(has.sqlOperator, rands.map(e => e.toSQLExpression))
+    }
+  }
 }
 
 case class Tuple(exprs: Seq[Expression]) extends Expression {

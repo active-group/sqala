@@ -437,6 +437,9 @@ object SQLOperator {
     rator.arity.toSQL(rator, rands)
 }
 
+trait HasSQLOperator {
+  val sqlOperator: SQLOperator
+}
 
 /**
   * Arity for the SQLOperators
