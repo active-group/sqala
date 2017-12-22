@@ -1,6 +1,6 @@
-package de.ag
+package de.ag.sqala
 
-package object sqala {
+object `package` {
   type Environment = Map[String, Type]
 
   type Row = IndexedSeq[Any]
