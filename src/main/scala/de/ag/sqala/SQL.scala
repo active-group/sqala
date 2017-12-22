@@ -118,7 +118,7 @@ object SQL {
   def fromQuery(q: Query): SQL = {
     q match {
       case BaseRelation(name, scheme, handle) => SQLSelectTable(name, scheme)
-      case EmptyQuery => SQLSelect.empty
+      case EmptyQuery => SQLSelectEmpty
       case Projection(alist, query)  => {
         val qSQL = fromQuery(query)
         val projAlist : Seq[(String, SQLExpression)] = alist.map {case (s, e) => (s, SQLExpression.fromExpression(e)) }
