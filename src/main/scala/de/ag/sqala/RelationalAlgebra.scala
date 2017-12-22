@@ -151,8 +151,6 @@ sealed abstract class Query {
 
   def top(offset: Int, count: Int): Query =
     Top(offset, count, this)
-
-  def toSQL: SQL
 }
 
 object Query {
@@ -170,17 +168,12 @@ case class BaseRelation[H](name: String, scheme: RelationalScheme, handle: H) ex
 
   override def attributeNames(): Set[String] = Set()
 
-  override def toSQL = SQLSelectTable(name, scheme)
-
 }
 
 case object EmptyQuery extends Query {
   override def computeScheme(env: Environment): RelationalScheme = RelationalScheme.empty
 
   override def attributeNames(): Set[String] = Set()
-
-  override def toSQL = SQLSelect.empty
-
 }
 
 case class Projection(alist: Seq[(String, Expression)], query: Query) extends Query {
@@ -207,12 +200,6 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
     val schemeNames = query.getScheme().environment().keySet
     (expNames -- schemeNames) ++ query.attributeNames()
   }
-
-  override def toSQL = {
-    val qSQL = query.toSQL
-    val projAlist : Seq[(String, SQLExpression)] = alist.map({case (s, e) => (s, e.toSQLExpression)})
-    SQL.makeSQLSelect(projAlist, Seq((None, query.toSQL))) // FixMe : None not the best Implementation!!
-  }
 }
 
 case class Restriction(exp: Expression, query: Query) extends Query {
@@ -224,8 +211,6 @@ case class Restriction(exp: Expression, query: Query) extends Query {
 
   override def attributeNames(): Set[String] =
     (exp.attributeNames() -- query.getScheme().environment().keySet) ++ query.attributeNames()
-
-  override def toSQL = ???
 }
 
 case class OuterRestriction(exp: Expression, query: Query) extends Query {
@@ -238,15 +223,6 @@ case class OuterRestriction(exp: Expression, query: Query) extends Query {
   override def attributeNames(): Set[String] =
     (exp.attributeNames() -- query.getScheme().environment().keySet) ++ query.attributeNames()
 
-  override def toSQL = {
-    val select = SQL.toSQLSelect(query.toSQL)
-    if (exp.isAggregate)
-      // note that having is empty as a result of toSQLSelect
-      select.copy(having = Some(Seq(exp.toSQLExpression)))
-    else
-      // ditto for criteria
-      select.copy(criteria = Seq(exp.toSQLExpression))
-  }
 }
 
 trait Combination {
@@ -267,20 +243,6 @@ case class Product(query1: Query, query2: Query) extends Query with Combination 
 
   override def attributeNames(): Set[String] =
     query1.attributeNames() ++ query2.attributeNames()
-
-  override def toSQL = {
-    val sql1 = query1.toSQL
-    val sql2 = query2.toSQL
-    sql1 match {
-      case sel1: SQLSelect if (sel1.attributes.isEmpty) => sel1.addTable(sql2)
-      case _ =>
-        sql2 match {
-          case sel2: SQLSelect if (sel2.attributes.isEmpty) => sel2.addTable(sql1)
-          case _ =>
-            SQLSelect.make(tables = Seq((None, sql1), (None, sql2)))
-        }
-    }
-  }
 }
 
 case class LeftOuterProduct(query1: Query, query2: Query) extends Query with Combination {
@@ -296,8 +258,6 @@ case class LeftOuterProduct(query1: Query, query2: Query) extends Query with Com
 
   override def attributeNames(): Set[String] =
     query1.attributeNames() ++ query2.attributeNames()
-
-  override def toSQL = ???
 }
 
 case class Quotient(query1: Query, query2: Query) extends Query with Combination {
@@ -323,8 +283,6 @@ case class Quotient(query1: Query, query2: Query) extends Query with Combination
 
   override def attributeNames(): Set[String] =
     query1.attributeNames() ++ query2.attributeNames()
-
-  override def toSQL = ???
 }
 
 abstract class SetCombination extends Query with Combination {
@@ -338,8 +296,6 @@ abstract class SetCombination extends Query with Combination {
 
   override def attributeNames(): Set[String] =
     query1.attributeNames() ++ query2.attributeNames()
-
-  override def toSQL = ???
 }
 
 case class Union(val query1: Query, val query2: Query) extends SetCombination
@@ -367,8 +323,6 @@ case class Order(alist: Seq[(String, Direction)], query: Query) extends Query {
 
   override def attributeNames(): Set[String] =
     (alist.map(_._1).toSet -- query.getScheme().environment().keySet) ++ query.attributeNames()
-
-  override def toSQL = ???
 }
 
 case class Top(offset: Int, count: Int, query: Query) extends Query {
@@ -377,8 +331,6 @@ case class Top(offset: Int, count: Int, query: Query) extends Query {
 
   override def attributeNames(): Set[String] =
     query.attributeNames()
-
-  override def toSQL = ???
 }
 
 case class Group(columns: Set[String], query: Query) extends Query {
@@ -393,6 +345,4 @@ case class Group(columns: Set[String], query: Query) extends Query {
 
   override def attributeNames(): Set[String] =
     (columns -- query.getScheme().environment().keySet) ++ query.attributeNames()
-
-  override def toSQL = ???
 }

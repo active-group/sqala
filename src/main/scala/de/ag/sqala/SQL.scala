@@ -115,6 +115,40 @@ object SQL {
   def expression(expr: SQLExpression) : Return =
     expr.toSQL // can translate itself to SQL
 
+  def fromQuery(q: Query): SQL = {
+    q match {
+      case BaseRelation(name, scheme, handle) => SQLSelectTable(name, scheme)
+      case EmptyQuery => SQLSelect.empty
+      case Projection(alist, query)  => {
+        val qSQL = fromQuery(query)
+        val projAlist : Seq[(String, SQLExpression)] = alist.map({case (s, e) => (s, e.toSQLExpression)})
+        SQL.makeSQLSelect(projAlist, Seq((None, fromQuery(query)))) // FixMe : None not the best Implementation!!
+      }
+      case Restriction(exp, query) => {
+        val select = toSQLSelect(fromQuery(query))
+        if (exp.isAggregate)
+          // note that having is empty as a result of toSQLSelect
+          select.copy(having = Some(Seq(exp.toSQLExpression)))
+        else
+          // ditto for criteria
+          select.copy(criteria = Seq(exp.toSQLExpression))
+      }
+      case Product(query1, query2) => {
+        val sql1 = fromQuery(query1)
+        val sql2 = fromQuery(query2)
+        sql1 match {
+          case sel1: SQLSelect if (sel1.attributes.isEmpty) => sel1.addTable(sql2)
+          case _ =>
+            sql2 match {
+              case sel2: SQLSelect if (sel2.attributes.isEmpty) => sel2.addTable(sql1)
+              case _ =>
+                SQLSelect.make(tables = Seq((None, sql1), (None, sql2)))
+            }
+        }
+      }
+    }
+  }
+
   def toSQLSelect(thing: SQL): SQLSelect = {
     thing match {
       case SQLSelectEmpty => SQLSelect.empty
