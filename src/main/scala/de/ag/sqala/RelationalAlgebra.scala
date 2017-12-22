@@ -285,7 +285,7 @@ case class Quotient(query1: Query, query2: Query) extends Query with Combination
     query1.attributeNames() ++ query2.attributeNames()
 }
 
-abstract class SetCombination extends Query with Combination {
+sealed abstract class SetCombination extends Query with Combination {
   override def computeScheme(env: Environment): RelationalScheme = {
     val s1 = query1.getScheme(env)
     val s2 = query2.getScheme(env)

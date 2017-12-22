@@ -161,7 +161,7 @@ class SQLTest extends FunSuite {
       Seq((Some("one"), tbl1)), Seq((Some("bl"), tbl2)),
       Seq(SQLExpressionApp(SQLOperator.isNull, Seq(SQLExpressionColumn("fabbs")))),
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("bab"), SQLExpressionColumn("blad")))),
-      Some(Seq("idc")),
+      Some(Set("idc")),
       Some(Seq(SQLExpressionApp(SQLOperator.gt, Seq(SQLExpressionApp(SQLOperator.count, Seq(SQLExpressionColumn("idc"))), SQLExpressionConst(Type.integer, 9))))),
       Some(Seq(("countThem", SQLOrderDescending))), Some(Seq("LIMIT 5"))).toSQLText,
       ("SELECT idc, COUNT(idc) AS countThem"
