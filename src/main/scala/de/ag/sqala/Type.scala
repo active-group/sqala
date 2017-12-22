@@ -75,7 +75,10 @@ case class SetType(member: Type) extends Type {
 
   override def isNullable: Boolean = false
 
-  override def coerce(value: Any): Option[Any] = ??? // FIXME
+  override def coerce(value: Any): Option[Any] = value match {
+    case c: TraversableOnce[_] => Some(c.toSet)
+    case _ => None
+  }
 
   override def toSqlForm(value: Any): String = ??? // FIXME
 }
