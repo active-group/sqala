@@ -70,16 +70,16 @@ class ExpressionTest extends FunSuite {
 
 
   test("toSQLExpression") {
-    assertEquals(AttributeRef("blub").toSQLExpression, SQLExpressionColumn("blub"))
-    assertEquals(Const(Type.integer, 4).toSQLExpression, SQLExpressionConst(Type.integer, 4))
-    assertEquals(Null(Type.boolean).toSQLExpression, SQLExpressionNull)
+    assertEquals(SQLExpression.fromExpression(AttributeRef("blub")), SQLExpressionColumn("blub"))
+    assertEquals(SQLExpression.fromExpression(Const(Type.integer, 4)), SQLExpressionConst(Type.integer, 4))
+    assertEquals(SQLExpression.fromExpression(Null(Type.boolean)), SQLExpressionNull)
     // ToDo Test Expression.Application
-    assertEquals(Tuple(Seq(AttributeRef("a"), Const(Type.string, "gahh"))).toSQLExpression,
+    assertEquals(SQLExpression.fromExpression(Tuple(Seq(AttributeRef("a"), Const(Type.string, "gahh")))),
       SQLExpressionTuple(Seq(SQLExpressionColumn("a"), SQLExpressionConst(Type.string, "gahh"))))
-    assertEquals(Aggregation(AggregationOp.Sum, AttributeRef("anz")).toSQLExpression,
+    assertEquals(SQLExpression.fromExpression(Aggregation(AggregationOp.Sum, AttributeRef("anz"))),
       SQLExpressionApp(SQLOperator.sum, Seq(SQLExpressionColumn("anz"))))
-    assertEquals(Case(Seq((Const(Type.integer, 5), AttributeRef("a")), (Const(Type.integer, 8), AttributeRef("b"))),
-      AttributeRef("c")).toSQLExpression,
+    assertEquals(SQLExpression.fromExpression(Case(Seq((Const(Type.integer, 5), AttributeRef("a")), (Const(Type.integer, 8), AttributeRef("b"))),
+      AttributeRef("c"))),
       SQLExpressionCase(None, Seq(
         (SQLExpressionConst(Type.integer, 5), SQLExpressionColumn("a")),
         (SQLExpressionConst(Type.integer, 8), SQLExpressionColumn("b"))), Some(SQLExpressionColumn("c"))))

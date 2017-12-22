@@ -121,17 +121,17 @@ object SQL {
       case EmptyQuery => SQLSelect.empty
       case Projection(alist, query)  => {
         val qSQL = fromQuery(query)
-        val projAlist : Seq[(String, SQLExpression)] = alist.map({case (s, e) => (s, e.toSQLExpression)})
+        val projAlist : Seq[(String, SQLExpression)] = alist.map {case (s, e) => (s, SQLExpression.fromExpression(e)) }
         SQL.makeSQLSelect(projAlist, Seq((None, fromQuery(query)))) // FixMe : None not the best Implementation!!
       }
       case Restriction(exp, query) => {
         val select = toSQLSelect(fromQuery(query))
         if (exp.isAggregate)
           // note that having is empty as a result of toSQLSelect
-          select.copy(having = Some(Seq(exp.toSQLExpression)))
+          select.copy(having = Some(Seq(SQLExpression.fromExpression(exp))))
         else
           // ditto for criteria
-          select.copy(criteria = Seq(exp.toSQLExpression))
+          select.copy(criteria = Seq(SQLExpression.fromExpression(exp)))
       }
       case Product(query1, query2) => {
         val sql1 = fromQuery(query1)
@@ -296,8 +296,43 @@ object SQLSelectEmpty extends SQL {
 
 
 
-
-
+object SQLExpression {
+  def fromExpression(exp: Expression): SQLExpression = {
+    exp match {
+      case AttributeRef(name) => SQLExpressionColumn(name)
+      case c: Const => SQLExpressionConst(c.ty, c.value)
+      case Null(ty) => SQLExpressionNull
+      case Application(rator, rands) =>
+        rator match {
+          case has: HasSQLOperator =>
+            SQLExpressionApp(has.sqlOperator, rands.map(fromExpression(_)))
+        }
+      case Tuple(exprs) => SQLExpressionTuple(exprs.map(fromExpression(_)))
+      case Aggregation(op, exp) =>
+        SQLExpressionApp(op match {
+          case AggregationOp.Count   => SQLOperator.count
+          case AggregationOp.Sum     => SQLOperator.sum
+          case AggregationOp.Avg     => SQLOperator.avg
+          case AggregationOp.Min     => SQLOperator.min
+          case AggregationOp.Max     => SQLOperator.max
+          case AggregationOp.StdDev  => SQLOperator.stdDev
+          case AggregationOp.StdDevP => SQLOperator.stdDevP
+          case AggregationOp.Var     => SQLOperator.vari
+          case AggregationOp.VarP    => SQLOperator.varP
+        }, Seq(fromExpression(exp)))
+      case AggregationAll(op) =>
+        SQLExpressionApp(op match {
+          case AggregationAllOp.CountAll => SQLOperator.countAll
+        }, Seq())
+      case Case(alist, default) =>
+        SQLExpressionCase(None,
+          alist.map { case (e1, e2) => (fromExpression(e1), fromExpression(e2)) }, 
+          Some(fromExpression(default)))
+      case ScalarSubquery(query) => SQLExpressionSubquery(SQL.fromQuery(query))
+      case SetSubquery(query) => SQLExpressionSubquery(SQL.fromQuery(query))
+    }
+  }
+}
 
 
 trait SQLExpression { // kein SQL, da nicht eigenständig ausführbar
