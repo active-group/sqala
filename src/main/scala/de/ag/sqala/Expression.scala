@@ -23,7 +23,7 @@ sealed trait Expression {
   /** evaluate in a context that wants a sequence of values */
   def evalAll(group: GroupedResult): Seq[Any]
 
-  def toSqlExpression : SqlExpression
+  def toSQLExpression : SQLExpression
 }
 
 object Expression {
@@ -72,7 +72,7 @@ case class AttributeRef(name: String) extends Expression {
     }
   }
 
-  override def toSqlExpression : SqlExpression = SqlExpressionColumn(name)
+  override def toSQLExpression : SQLExpression = SQLExpressionColumn(name)
 }
 
 case class Const(ty: Type, rawValue: Any) extends Expression {
@@ -88,7 +88,7 @@ case class Const(ty: Type, rawValue: Any) extends Expression {
   override def evalAll(group: GroupedResult): Seq[Any] =
     group.ungroupedRows.map { _ => value }
 
-  override def toSqlExpression : SqlExpression = SqlExpressionConst(ty, value)
+  override def toSQLExpression : SQLExpression = SQLExpressionConst(ty, value)
 }
 
 case class Null(ty: Type) extends Expression {
@@ -100,12 +100,12 @@ case class Null(ty: Type) extends Expression {
   override def evalAll(group: GroupedResult): Seq[Any] = 
     group.ungroupedRows.map { _ => null }
 
-  override def toSqlExpression : SqlExpression = SqlExpressionNull
+  override def toSQLExpression : SQLExpression = SQLExpressionNull
 }
 
 case class Rator(name: String, rangeType: Seq[Type] => Type, impl: Seq[Any] => Any) {
   def apply(args: Seq[Any]): Any = impl(args)
-  def toSqlSelect: SqlOperator = ??? // TODO Expression.Rator translate to SqlOperator
+  def toSQLSelect: SQLOperator = ??? // TODO Expression.Rator translate to SQLOperator
 }
 
 object Rator {
@@ -128,7 +128,7 @@ case class Application(rator: Rator, rands: Seq[Expression]) extends Expression 
     }
   }
 
-  override def toSqlExpression : SqlExpression = SqlExpressionApp(rator.toSqlSelect, rands.map(e => e.toSqlExpression))
+  override def toSQLExpression : SQLExpression = SQLExpressionApp(rator.toSQLSelect, rands.map(e => e.toSQLExpression))
 }
 
 case class Tuple(exprs: Seq[Expression]) extends Expression {
@@ -150,7 +150,7 @@ case class Tuple(exprs: Seq[Expression]) extends Expression {
   override def evalAll(group: GroupedResult): Seq[Any] =
     exprs.map { e => e.evalAll(group) }.transpose
 
-  override def toSqlExpression : SqlExpression = SqlExpressionTuple(exprs.map(e => e.toSqlExpression))
+  override def toSQLExpression : SQLExpression = SQLExpressionTuple(exprs.map(e => e.toSQLExpression))
 }
 
 sealed trait AggregationOp {
@@ -291,17 +291,17 @@ case class Aggregation(op: AggregationOp, exp: Expression) extends Expression {
     group.ungroupedRows.map { _ => v }
   }
 
-  override def toSqlExpression : SqlExpression = SqlExpressionApp(op match {
-    case AggregationOp.Count   => SqlOperator.count
-    case AggregationOp.Sum     => SqlOperator.sum
-    case AggregationOp.Avg     => SqlOperator.avg
-    case AggregationOp.Min     => SqlOperator.min
-    case AggregationOp.Max     => SqlOperator.max
-    case AggregationOp.StdDev  => SqlOperator.stdDev
-    case AggregationOp.StdDevP => SqlOperator.stdDevP
-    case AggregationOp.Var     => SqlOperator.vari
-    case AggregationOp.VarP    => SqlOperator.varP
-  }, Seq(exp.toSqlExpression))
+  override def toSQLExpression : SQLExpression = SQLExpressionApp(op match {
+    case AggregationOp.Count   => SQLOperator.count
+    case AggregationOp.Sum     => SQLOperator.sum
+    case AggregationOp.Avg     => SQLOperator.avg
+    case AggregationOp.Min     => SQLOperator.min
+    case AggregationOp.Max     => SQLOperator.max
+    case AggregationOp.StdDev  => SQLOperator.stdDev
+    case AggregationOp.StdDevP => SQLOperator.stdDevP
+    case AggregationOp.Var     => SQLOperator.vari
+    case AggregationOp.VarP    => SQLOperator.varP
+  }, Seq(exp.toSQLExpression))
 }
 
 sealed trait AggregationAllOp {
@@ -331,8 +331,8 @@ case class AggregationAll(op: AggregationAllOp) extends Expression {
     group.ungroupedRows.map { _ => v }
   }
 
-  override def toSqlExpression : SqlExpression = SqlExpressionApp(op match {
-    case AggregationAllOp.CountAll => SqlOperator.countAll
+  override def toSQLExpression : SQLExpression = SQLExpressionApp(op match {
+    case AggregationAllOp.CountAll => SQLOperator.countAll
   }, Seq())
 }
 
@@ -386,10 +386,10 @@ case class Case(alist: Seq[(Expression, Expression)], default: Expression) exten
     }
   }
 
-  override def toSqlExpression : SqlExpression =
-    SqlExpressionCase(None,
-      alist.map({case (e1, e2) => (e1.toSqlExpression, e2.toSqlExpression)}),
-      Some(default.toSqlExpression))
+  override def toSQLExpression : SQLExpression =
+    SQLExpressionCase(None,
+      alist.map({case (e1, e2) => (e1.toSQLExpression, e2.toSQLExpression)}),
+      Some(default.toSQLExpression))
 }
 
 case class ScalarSubquery(query: Query) extends Expression {
@@ -418,8 +418,8 @@ case class ScalarSubquery(query: Query) extends Expression {
   override def evalAll(gr: GroupedResult): Seq[Any] =
     gr.oneByOne().map(eval1(_))
 
-  override def toSqlExpression : SqlExpression =
-    SqlExpressionSubquery(query.toSqlSelect)
+  override def toSQLExpression : SQLExpression =
+    SQLExpressionSubquery(query.toSQL)
 }
 
 case class SetSubquery(query: Query) extends Expression {
@@ -443,6 +443,6 @@ case class SetSubquery(query: Query) extends Expression {
   override def evalAll(group: GroupedResult): Seq[Any] =
     MemoryQuery.computeQueryResults(group, query).map(_.col0)
 
-  override def toSqlExpression : SqlExpression = SqlExpressionSubquery(query.toSqlSelect)
+  override def toSQLExpression : SQLExpression = SQLExpressionSubquery(query.toSQL)
 }
 

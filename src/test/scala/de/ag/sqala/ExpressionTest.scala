@@ -69,20 +69,20 @@ class ExpressionTest extends FunSuite {
   }
 
 
-  test("toSqlExpression") {
-    assertEquals(AttributeRef("blub").toSqlExpression, SqlExpressionColumn("blub"))
-    assertEquals(Const(Type.integer, 4).toSqlExpression, SqlExpressionConst(Type.integer, 4))
-    assertEquals(Null(Type.boolean).toSqlExpression, SqlExpressionNull)
+  test("toSQLExpression") {
+    assertEquals(AttributeRef("blub").toSQLExpression, SQLExpressionColumn("blub"))
+    assertEquals(Const(Type.integer, 4).toSQLExpression, SQLExpressionConst(Type.integer, 4))
+    assertEquals(Null(Type.boolean).toSQLExpression, SQLExpressionNull)
     // ToDo Test Expression.Application
-    assertEquals(Tuple(Seq(AttributeRef("a"), Const(Type.string, "gahh"))).toSqlExpression,
-      SqlExpressionTuple(Seq(SqlExpressionColumn("a"), SqlExpressionConst(Type.string, "gahh"))))
-    assertEquals(Aggregation(AggregationOp.Sum, AttributeRef("anz")).toSqlExpression,
-      SqlExpressionApp(SqlOperator.sum, Seq(SqlExpressionColumn("anz"))))
+    assertEquals(Tuple(Seq(AttributeRef("a"), Const(Type.string, "gahh"))).toSQLExpression,
+      SQLExpressionTuple(Seq(SQLExpressionColumn("a"), SQLExpressionConst(Type.string, "gahh"))))
+    assertEquals(Aggregation(AggregationOp.Sum, AttributeRef("anz")).toSQLExpression,
+      SQLExpressionApp(SQLOperator.sum, Seq(SQLExpressionColumn("anz"))))
     assertEquals(Case(Seq((Const(Type.integer, 5), AttributeRef("a")), (Const(Type.integer, 8), AttributeRef("b"))),
-      AttributeRef("c")).toSqlExpression,
-      SqlExpressionCase(None, Seq(
-        (SqlExpressionConst(Type.integer, 5), SqlExpressionColumn("a")),
-        (SqlExpressionConst(Type.integer, 8), SqlExpressionColumn("b"))), Some(SqlExpressionColumn("c"))))
+      AttributeRef("c")).toSQLExpression,
+      SQLExpressionCase(None, Seq(
+        (SQLExpressionConst(Type.integer, 5), SQLExpressionColumn("a")),
+        (SQLExpressionConst(Type.integer, 8), SQLExpressionColumn("b"))), Some(SQLExpressionColumn("c"))))
   }
 
   test("attributeNames") {

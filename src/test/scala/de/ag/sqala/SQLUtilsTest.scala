@@ -4,22 +4,22 @@ import TestUtil.assertEquals
 
 import org.scalatest.FunSuite
 
-class SqlUtilsTest extends FunSuite {
+class SQLUtilsTest extends FunSuite {
 
-  val att1 = Seq(("first", SqlExpressionColumn("first")), ("abc", SqlExpressionColumn("second")))
-  val att2 = Seq(("blub", SqlExpressionConst(Type.string, "")), ("blubStr", SqlExpressionConst(Type.string, "X")),
-    ("blub2", SqlExpressionConst(Type.integer, 4)))
+  val att1 = Seq(("first", SQLExpressionColumn("first")), ("abc", SQLExpressionColumn("second")))
+  val att2 = Seq(("blub", SQLExpressionConst(Type.string, "")), ("blubStr", SQLExpressionConst(Type.string, "X")),
+    ("blub2", SQLExpressionConst(Type.integer, 4)))
 
   test("putPaddingIf...") {
-    assertEquals(SqlUtils.putPaddingIfNonNull[Int](Seq.empty, {case x: Seq[Int] => (x.map(x => (x+1).toString).mkString(","), x.map(i => (Type.integer, i)))}, "BLA "),
+    assertEquals(SQLUtils.putPaddingIfNonNull[Int](Seq.empty, {case x: Seq[Int] => (x.map(x => (x+1).toString).mkString(","), x.map(i => (Type.integer, i)))}, "BLA "),
       None)
-    assertEquals(SqlUtils.putPaddingIfNonNull[Int](Seq(2),
+    assertEquals(SQLUtils.putPaddingIfNonNull[Int](Seq(2),
       {case x: Seq[Int] => (x.map(x => (x+1).toString).mkString(","), x.map(i => (Type.integer, i)))}, "BLA "),
       Some(("BLA 3", Seq((Type.integer, 2)))))
-    assertEquals(SqlUtils.putPaddingIfNonNull[Int](Seq(2, 5, 9),
+    assertEquals(SQLUtils.putPaddingIfNonNull[Int](Seq(2, 5, 9),
       {case x: Seq[Int] => (x.map(x => (x+1).toString).mkString(","), x.map(i => (Type.integer, i)))}, "BLA "),
       Some(("BLA 3,6,10", Seq((Type.integer, 2), (Type.integer, 5), (Type.integer, 9)))))
-    assertEquals(SqlUtils.putPaddingIfNonNull[Int](Seq(2, 5, 9),
+    assertEquals(SQLUtils.putPaddingIfNonNull[Int](Seq(2, 5, 9),
       {case x: Seq[Int] => (x.map(x => (x+2).toString).mkString("-"), Seq.empty)}, "BAL "),
       Some(("BAL 4-7-11", Seq.empty)))
   }
@@ -28,20 +28,20 @@ class SqlUtilsTest extends FunSuite {
   val ret2 = ("This to Go", Seq((Type.integer, 4), (Type.string, "foo")))
 
   test("function with alias") {
-    assertEquals(SqlUtils.defaultPutAlias(None), "")
-    assertEquals(SqlUtils.defaultPutAlias(Some("Blub")), " AS Blub")
-    assertEquals(SqlUtils.putAlias(None), None)
-    assertEquals(SqlUtils.putAlias(Some("B")), Some(" AS B"))
-    assertEquals(SqlUtils.putColumnAnAlias(ret1, None), ret1)
-    assertEquals(SqlUtils.putColumnAnAlias(ret2, None), ret2)
-    assertEquals(SqlUtils.putColumnAnAlias(ret1, Some("X")), ("BlabaB AS X", ret1._2))
-    assertEquals(SqlUtils.putColumnAnAlias(ret2, Some("X")), ("This to Go AS X", ret2._2))
+    assertEquals(SQLUtils.defaultPutAlias(None), "")
+    assertEquals(SQLUtils.defaultPutAlias(Some("Blub")), " AS Blub")
+    assertEquals(SQLUtils.putAlias(None), None)
+    assertEquals(SQLUtils.putAlias(Some("B")), Some(" AS B"))
+    assertEquals(SQLUtils.putColumnAnAlias(ret1, None), ret1)
+    assertEquals(SQLUtils.putColumnAnAlias(ret2, None), ret2)
+    assertEquals(SQLUtils.putColumnAnAlias(ret1, Some("X")), ("BlabaB AS X", ret1._2))
+    assertEquals(SQLUtils.putColumnAnAlias(ret2, Some("X")), ("This to Go AS X", ret2._2))
   }
 
   test("joiningInfix") {
-    assertEquals(SqlUtils.putJoiningInfix[String](Seq.empty, ",", x => ("BX", Seq.empty)), ("", Seq.empty))
-    assertEquals(SqlUtils.putJoiningInfixOption[String](Seq.empty, ",", x => ("BX", Seq.empty)), Some(("", Seq.empty)))
-    assertEquals(SqlUtils.putJoiningInfix[String](Seq("a", "b"), "-", x => ("BX", Seq((Type.string, x)))),
+    assertEquals(SQLUtils.putJoiningInfix[String](Seq.empty, ",", x => ("BX", Seq.empty)), ("", Seq.empty))
+    assertEquals(SQLUtils.putJoiningInfixOption[String](Seq.empty, ",", x => ("BX", Seq.empty)), Some(("", Seq.empty)))
+    assertEquals(SQLUtils.putJoiningInfix[String](Seq("a", "b"), "-", x => ("BX", Seq((Type.string, x)))),
       ("BX-BX", Seq((Type.string, "a"), (Type.string, "b"))))
   }
 
@@ -53,16 +53,16 @@ class SqlUtilsTest extends FunSuite {
     assertEquals(SQL.attributes(att1), Some(("first, second AS abc", Seq.empty)))
     assertEquals(SQL.attributes(att2), Some(("? AS blub, ? AS blubStr, ? AS blub2",
       Seq((Type.string, ""), (Type.string, "X"), (Type.integer, 4)))))
-    assertEquals(SqlUtils.putLiteral(Type.integer, 5), ("?", Seq((Type.integer, 5))))
+    assertEquals(SQLUtils.putLiteral(Type.integer, 5), ("?", Seq((Type.integer, 5))))
   }
 
 
 
   test("surround and concat SQL") {
-    assertEquals(SqlUtils.surroundSQL("", ("blublba", Seq((Type.string, "bla"))), ""), ("blublba", Seq((Type.string, "bla"))))
-    assertEquals(SqlUtils.surroundSQL("y", ("blublba", Seq((Type.string, "bla"))), "<"), ("yblublba<", Seq((Type.string, "bla"))))
-    assertEquals(SqlUtils.concatSQL(Seq.empty), ("", Seq.empty))
-    assertEquals(SqlUtils.concatSQL(Seq(
+    assertEquals(SQLUtils.surroundSQL("", ("blublba", Seq((Type.string, "bla"))), ""), ("blublba", Seq((Type.string, "bla"))))
+    assertEquals(SQLUtils.surroundSQL("y", ("blublba", Seq((Type.string, "bla"))), "<"), ("yblublba<", Seq((Type.string, "bla"))))
+    assertEquals(SQLUtils.concatSQL(Seq.empty), ("", Seq.empty))
+    assertEquals(SQLUtils.concatSQL(Seq(
       ("a", Seq((Type.boolean, true))),
       ("b", Seq((Type.integer, 3), (Type.string, "a"))),
       ("d", Seq.empty),
@@ -73,9 +73,9 @@ class SqlUtilsTest extends FunSuite {
 
 
 
-  val tbl1 = SqlSelectTable("tabelleA", RelationalScheme.make(Seq(("a", Type.string), ("b", Type.string))))
-  val tbl2 = SqlSelectTable("tabelleB", RelationalScheme.make(Seq(("b", Type.string), ("c", Type.string))))
-  val tbl3 = SQL.makeSqlSelect(Seq(("a", SqlExpressionColumn("b"))), Seq((Some("t1"), tbl1)))
+  val tbl1 = SQLSelectTable("tabelleA", RelationalScheme.make(Seq(("a", Type.string), ("b", Type.string))))
+  val tbl2 = SQLSelectTable("tabelleB", RelationalScheme.make(Seq(("b", Type.string), ("c", Type.string))))
+  val tbl3 = SQL.makeSQLSelect(Seq(("a", SQLExpressionColumn("b"))), Seq((Some("t1"), tbl1)))
 
   test("SQL - join") {
     assertEquals(SQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA", Seq.empty)))
@@ -83,13 +83,13 @@ class SqlUtilsTest extends FunSuite {
     assertEquals(SQL.join(Seq((None, tbl1), (None, tbl2), (Some("tdx"), tbl3)), Seq.empty, Seq.empty),
       Some(("FROM tabelleA, tabelleB, (SELECT b AS a FROM tabelleA AS t1) AS tdx", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1)), Seq((Some("tx"), tbl2)),
-      Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("a"), SqlExpressionColumn("b"))))),
+      Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("a"), SQLExpressionColumn("b"))))),
       Some(("FROM tabelleA LEFT JOIN tabelleB AS tx ON (a = b)", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1), (Some("tdx"), tbl3)), Seq((None, tbl2)),
-      Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("a"), SqlExpressionColumn("b"))))),
+      Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("a"), SQLExpressionColumn("b"))))),
       Some(("FROM (SELECT * FROM tabelleA, (SELECT b AS a FROM tabelleA AS t1) AS tdx) LEFT JOIN tabelleB ON (a = b)", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1)), Seq((Some("t1"), tbl1), (Some("t2"), tbl2), (Some("tt"), tbl1)),
-      Seq(SqlExpressionApp(SqlOperator.eq, Seq(SqlExpressionColumn("b"), SqlExpressionColumn("a"))))),
+      Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("b"), SQLExpressionColumn("a"))))),
       Some(("FROM tabelleA LEFT JOIN tabelleA AS t1 ON (1=1) LEFT JOIN tabelleB AS t2 ON (1=1) LEFT JOIN tabelleA AS tt ON (b = a)", Seq.empty)))
   }
 
@@ -130,7 +130,7 @@ LEFT OUTER JOIN (VALUES (5,'x'), (6,'x')) t3 (id,nam) ON t1.nam = t3.nam
  => (1=1) kann nicht pauschal bei LEFT JOIN verwendet werden.
 
 
-In Sqloure:
+In SQLoure:
 
   (sqlosure.sql-put/sql-select->string
           (query->sql
@@ -167,10 +167,10 @@ In Sqloure:
   test("having") {
     assertEquals(SQL.having(None), None)
     assertEquals(SQL.having(Some(Seq.empty)), None)
-    assertEquals(SQL.having(Some(Seq(SqlTest.longExpr))), Some(("HAVING " + SqlTest.longExpr1T._1, SqlTest.longExpr1T._2)))
+    assertEquals(SQL.having(Some(Seq(SQLTest.longExpr))), Some(("HAVING " + SQLTest.longExpr1T._1, SQLTest.longExpr1T._2)))
     assertEquals(SQL.having(Some(Seq(
-      SqlExpressionApp(SqlOperator.between, Seq(SqlExpressionColumn("valueA"), SqlExpressionConst(Type.integer, 4), SqlExpressionConst(Type.integer, 10))),
-      SqlExpressionExists(SqlTest.adr1)
+      SQLExpressionApp(SQLOperator.between, Seq(SQLExpressionColumn("valueA"), SQLExpressionConst(Type.integer, 4), SQLExpressionConst(Type.integer, 10))),
+      SQLExpressionExists(SQLTest.adr1)
     ))),
       Some(("HAVING ((valueA BETWEEN ? AND ?) AND EXISTS (SELECT * FROM addresses))", Seq((Type.integer, 4), (Type.integer, 10)))))
   }
@@ -185,8 +185,8 @@ In Sqloure:
   test("order") {
     assertEquals(SQL.orderBy(None), None)
     assertEquals(SQL.orderBy(Some(Seq.empty)), None)
-    assertEquals(SQL.orderBy(Some(Seq(("one", SqlOrderAscending)))), Some(("ORDER BY one ASC", Seq.empty)))
-    assertEquals(SQL.orderBy(Some(Seq(("one", SqlOrderDescending), ("third", SqlOrderAscending)))),
+    assertEquals(SQL.orderBy(Some(Seq(("one", SQLOrderAscending)))), Some(("ORDER BY one ASC", Seq.empty)))
+    assertEquals(SQL.orderBy(Some(Seq(("one", SQLOrderDescending), ("third", SQLOrderAscending)))),
       Some(("ORDER BY one DESC, third ASC", Seq.empty)))
   }
 
