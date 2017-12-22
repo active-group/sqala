@@ -4,7 +4,7 @@ import TestUtil.assertEquals
 
 import org.scalatest.FunSuite
 
-class TypeTests extends FunSuite {
+class TypeTest extends FunSuite {
 
   test("nullability") {
     val n = Type.string.toNullable()
