@@ -6,8 +6,15 @@ object SQLUniverse {
     // FIXME: coercibility
     { _ => Type.boolean },
     // FIXME: coercion
-    { args => args(0) == args(1) })
-    with HasSQLOperator {
-      val sqlOperator = SQLOperator.eq
-    }
+    { args => args(0) == args(1) }) with HasSQLOperator {
+    val sqlOperator = SQLOperator.eq
+  }
+
+  val in = new Rator("IN",
+    // FIXME: coercibility
+    { _ => Type.boolean },
+    // FIXME: coercion
+    { args => args(1).asInstanceOf[Set[Any]].contains(args(0)) }) with HasSQLOperator {
+    val sqlOperator = SQLOperator.in
+  }
 }
