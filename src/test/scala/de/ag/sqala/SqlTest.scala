@@ -108,7 +108,7 @@ class SQLTest extends FunSuite {
 
   test("SelectCombineOperations") {
     // Test all known CombineOpterators
-    def withAll(sqlI1: SQLInterpretations, sqlI2: SQLInterpretations, strLeft: String, strRight: String,
+    def withAll(sqlI1: SQL, sqlI2: SQL, strLeft: String, strRight: String,
                 paramsLeft: Seq[(Type, String)], paramsRight: Seq[(Type, String)]) = {
       val check : Seq[(SQLCombineOperator, String)] = Seq(
         (SQLCombineOperator.Union, " UNION "),
