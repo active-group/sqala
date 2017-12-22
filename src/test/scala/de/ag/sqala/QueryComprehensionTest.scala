@@ -129,12 +129,12 @@ class QueryComprehensionTest extends FunSuite {
 
 
   test("Translation to SqlSelect") {
-    assertEquals(EmptyQuery.toSqlSelect(), SqlSelectEmpty)
-    assertEquals(tbl1.toSqlSelect(), SqlSelectTable("tb1", RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer)))))
-    assertEquals(QueryMonad.embed(tbl1).buildQuery().toSqlSelect().toSQL,
+    assertEquals(EmptyQuery.toSqlSelect, SqlSelectEmpty)
+    assertEquals(tbl1.toSqlSelect, SqlSelectTable("tb1", RelationalScheme.make(Seq(("one", Type.string), ("two", Type.integer)))))
+    assertEquals(QueryMonad.embed(tbl1).buildQuery().toSqlSelect.toSQL,
       ("SELECT one_0 AS one, two_0 AS two FROM (SELECT one AS one_0, two AS two_0 FROM tb1)", Seq()))
     //assertEquals(qm1.run()._2, 0)
-    assertEquals(qm1.buildQuery().toSqlSelect().toSQL,
+    assertEquals(qm1.buildQuery().toSqlSelect.toSQL,
       ("SELECT onex_1 AS onex FROM (SELECT one_0, two_0, one_0 AS onex_1 FROM (SELECT one AS one_0, two AS two_0 FROM tb1))", Seq()))
   }
 }

@@ -419,7 +419,7 @@ case class ScalarSubquery(query: Query) extends Expression {
     gr.oneByOne().map(eval1(_))
 
   override def toSqlExpression : SqlExpression =
-    SqlExpressionSubquery(query.toSqlSelect())
+    SqlExpressionSubquery(query.toSqlSelect)
 }
 
 case class SetSubquery(query: Query) extends Expression {
@@ -443,6 +443,6 @@ case class SetSubquery(query: Query) extends Expression {
   override def evalAll(group: GroupedResult): Seq[Any] =
     MemoryQuery.computeQueryResults(group, query).map(_.col0)
 
-  override def toSqlExpression : SqlExpression = SqlExpressionSubquery(query.toSqlSelect())
+  override def toSqlExpression : SqlExpression = SqlExpressionSubquery(query.toSqlSelect)
 }
 

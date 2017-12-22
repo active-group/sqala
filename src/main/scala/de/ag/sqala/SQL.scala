@@ -114,21 +114,35 @@ object SQL {
   // Translate a Expression
   def expression(expr: SqlExpression) : SqlReturn =
     expr.toSQL // can translate itself to SQL
+
+  def toSQLSelect(thing: SqlInterpretations): SqlSelect = {
+    thing match {
+      case SqlSelectEmpty => SqlSelect.empty
+      case SqlSelectTable(name, schema) =>
+        SqlSelect.make(tables = Seq((None, thing)))
+      case _: SqlSelectCombine =>
+        SqlSelect.make(tables = Seq((None, thing)))
+      case sel: SqlSelect => { // FIXME: nicer way?
+        if (sel.attributes.isEmpty)
+          sel
+        else if (sel.groupBy.isDefined)
+          SqlSelect.make(tables = Seq((None, thing)))
+        else
+          SqlSelect.make(tables = Seq((None, sel.copy(groupBy = None))),
+            groupBy = sel.groupBy)
+      }
+    }
+  }
 }
 
 
-
-
-
-
-
-trait SqlInterpretations {
+sealed trait SqlInterpretations {
   /**
     * wandelt die Strukturen in SQL-Statmentes um
     *
     * @return (SQL-Query, Seq[(Typ, Wert)]    : Als Seq wird der Datentyp und der Wert und die Variable übermittelt
     */
-  def toSQL : SQL.SqlReturn
+  def toSQL: SQL.SqlReturn
 }
 
 
@@ -174,6 +188,27 @@ final case class SqlSelect(
   }
 }
 
+object SqlSelect {
+  def make(options: Option[Seq[String]] = None, // like DISTINCT, ALL ...
+    attributes: Seq[(String, SqlExpression)] = Seq.empty, // column, expression
+                                              // nullary: Boolean, // TODO : was ist damit gemeint ?
+    tables: Seq[(Option[String], SqlInterpretations)] = Seq.empty,
+    outerTables: Seq[(Option[String], SqlInterpretations)] = Seq.empty,
+    criteria: Seq[SqlExpression] = Seq.empty, // WHERE ...
+    outerCriteria: Seq[SqlExpression] = Seq.empty, // left join ... on ...
+    groupBy: Option[Seq[String]] = None,
+    // FixMe - groupBy : statt SqlExpression nur String - da nur Column zulässig wäre
+    having: Option[Seq[SqlExpression]] = None,
+    // FixMe - having : evt Aggregation einschränken - bzw. diese nur hier und nicht in Criteria zulassen ?!
+    orderBy: Option[Seq[(String, SqlOrder)]] = None,
+    // FixMe - orderBy : statt SqlExpression nur String - da nur die Column zulässig wäre (und nicht andere Expressions)!
+    // FixMe groupBy, having, orderBy werden bei leeren Seq falsch ausgewertet -> soll abgefangen werden?
+    extra: Option[Seq[String]] = None) = // TODO: -> LIMIT, TOP   ...
+    SqlSelect(options, attributes, tables, outerTables, criteria, outerCriteria, groupBy, having, orderBy, extra)
+
+
+  val empty = make()
+}
 
 /**
   * CombineOperation like UNION, INTERSECT ...
