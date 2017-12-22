@@ -152,8 +152,7 @@ sealed abstract class Query {
   def top(offset: Int, count: Int): Query =
     Top(offset, count, this)
 
-  // Tranlation in SQLSelect
-  def toSQL : SQLInterpretations
+  def toSQL: SQL
 }
 
 object Query {

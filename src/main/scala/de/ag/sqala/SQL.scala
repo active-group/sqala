@@ -15,12 +15,12 @@ object SQL {
   /*def makeSQLTable(name: String, schema: RelationalScheme) : BaseRelation[SQLSelectTable] =
     BaseRelation(name, schema, SQLSelectTable(name, schema))*/
 
-  def makeSQLSelect(attributes: Seq[(String, SQLExpression)], tables: Seq[(Option[String], SQLInterpretations)]) : SQLSelect =
+  def makeSQLSelect(attributes: Seq[(String, SQLExpression)], tables: Seq[(Option[String], SQL)]) : SQLSelect =
     SQLSelect(None, attributes, tables, Seq.empty,
       Seq.empty, Seq.empty,
       None, None, None, None)
 
-  def makeSQLSelect(options: Seq[String], attributes: Seq[(String, SQLExpression)], tables: Seq[(Option[String], SQLInterpretations)]) : SQLSelect =
+  def makeSQLSelect(options: Seq[String], attributes: Seq[(String, SQLExpression)], tables: Seq[(Option[String], SQL)]) : SQLSelect =
     SQLSelect(Some(options), attributes, tables, Seq.empty,
       Seq.empty, Seq.empty,
       None, None, None, None)
@@ -54,7 +54,7 @@ object SQL {
    Tupel/Trippel aus OuterTable und dazu gehörigen Criteria -> die direkt als ON angefügt werden ?!
     */
   // add outer-restricts
-  def join(tables: Seq[(Option[String], SQLInterpretations)], outerTables: Seq[(Option[String], SQLInterpretations)],
+  def join(tables: Seq[(Option[String], SQL)], outerTables: Seq[(Option[String], SQL)],
            outerCriteria: Seq[SQLExpression]) : ReturnOption = {
     val tempTabs = putTables(tables, ", ")
     Some(SQLUtils.surroundSQL("FROM ",
@@ -76,10 +76,10 @@ object SQL {
       ""))
   }
 
-  def putTables(tables: Seq[(Option[String], SQLInterpretations)], between: String) : Return =
-    SQLUtils.putJoiningInfix[(Option[String], SQLInterpretations)](tables, between, {
+  def putTables(tables: Seq[(Option[String], SQL)], between: String) : Return =
+    SQLUtils.putJoiningInfix[(Option[String], SQL)](tables, between, {
       case (alias: Option[String], select: SQLSelectTable) => SQLUtils.putColumnAnAlias((select.name, Seq.empty), alias)
-      case (alias: Option[String], select: SQLInterpretations) => {
+      case (alias: Option[String], select: SQL) => {
         val temp: Return = select.toSQLText
         SQLUtils.putColumnAnAlias(("("+temp._1+")", temp._2), alias)
       }
@@ -115,7 +115,7 @@ object SQL {
   def expression(expr: SQLExpression) : Return =
     expr.toSQL // can translate itself to SQL
 
-  def toSQLSelect(thing: SQLInterpretations): SQLSelect = {
+  def toSQLSelect(thing: SQL): SQLSelect = {
     thing match {
       case SQLSelectEmpty => SQLSelect.empty
       case SQLSelectTable(name, schema) =>
@@ -136,7 +136,7 @@ object SQL {
 }
 
 
-sealed trait SQLInterpretations {
+sealed trait SQL {
   /**
     * wandelt die Strukturen in SQL-Statmentes um
     *
@@ -149,7 +149,7 @@ sealed trait SQLInterpretations {
 final case class SQLSelectTable(
                                  name: String,
                                  schema: RelationalScheme
-                               ) extends SQLInterpretations {
+                               ) extends SQL {
   override def toSQLText: SQL.Return = ("SELECT * FROM "+name, Seq.empty)
 }
 
@@ -157,8 +157,8 @@ final case class SQLSelect(
                             options: Option[Seq[String]], // like DISTINCT, ALL ...
                             attributes: Seq[(String, SQLExpression)], // column, expression
                             //nullary: Boolean, // TODO : was ist damit gemeint ?
-                            tables: Seq[(Option[String], SQLInterpretations)],
-                            outerTables: Seq[(Option[String], SQLInterpretations)],
+                            tables: Seq[(Option[String], SQL)],
+                            outerTables: Seq[(Option[String], SQL)],
                             criteria: Seq[SQLExpression], // WHERE ...
                             outerCriteria: Seq[SQLExpression], // left join ... on ...
                             groupBy: Option[Seq[String]],
@@ -169,7 +169,7 @@ final case class SQLSelect(
                           // FixMe - orderBy : statt SQLExpression nur String - da nur die Column zulässig wäre (und nicht andere Expressions)!
                           // FixMe groupBy, having, orderBy werden bei leeren Seq falsch ausgewertet -> soll abgefangen werden?
                             extra: Option[Seq[String]] // TODO: -> LIMIT, TOP   ...
-                          ) extends SQLInterpretations {
+                          ) extends SQL {
   override def toSQLText: SQL.Return = {
     val tempSeq : Seq[SQL.ReturnOption] = Seq(
       Some(("SELECT", Seq.empty)),
@@ -192,8 +192,8 @@ object SQLSelect {
   def make(options: Option[Seq[String]] = None, // like DISTINCT, ALL ...
     attributes: Seq[(String, SQLExpression)] = Seq.empty, // column, expression
                                               // nullary: Boolean, // TODO : was ist damit gemeint ?
-    tables: Seq[(Option[String], SQLInterpretations)] = Seq.empty,
-    outerTables: Seq[(Option[String], SQLInterpretations)] = Seq.empty,
+    tables: Seq[(Option[String], SQL)] = Seq.empty,
+    outerTables: Seq[(Option[String], SQL)] = Seq.empty,
     criteria: Seq[SQLExpression] = Seq.empty, // WHERE ...
     outerCriteria: Seq[SQLExpression] = Seq.empty, // left join ... on ...
     groupBy: Option[Seq[String]] = None,
@@ -216,9 +216,9 @@ object SQLSelect {
 
 final case class SQLSelectCombine(
                                    operation: SQLCombineOperator,
-                                   left: SQLInterpretations,
-                                   right: SQLInterpretations
-                                 ) extends SQLInterpretations {
+                                   left: SQL,
+                                   right: SQL
+                                 ) extends SQL {
   override def toSQLText: SQL.Return =
     operation.toSQLText(left.toSQLText, right.toSQLText)
 }
@@ -250,7 +250,7 @@ object SQLCombineOperator {
 
 
 
-object SQLSelectEmpty extends SQLInterpretations {
+object SQLSelectEmpty extends SQL {
   override def toSQLText: SQL.Return = ("", Seq.empty)
 }
 
@@ -261,7 +261,7 @@ object SQLSelectEmpty extends SQLInterpretations {
 
 
 
-trait SQLExpression { // kein SQLInterpretations, da nicht eigenständig ausführbar
+trait SQLExpression { // kein SQL, da nicht eigenständig ausführbar
   def toSQL : SQL.Return
 }
 
@@ -306,7 +306,7 @@ case class SQLExpressionCase(input: Option[SQLExpression],
       " END)")
   }
 }
-case class SQLExpressionExists(select: SQLInterpretations) extends SQLExpression {
+case class SQLExpressionExists(select: SQL) extends SQLExpression {
   override def toSQL : SQL.Return =
     SQLUtils.surroundSQL("EXISTS (", select.toSQLText, ")")
 }
@@ -316,7 +316,7 @@ case class SQLExpressionTuple(expressions: Seq[SQLExpression]) extends SQLExpres
       e: SQLExpression => e.toSQL
     }), ")")
 }
-case class SQLExpressionSubquery(query: SQLInterpretations) extends SQLExpression {
+case class SQLExpressionSubquery(query: SQL) extends SQLExpression {
   override def toSQL : SQL.Return =
     SQLUtils.surroundSQL("(", query.toSQLText, ")")
 }
