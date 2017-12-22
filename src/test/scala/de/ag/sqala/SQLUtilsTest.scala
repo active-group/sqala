@@ -177,9 +177,9 @@ In SQLoure:
 
   test("group by") {
     assertEquals(SQL.groupBy(None), None)
-    assertEquals(SQL.groupBy(Some(Seq.empty)), None)
-    assertEquals(SQL.groupBy(Some(Seq("blub"))), Some(("GROUP BY blub", Seq.empty)))
-    assertEquals(SQL.groupBy(Some(Seq("one", "two"))), Some(("GROUP BY one, two", Seq.empty)))
+    assertEquals(SQL.groupBy(Some(Set.empty)), None)
+    assertEquals(SQL.groupBy(Some(Set("blub"))), Some(("GROUP BY blub", Seq.empty)))
+    assertEquals(SQL.groupBy(Some(Set("one", "two"))), Some(("GROUP BY one, two", Seq.empty)))
   }
 
   test("order") {

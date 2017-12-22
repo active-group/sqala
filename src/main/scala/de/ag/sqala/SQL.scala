@@ -89,8 +89,8 @@ object SQL {
   def criterias(crit: Seq[SQLExpression]) : ReturnOption =
     SQLUtils.putPaddingIfNonNull(crit, conditions, "WHERE ")
 
-  def groupBy(grBy: Option[Seq[String]]) : ReturnOption =
-    grBy.flatMap(g => SQLUtils.putPaddingIfNonNull[String](g,
+  def groupBy(grBy: Option[Set[String]]) : ReturnOption =
+    grBy.flatMap(g => SQLUtils.putPaddingIfNonNull[String](g.toSeq,
       {case gg: Seq[String] => SQLUtils.putJoiningInfix[String](gg, ", ", { case x: String => (x, Seq.empty) })},
       "GROUP BY "))
 
@@ -118,7 +118,7 @@ object SQL {
   def fromQuery(q: Query): SQL = {
     q match {
       case BaseRelation(name, scheme, handle) => SQLSelectTable(name, scheme)
-      case EmptyQuery => SQLSelect.empty
+      case EmptyQuery => SQLSelectEmpty
       case Projection(alist, query)  => {
         val qSQL = fromQuery(query)
         val projAlist : Seq[(String, SQLExpression)] = alist.map {case (s, e) => (s, SQLExpression.fromExpression(e)) }
@@ -146,6 +146,57 @@ object SQL {
             }
         }
       }
+      case Group(columns, query) => {
+        val sel = toSQLSelect(SQL.fromQuery(query))
+        sel.copy(groupBy = Some(sel.groupBy.getOrElse(Set.empty) ++ columns))
+      }
+      case LeftOuterProduct(query1, query2) => {
+        /*  we must not simply add sql2 to sql1's outer tables,
+         *  as this might trigger x->sql (called in the surrounding
+         * make-restrict-outer) to wrap another SQL query around the
+         *  whole thing, thus moving the ON to a place where it's invalid
+         */
+        val sql1 = fromQuery(query1)
+        val sql2 = fromQuery(query2)
+        SQLSelect.make(tables = Seq((None, sql1)), outerTables = Seq((None, sql2)))
+      }
+      case OuterRestriction(exp, query) => {
+        val sel = toSQLSelect(fromQuery(query))
+        sel.copy(outerCriteria = Seq(SQLExpression.fromExpression(exp)))
+      }
+      case Order(alist, query) => {
+        val sel = toSQLSelect(fromQuery(query))
+        val sqlAlist = alist.map { case (name, dir) =>
+          val sqlDir = dir match {
+            case Direction.Ascending => SQLOrderAscending
+            case Direction.Descending => SQLOrderDescending
+          }
+          (name, sqlDir)
+        }
+        sel.copy(orderBy = Some(sqlAlist))
+      }
+      case Quotient(query1, query2) => {
+        /* from Matos, Grasser: A Simpler (and Better) SQL Approach to Relational Division
+	 *  SELECT A
+	 *  FROM T1
+	 *  WHERE B IN ( SELECT B FROM T2 )
+	 *  GROUP BY A
+	 *  HAVING COUNT(*) =
+	 *   ( SELECT COUNT (*) FROM T2 );
+         */
+        /// FIXME: and once again schemes are required ...
+        ???
+      }
+      case Top(offset, count, query) => {
+        val sel = toSQLSelect(fromQuery(query))
+        sel.copy(extra = Some(Seq(s"LIMIT $count OFFSET $offset")))
+      }
+      case Union(query1, query2) =>
+        SQLSelectCombine(SQLCombineOperator.Union, fromQuery(query1), fromQuery(query2))
+      case Intersection(query1, query2) =>
+        SQLSelectCombine(SQLCombineOperator.Intersection, fromQuery(query1), fromQuery(query2))
+      case Difference(query1, query2) =>
+        SQLSelectCombine(SQLCombineOperator.Difference, fromQuery(query1), fromQuery(query2))
     }
   }
 
@@ -195,7 +246,7 @@ final case class SQLSelect(
                             outerTables: Seq[(Option[String], SQL)],
                             criteria: Seq[SQLExpression], // WHERE ...
                             outerCriteria: Seq[SQLExpression], // left join ... on ...
-                            groupBy: Option[Seq[String]],
+                            groupBy: Option[Set[String]],
                           // FixMe - groupBy : statt SQLExpression nur String - da nur Column zulässig wäre
                             having: Option[Seq[SQLExpression]],
                             // FixMe - having : evt Aggregation einschränken - bzw. diese nur hier und nicht in Criteria zulassen ?!
@@ -235,7 +286,7 @@ object SQLSelect {
     outerTables: Seq[(Option[String], SQL)] = Seq.empty,
     criteria: Seq[SQLExpression] = Seq.empty, // WHERE ...
     outerCriteria: Seq[SQLExpression] = Seq.empty, // left join ... on ...
-    groupBy: Option[Seq[String]] = None,
+    groupBy: Option[Set[String]] = None,
     // FixMe - groupBy : statt SQLExpression nur String - da nur Column zulässig wäre
     having: Option[Seq[SQLExpression]] = None,
     // FixMe - having : evt Aggregation einschränken - bzw. diese nur hier und nicht in Criteria zulassen ?!
@@ -306,6 +357,8 @@ object SQLExpression {
         rator match {
           case has: HasSQLOperator =>
             SQLExpressionApp(has.sqlOperator, rands.map(fromExpression(_)))
+          case _ =>
+            throw new AssertionError("trying to translate operator to SQL that doesn't have SQL translation")
         }
       case Tuple(exprs) => SQLExpressionTuple(exprs.map(fromExpression(_)))
       case Aggregation(op, exp) =>
