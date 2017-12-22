@@ -186,6 +186,11 @@ final case class SQLSelect(
     SQLUtils.putJoiningInfix[SQL.ReturnOption](tempSeq.filter(_.isDefined), " ",
       {x => x.get})
   }
+
+  def addTable(sql: SQL): SQLSelect = {
+    val p = (None, sql) // avoid compiler warning
+    this.copy(tables = tables :+ p)
+  }
 }
 
 object SQLSelect {

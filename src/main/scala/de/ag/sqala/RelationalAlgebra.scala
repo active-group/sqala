@@ -238,7 +238,15 @@ case class OuterRestriction(exp: Expression, query: Query) extends Query {
   override def attributeNames(): Set[String] =
     (exp.attributeNames() -- query.getScheme().environment().keySet) ++ query.attributeNames()
 
-  override def toSQL = ???
+  override def toSQL = {
+    val select = SQL.toSQLSelect(query.toSQL)
+    if (exp.isAggregate)
+      // note that having is empty as a result of toSQLSelect
+      select.copy(having = Some(Seq(exp.toSQLExpression)))
+    else
+      // ditto for criteria
+      select.copy(criteria = Seq(exp.toSQLExpression))
+  }
 }
 
 trait Combination {
@@ -260,7 +268,19 @@ case class Product(query1: Query, query2: Query) extends Query with Combination 
   override def attributeNames(): Set[String] =
     query1.attributeNames() ++ query2.attributeNames()
 
-  override def toSQL = ???
+  override def toSQL = {
+    val sql1 = query1.toSQL
+    val sql2 = query2.toSQL
+    sql1 match {
+      case sel1: SQLSelect if (sel1.attributes.isEmpty) => sel1.addTable(sql2)
+      case _ =>
+        sql2 match {
+          case sel2: SQLSelect if (sel2.attributes.isEmpty) => sel2.addTable(sql1)
+          case _ =>
+            SQLSelect.make(tables = Seq((None, sql1), (None, sql2)))
+        }
+    }
+  }
 }
 
 case class LeftOuterProduct(query1: Query, query2: Query) extends Query with Combination {
