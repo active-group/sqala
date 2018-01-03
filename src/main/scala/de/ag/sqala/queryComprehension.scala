@@ -38,16 +38,16 @@ case class QueryMonad[A](transform: State => (A, State)) {
                  qm.transform(st1) }
 
   def union(p2: Comprehension)(implicit ev:  QueryMonad[A] =:= Comprehension): Comprehension =
-    combination(Union, (s1, s2) => s1, this, p2)
+    combination(_.union(_), (s1, s2) => s1, this, p2)
 
   def intersect(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
-    combination(Intersection, (s1, s2) => s1, this, p2)
+    combination(_.intersection(_), (s1, s2) => s1, this, p2)
 
   def divide(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
-    combination(Quotient, (s1, s2) => s1.difference(s2), this, p2)
+    combination(_ / _, (s1, s2) => s1.difference(s2), this, p2)
 
   def subtract(p2: Comprehension)(implicit ev: QueryMonad[A] =:= Comprehension): Comprehension =
-    combination(Difference, (s1, s2) => s1, this, p2)
+    combination(_.difference(_), (s1, s2) => s1, this, p2)
 
   /**
     * 
@@ -58,10 +58,10 @@ case class QueryMonad[A](transform: State => (A, State)) {
   
   def buildQuery(state: QueryMonad.State = emptyState): Query =
     run(state) match { case (r: Relation, s) =>
-      Projection(
+      s.query.project(
         r.scheme.columns.map { case s =>
-          (s, AttributeRef(freshName(s, r.alias)))},
-        s.query)
+          (s, AttributeRef(freshName(s, r.alias)))}
+      )
     }
 }
 
