@@ -120,7 +120,6 @@ object SQL {
       case BaseRelation(name, scheme, handle) => SQLSelectTable(name, scheme)
       case EmptyQuery => SQLSelectEmpty
       case Projection(alist, query)  => {
-        val qSQL = fromQuery(query)
         val projAlist : Seq[(String, SQLExpression)] = alist.map {case (s, e) => (s, SQLExpression.fromExpression(e)) }
         SQL.makeSQLSelect(projAlist, Seq((None, fromQuery(query)))) // FixMe : None not the best Implementation!!
       }
@@ -519,6 +518,7 @@ object SQLOperator {
   val or : SQLOperator = SQLOperator("OR", SQLOperatorArity.Infix)
   val like : SQLOperator = SQLOperator("LIKE", SQLOperatorArity.Infix)
   val in : SQLOperator = SQLOperator("IN", SQLOperatorArity.Infix)
+  val oneOf : SQLOperator = SQLOperator("IN", SQLOperatorArity.Prefix4) // Like IN, but all possible values as separate arguments.
   val between : SQLOperator = SQLOperator("BETWEEN", SQLOperatorArity.Prefix3, Some("AND"))
   val cat : SQLOperator = SQLOperator("CAT", SQLOperatorArity.Infix)
   val plus : SQLOperator = SQLOperator("+", SQLOperatorArity.Infix)
@@ -566,15 +566,21 @@ trait HasSQLOperator {
 /**
   * Arity for the SQLOperators
   */
-
 trait SQLOperatorArity {
+  def toSQL(op: SQLOperator, rands: Seq[SQL.Return]): SQL.Return
+}
+
+/**
+  * Arity for the SQLOperators with fixed number of arguments.
+  */
+trait SQLOperatorArityFixed extends SQLOperatorArity {
   /**
     * übergebene Liste enthält geforderte Werte, z.B. was links und rechts vom Infix-Operator steht
     * Werte werden aufgrund der angegebenen randSize auf die korrekte Anzahl überprüft und dann korrekt angeordnet
     */
   protected val randsSize : Int
   protected val extraIsSet : Boolean = false
-  def toSQL(op: SQLOperator, rands: Seq[SQL.Return]) = {
+  override def toSQL(op: SQLOperator, rands: Seq[SQL.Return]) = {
     if(rands.size != randsSize)
       throw new AssertionError("Invalid arity. Expected for "+op+" arity of "+randsSize+" but getting "+rands.size)
     else if(extraIsSet && op.extra.isEmpty)
@@ -584,38 +590,59 @@ trait SQLOperatorArity {
   }
   protected def toSQLHelper(op : SQLOperator, rands : Seq[SQL.Return]) : SQL.Return
 }
+
+trait SQLOperatorArityVariable extends SQLOperatorArity {
+  protected val minRandsSize : Int
+  protected val extraIsSet : Boolean = false
+  override def toSQL(op: SQLOperator, rands: Seq[SQL.Return]) = {
+    if(rands.size < minRandsSize)
+      throw new AssertionError("Invalid arity. Expected for "+op+" arity of "+minRandsSize+" or more but getting "+rands.size)
+    else if(extraIsSet && op.extra.isEmpty)
+      throw new AssertionError("Extrainformation is missing. There is an extra Information/String in the SQLOperator ("+op+") missing für the choosen Arity.")
+    else
+      toSQLHelper(op, rands)
+  }
+  protected def toSQLHelper(op : SQLOperator, rands : Seq[SQL.Return]) : SQL.Return
+}
+
 object SQLOperatorArity {
 
-  case object Postfix extends SQLOperatorArity { // sqlosure: -1
+  case object Postfix extends SQLOperatorArityFixed { // sqlosure: -1
     override protected val randsSize = 1
     override protected def toSQLHelper(op : SQLOperator, rands : Seq[SQL.Return]) =
       ("("+rands(0)._1+") "+op.name, rands(0)._2)
   }
 
-  case object Prefix extends SQLOperatorArity { // sqlosure: 1
+  case object Prefix extends SQLOperatorArityFixed { // sqlosure: 1
     override protected val randsSize = 1
     override protected def toSQLHelper(op : SQLOperator, rands : Seq[SQL.Return]) =
       (op.name+"("+rands(0)._1+")", rands(0)._2)
   }
 
-  case object Prefix2 extends SQLOperatorArity { // sqlosure: -2
+  case object Prefix2 extends SQLOperatorArityFixed { // sqlosure: -2
     override protected val randsSize = 2
     override protected val extraIsSet = true
     override protected def toSQLHelper(op : SQLOperator, rands : Seq[SQL.Return]) =
       (op.name+"("+rands(0)._1+op.extra.get+rands(1)._1+")", rands(0)._2++rands(1)._2)
   }
 
-  case object Infix extends SQLOperatorArity { // sqlosure: 2
+  case object Infix extends SQLOperatorArityFixed { // sqlosure: 2
     override protected val randsSize = 2
     override protected def toSQLHelper(op : SQLOperator, rands : Seq[SQL.Return]) =
       ("("+rands(0)._1+" "+op.name+" "+rands(1)._1+")", rands(0)._2++rands(1)._2)
   }
 
-  case object Prefix3 extends SQLOperatorArity { // sqlosure: 3
+  case object Prefix3 extends SQLOperatorArityFixed { // sqlosure: 3
     // FIXME : Fehlende Klammern beabsichtigt ? - habe diese hinzugefügt
   override protected val randsSize = 3
     override protected val extraIsSet = true
     override protected def toSQLHelper(op : SQLOperator, rands : Seq[SQL.Return]) =
       ("("+rands(0)._1+" "+op.name+" "+rands(1)._1+" "+op.extra.get+" "+rands(2)._1+")", rands(0)._2++rands(1)._2++rands(2)._2)
+  }
+
+  case object Prefix4 extends SQLOperatorArityVariable { // a1 IN [a2, ...]
+    override protected val minRandsSize = 1
+    override protected def toSQLHelper(op : SQLOperator, rands : Seq[SQL.Return]) =
+      ("(" + rands.head._1 + " " + op.name + " (" + rands.tail.map(_._1).mkString(", ") + "))", rands.map(_._2).reduce(_++_))
   }
 }
