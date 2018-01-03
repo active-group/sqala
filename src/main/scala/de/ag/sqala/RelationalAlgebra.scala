@@ -113,7 +113,7 @@ sealed abstract class Query {
     if (alist.isEmpty)
       this match {
         case Projection(_, query) => query.project(alist)
-        case _ => Projection(alist, this)
+        case _ => Projection(alist, this) // DF: not EmptyQuery?
       }
     else
       reallyProject(alist)
@@ -136,7 +136,7 @@ sealed abstract class Query {
 
   def restrictOuter(exp: Expression): Query = OuterRestriction(exp, this)
 
-  def *(other: Query): Query = Product(this, other)
+  def *(other: Query): Query = if (this == EmptyQuery) other else if (other == EmptyQuery) this else Product(this, other)
   def leftOuterProduct(other: Query): Query = LeftOuterProduct(this, other)
   def /(other: Query): Query = Quotient(this, other)
   def union(other: Query): Query = Union(this, other)

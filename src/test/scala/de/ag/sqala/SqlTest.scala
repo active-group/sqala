@@ -44,6 +44,8 @@ class SQLTest extends FunSuite {
           Seq((None, standorte))))
       )))).toSQL,
       ("("+longExpr1T._1+" OR EXISTS (SELECT * FROM personen) OR (v <= (SELECT COUNT(c) AS c FROM standorte)))", longExpr1T._2))
+    assertEquals(SQLExpressionApp(SQLOperator.oneOf, Seq(SQLExpressionColumn("xx"), SQLExpressionConst(Type.string, "arg1"), SQLExpressionConst(Type.string, "arg2"))).toSQL,
+      ("(xx IN (?, ?))", Seq((Type.string, "arg1"), (Type.string, "arg2"))))
   }
 
 
