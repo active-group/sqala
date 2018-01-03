@@ -518,7 +518,7 @@ object SQLOperator {
   val or : SQLOperator = SQLOperator("OR", SQLOperatorArity.Infix)
   val like : SQLOperator = SQLOperator("LIKE", SQLOperatorArity.Infix)
   val in : SQLOperator = SQLOperator("IN", SQLOperatorArity.Infix)
-  val oneOf : SQLOperator = SQLOperator("IN", SQLOperatorArity.Prefix4) // Like IN, but all possible values as separate arguments.
+  val oneOf : SQLOperator = SQLOperator("IN", SQLOperatorArity.PrefixN) // Like IN, but all possible values as separate arguments.
   val between : SQLOperator = SQLOperator("BETWEEN", SQLOperatorArity.Prefix3, Some("AND"))
   val cat : SQLOperator = SQLOperator("CAT", SQLOperatorArity.Infix)
   val plus : SQLOperator = SQLOperator("+", SQLOperatorArity.Infix)
@@ -640,7 +640,7 @@ object SQLOperatorArity {
       ("("+rands(0)._1+" "+op.name+" "+rands(1)._1+" "+op.extra.get+" "+rands(2)._1+")", rands(0)._2++rands(1)._2++rands(2)._2)
   }
 
-  case object Prefix4 extends SQLOperatorArityVariable { // a1 IN [a2, ...]
+  case object PrefixN extends SQLOperatorArityVariable { // a1 IN [a2, ...]
     override protected val minRandsSize = 1
     override protected def toSQLHelper(op : SQLOperator, rands : Seq[SQL.Return]) =
       ("(" + rands.head._1 + " " + op.name + " (" + rands.tail.map(_._1).mkString(", ") + "))", rands.map(_._2).reduce(_++_))
