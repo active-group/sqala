@@ -16,10 +16,9 @@ object SQLUtils {
     * Work with Alias
     *   like column AS alias
     */
-  // Statt nil use Option
   def defaultPutAlias(alias: Option[String]) : String = alias match {
     case Some(al) => " AS "+al
-    case None => ""
+    case None => " AS __dummy" // gensym TODO
   }
 
   def putAlias(alias: Option[String]) : Option[String] =
