@@ -45,7 +45,7 @@ class MemoryQueryTest extends FunSuite {
     })
 
   val equalsRator = Rator("=",
-    { case Seq(ty1, ty2) => assert(ty1 == ty2); Type.boolean },
+    { case Seq(ty1, ty2) => assert(ty1.toNonNullable == ty2.toNonNullable); Type.boolean },
     { case Seq(arg1, arg2) =>
       arg1 == arg2 })
 
@@ -62,6 +62,10 @@ class MemoryQueryTest extends FunSuite {
   val sq2a = Seq(Row.make("hurz", 23L), Row.make("bam", 6L), Row.make("gluck", 25L))
   val b2a = Galaxy.makeBaseRelation("stuff2a", s2, sq2a)
 
+  val s3 = RelationalScheme.make(Seq("str2" -> Type.string, "id" -> Type.integer))
+  val sq3 = Seq(Row.make("blaz", 0L), Row.make("bam", 1L), Row.make("buz", 3L))
+  val b3 = Galaxy.makeBaseRelation("stuff3", s3, sq3)
+
   test("product") {
     assertEquals(computeQueryResults(b1 * b2).flatMap(_.flatten),
       Seq(
@@ -71,6 +75,14 @@ class MemoryQueryTest extends FunSuite {
         Row.make(2L, "bar", "blaz", 5L),
         Row.make(2L, "bar", "bam", 6L),
         Row.make(2L, "bar", "buz", 7L)))
+  }
+
+  test("left outer product") {
+    // b3 has nothing for id=2
+    assertEquals(computeQueryResults(b1.leftOuterProduct(b3).restrictOuter(Expression.makeApplication(equalsRator, Expression.makeAttributeRef("id"), Expression.makeAttributeRef("num")))).flatMap(_.flatten),
+      Seq(
+        Row.make(1L, "foo", "bam", 1L),
+        Row.make(2L, "bar", null, null)))
   }
 
   test("union") {

@@ -43,6 +43,36 @@ object MemoryQuery {
           }
       }
 
+      case OuterRestriction(exp, LeftOuterProduct(q1, q2)) => {
+        // TODO: wrong for grouped results? probably
+        val sch1 = q1.getScheme(grouped.scheme.environment)
+        val allNull = q2.getScheme(grouped.scheme.environment).columns.map(_ => null)
+        // this expects the Product result being ordered be the first query
+        val init: Option[(Vector[Any], Boolean)] = None // prev left part, and if part of a matching row or not.
+        val (last, res) = computeQueryResults(grouped, Product(q1, q2)).flatMap(_.flatten).foldLeft((init, Vector.empty[Row])) { case ((prev, res), row) =>
+          val left = sch1.columns.map { c => row(outputScheme.pos(c)) }
+          if (exp.eval1(GroupedResult.make(outputScheme, row)).asInstanceOf[Boolean]) {
+            // include current row
+            (Some((left, true)), prev match {
+              case Some((prevRow, false)) if prevRow != left => (res :+ (prevRow ++ allNull) :+ row)
+              case _=> res :+ row
+            })
+          } else {
+            // drop current row
+            prev match {
+              case Some((prevRow, prevInc)) if prevRow == left => (Some((left, prevInc)), res)
+              case Some((prevRow, false)) => (Some((left, false)), (res :+ (prevRow ++ allNull)))
+              case _ => (Some((left, false)), res)
+            }
+          }
+        }
+        val fres: Seq[Row] = if (last.isDefined && !(last.get._2))
+          res :+ (last.get._1 ++ allNull)
+        else
+          res
+        fres.map(GroupedResult.make(outputScheme, _))
+      }
+
       case Product(q1, q2) => {
         val grs1 = computeQueryResults(grouped, q1)
         val grs2 = computeQueryResults(grouped, q2)
