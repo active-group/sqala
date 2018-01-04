@@ -346,7 +346,7 @@ object SQLCombineOperator {
 
 
 object SQLSelectEmpty extends SQL {
-  override def toSQLText: SQL.Return = ("", Seq.empty)
+  override def toSQLText: SQL.Return = ("SELECT * FROM (SELECT 1) AS TBL WHERE 2=3", Seq.empty) // https://stackoverflow.com/a/2949551
 }
 
 
