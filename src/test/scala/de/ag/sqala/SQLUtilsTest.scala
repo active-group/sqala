@@ -24,16 +24,14 @@ class SQLUtilsTest extends FunSuite {
       Some(("BAL 4-7-11", Seq.empty)))
   }
 
-  val ret1 = ("BlabaB", Seq.empty)
-  val ret2 = ("This to Go", Seq((Type.integer, 4), (Type.string, "foo")))
-
   test("function with alias") {
-    assertEquals(SQLUtils.defaultPutAlias(None), "")
+    val ret1 = ("BlabaB", Seq.empty)
+    val ret2 = ("This to Go", Seq((Type.integer, 4), (Type.string, "foo")))
+
+    assertEquals(SQLUtils.defaultPutAlias(None), " AS __dummy")
     assertEquals(SQLUtils.defaultPutAlias(Some("Blub")), " AS Blub")
-    assertEquals(SQLUtils.putAlias(None), None)
-    assertEquals(SQLUtils.putAlias(Some("B")), Some(" AS B"))
-    assertEquals(SQLUtils.putColumnAnAlias(ret1, None), ret1)
-    assertEquals(SQLUtils.putColumnAnAlias(ret2, None), ret2)
+    assertEquals(SQLUtils.putColumnAnAlias(ret1, None), (ret1._1 + " AS __dummy", ret1._2))
+    assertEquals(SQLUtils.putColumnAnAlias(ret2, None), (ret2._1 + " AS __dummy", ret2._2))
     assertEquals(SQLUtils.putColumnAnAlias(ret1, Some("X")), ("BlabaB AS X", ret1._2))
     assertEquals(SQLUtils.putColumnAnAlias(ret2, Some("X")), ("This to Go AS X", ret2._2))
   }
@@ -78,19 +76,19 @@ class SQLUtilsTest extends FunSuite {
   val tbl3 = SQL.makeSQLSelect(Seq(("a", SQLExpressionColumn("b"))), Seq((Some("t1"), tbl1)))
 
   test("SQL - join") {
-    assertEquals(SQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA", Seq.empty)))
+    assertEquals(SQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS __dummy", Seq.empty)))
     assertEquals(SQL.join(Seq((Some("A"), tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS A", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1), (None, tbl2), (Some("tdx"), tbl3)), Seq.empty, Seq.empty),
-      Some(("FROM tabelleA, tabelleB, (SELECT b AS a FROM tabelleA AS t1) AS tdx", Seq.empty)))
+      Some(("FROM tabelleA AS __dummy, tabelleB AS __dummy, (SELECT b AS a FROM tabelleA AS t1) AS tdx", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1)), Seq((Some("tx"), tbl2)),
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("a"), SQLExpressionColumn("b"))))),
-      Some(("FROM tabelleA LEFT JOIN tabelleB AS tx ON (a = b)", Seq.empty)))
+      Some(("FROM tabelleA AS __dummy LEFT JOIN tabelleB AS tx ON (a = b)", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1), (Some("tdx"), tbl3)), Seq((None, tbl2)),
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("a"), SQLExpressionColumn("b"))))),
-      Some(("FROM (SELECT * FROM tabelleA, (SELECT b AS a FROM tabelleA AS t1) AS tdx) LEFT JOIN tabelleB ON (a = b)", Seq.empty)))
+      Some(("FROM (SELECT * FROM tabelleA AS __dummy, (SELECT b AS a FROM tabelleA AS t1) AS tdx) LEFT JOIN tabelleB AS __dummy ON (a = b)", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1)), Seq((Some("t1"), tbl1), (Some("t2"), tbl2), (Some("tt"), tbl1)),
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("b"), SQLExpressionColumn("a"))))),
-      Some(("FROM tabelleA LEFT JOIN tabelleA AS t1 ON (1=1) LEFT JOIN tabelleB AS t2 ON (1=1) LEFT JOIN tabelleA AS tt ON (b = a)", Seq.empty)))
+      Some(("FROM tabelleA AS __dummy LEFT JOIN tabelleA AS t1 ON (1=1) LEFT JOIN tabelleB AS t2 ON (1=1) LEFT JOIN tabelleA AS tt ON (b = a)", Seq.empty)))
   }
 
   /*
