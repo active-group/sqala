@@ -1,8 +1,7 @@
 package de.ag.sqala
 
 case class RelationalScheme(columns: Vector[String], map: Map[String, Type], grouped: Option[Set[String]]) {
-  // FIXME: why do we have environment() and toEnvironment() ... cache the environment!
-  def environment(): Environment = map
+  val environment = map
 
   def ++(other: RelationalScheme): RelationalScheme =
     RelationalScheme(this.columns ++ other.columns,
@@ -27,8 +26,6 @@ case class RelationalScheme(columns: Vector[String], map: Map[String, Type], gro
       this.map.filterKeys(k => cols.contains(k)),
       this.grouped.map(cs => cs -- cols))
   }
-
-  def toEnvironment(): Environment = this.map
 
   def isUnary(): Boolean = columns.length == 1
 
@@ -179,7 +176,7 @@ case object EmptyQuery extends Query {
 case class Projection(alist: Seq[(String, Expression)], query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
     val baseScheme = query.getScheme(env)
-    val baseEnv = baseScheme.environment()
+    val baseEnv = baseScheme.environment
     val grouped = baseScheme.grouped
     if (alist.exists({ case (name, exp) => exp.isAggregate })
         || grouped.isDefined) {
@@ -197,31 +194,31 @@ case class Projection(alist: Seq[(String, Expression)], query: Query) extends Qu
   override def attributeNames(): Set[String] = {
     val expNames = alist.flatMap { case (_, exp) => exp.attributeNames() }.toSet
     // FIXME: shouldn't we pass an environment to getScheme?
-    val schemeNames = query.getScheme().environment().keySet
+    val schemeNames = query.getScheme().environment.keySet
     (expNames -- schemeNames) ++ query.attributeNames()
   }
 }
 
 case class Restriction(exp: Expression, query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
-    require(exp.getType(Environment.compose(query.getScheme(env).environment(), env)) == Type.boolean,
+    require(exp.getType(Environment.compose(query.getScheme(env).environment, env)) == Type.boolean,
            "not a boolean expression")
     query.computeScheme(env)
   }
 
   override def attributeNames(): Set[String] =
-    (exp.attributeNames() -- query.getScheme().environment().keySet) ++ query.attributeNames()
+    (exp.attributeNames() -- query.getScheme().environment.keySet) ++ query.attributeNames()
 }
 
 case class OuterRestriction(exp: Expression, query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
-    require(exp.getType(Environment.compose(query.getScheme(env).environment(), env)) == Type.boolean,
+    require(exp.getType(Environment.compose(query.getScheme(env).environment, env)) == Type.boolean,
       "not a boolean expression")
     query.computeScheme(env)
   }
 
   override def attributeNames(): Set[String] =
-    (exp.attributeNames() -- query.getScheme().environment().keySet) ++ query.attributeNames()
+    (exp.attributeNames() -- query.getScheme().environment.keySet) ++ query.attributeNames()
 
 }
 
@@ -313,7 +310,7 @@ case class Order(alist: Seq[(String, Direction)], query: Query) extends Query {
   override def computeScheme(env: Environment): RelationalScheme = {
     val s = query.getScheme(env)
     require(!s.isGrouped())
-    val env2 = Environment.compose(s.toEnvironment(), env)
+    val env2 = Environment.compose(s.environment, env)
     for ((col, _) <- alist) {
       val t = env2(col)
       require(t.isOrdered)
@@ -322,7 +319,7 @@ case class Order(alist: Seq[(String, Direction)], query: Query) extends Query {
   }
 
   override def attributeNames(): Set[String] =
-    (alist.map(_._1).toSet -- query.getScheme().environment().keySet) ++ query.attributeNames()
+    (alist.map(_._1).toSet -- query.getScheme().environment.keySet) ++ query.attributeNames()
 }
 
 case class Top(offset: Int, count: Int, query: Query) extends Query {
@@ -344,5 +341,5 @@ case class Group(columns: Set[String], query: Query) extends Query {
   }
 
   override def attributeNames(): Set[String] =
-    (columns -- query.getScheme().environment().keySet) ++ query.attributeNames()
+    (columns -- query.getScheme().environment.keySet) ++ query.attributeNames()
 }

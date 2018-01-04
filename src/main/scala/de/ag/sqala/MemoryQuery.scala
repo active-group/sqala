@@ -8,7 +8,7 @@ object MemoryQuery {
     computeQueryResults(GroupedResult.empty, q)
 
   def computeQueryResults(grouped: GroupedResult, q0: Query): Seq[GroupedResult] = {
-    val outputScheme = q0.getScheme(grouped.scheme.environment())
+    val outputScheme = q0.getScheme(grouped.scheme.environment)
     q0 match {
       case EmptyQuery => Seq(GroupedResult.empty)
       case BaseRelation(name, scheme, handle) => {
@@ -85,7 +85,7 @@ object MemoryQuery {
      }
 
       case Group(cols, q) => {
-        val scheme = q.getScheme(grouped.scheme.environment())
+        val scheme = q.getScheme(grouped.scheme.environment)
         val en = computeQueryResults(grouped, q)
         val groupedSet = scheme.groupedSet
         val ungroupedColIndices = cols.toSeq.map { c =>
@@ -112,7 +112,7 @@ object MemoryQuery {
       }
 
       case Quotient(q1, q2) => {
-        val env = grouped.scheme.environment()
+        val env = grouped.scheme.environment
         val s1 = q1.getScheme(env)
         val s2 = q2.getScheme(env)
         val sd = s1.difference(s2)
@@ -195,8 +195,8 @@ object MemoryQuery {
 
       case Order(alist, q) => {
         val en = computeQueryResults(grouped, q).map(_.ungroupedRows.head)
-        val scheme = q.getScheme(grouped.scheme.environment())
-        val env = grouped.scheme.environment()
+        val scheme = q.getScheme(grouped.scheme.environment)
+        val env = grouped.scheme.environment
         val typesDirs = alist.map { case (col, dir) =>
           (env(col), dir)
         }

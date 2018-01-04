@@ -112,7 +112,7 @@ object QueryMonad {
       query <- currentQuery
       env <- currentEnvironment
       qscheme = q.getScheme()
-      qenv = qscheme.environment()
+      qenv = qscheme.environment
       scheme = transformScheme(qscheme)
       columns = scheme.columns
       fresh = columns.map { k => freshName(k,alias) }
@@ -186,7 +186,7 @@ object QueryMonad {
       _ <- setQuery(op(p1, p2) * oldQuery)
       scheme = computeScheme(rel1.scheme, rel2.scheme)
       env0 <- currentEnvironment
-      _ <- setEnvironment(Environment.compose(env0, scheme.environment()))
+      _ <- setEnvironment(Environment.compose(env0, scheme.environment))
     } yield Relation(alias, scheme)
   }
 
