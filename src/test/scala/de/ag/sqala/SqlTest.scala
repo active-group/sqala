@@ -169,7 +169,7 @@ class SQLTest extends FunSuite {
     def withAll(sqlI1: SQL, sqlI2: SQL, strLeft: String, strRight: String,
                 paramsLeft: Seq[(Type, String)], paramsRight: Seq[(Type, String)]) = {
       val check : Seq[(SQLCombineOperator, String)] = Seq(
-        (SQLCombineOperator.Union, " UNION "),
+        (SQLCombineOperator.Union, " UNION ALL "),
         (SQLCombineOperator.Intersection, " INTERSECT "),
         (SQLCombineOperator.Difference, " EXCEPT "))
       for (elem <- check) {
@@ -182,7 +182,7 @@ class SQLTest extends FunSuite {
       }
     }
 
-    // why not??? withAll(adr1, firmAddr, "(SELECT * FROM addresses AS __dummy)", "(SELECT * FROM firm_address AS __dummy)", Seq.empty, Seq.empty)
+    withAll(adr1, firmAddr, "(SELECT * FROM addresses)", "(SELECT * FROM firm_address)", Seq.empty, Seq.empty)
     withAll(tbl2, tbl3, tbl2S._1, tbl3S._1, tbl2S._2, tbl3S._2)
   }
 

@@ -79,7 +79,7 @@ class SQLUtilsTest extends FunSuite {
     assertEquals(SQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS __dummy", Seq.empty)))
     assertEquals(SQL.join(Seq((Some("A"), tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS A", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1), (None, tbl2), (Some("tdx"), tbl3)), Seq.empty, Seq.empty),
-      Some(("FROM tabelleA AS __dummy, tabelleB AS __dummy, (SELECT b AS a FROM tabelleA AS t1) AS tdx", Seq.empty)))
+      Some((s"FROM tabelleA AS __dummy, tabelleB AS __dummy, (SELECT b AS a FROM tabelleA AS t1) AS tdx", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1)), Seq((Some("tx"), tbl2)),
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("a"), SQLExpressionColumn("b"))))),
       Some(("FROM tabelleA AS __dummy LEFT JOIN tabelleB AS tx ON (a = b)", Seq.empty)))

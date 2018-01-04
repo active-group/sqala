@@ -328,7 +328,7 @@ sealed trait SQLCombineOperator {
 
 object SQLCombineOperator {
   case object Union extends SQLCombineOperator {
-    protected val getOpName = "UNION"
+    protected val getOpName = "UNION ALL"  // Note: 'UNION' removes duplicates
   }
   case object Intersection extends SQLCombineOperator {
     protected val getOpName = "INTERSECT"
