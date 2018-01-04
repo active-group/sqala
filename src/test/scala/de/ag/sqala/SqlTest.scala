@@ -211,7 +211,6 @@ class SQLTest extends FunSuite {
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("bab"), SQLExpressionColumn("blad")))),
       None, None, None, Some(Seq("LIMIT 5"))).toSQLText,
       ("SELECT * FROM (SELECT * FROM personen AS one, firm_address AS __dummy) LEFT JOIN (SELECT city, ? AS xx FROM addresses AS __dummy) AS bl "
-        // FixMe: Bei PostgreSQL könnte es zu Problemen kommen, da die innere Query ein Alias haben sollte
         +"ON (bab = blad) WHERE (fabbs) IS NULL LIMIT 5", Seq((Type.string, "BlX"))))
     assertEquals(SQLSelect(None, Seq(("idc", SQLExpressionColumn("idc")), ("countThem", SQLExpressionApp(SQLOperator.count, Seq(SQLExpressionColumn("idc"))))),
       Seq((Some("one"), tbl1)), Seq((Some("bl"), tbl2)),

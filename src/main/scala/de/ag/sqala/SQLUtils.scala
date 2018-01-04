@@ -16,17 +16,35 @@ object SQLUtils {
     * Work with Alias
     *   like column AS alias
     */
-  def defaultPutAlias(alias: Option[String]) : String = alias match {
+  def defaultPutAlias(alias: Option[String]): String = alias match {
     case Some(al) => " AS "+al
-    case None => " AS __dummy" // gensym TODO
+    case None => ""
+  }
+
+  def generatePutAlias(alias: Option[String], aliasCount: Int) : (Int, String) = alias match {
+    case Some(al) => (aliasCount, " AS "+al)
+    case None => (aliasCount+1, s" AS __dummy$aliasCount")
   }
 
   // Note: also used for table aliases.
-  def putColumnAnAlias(expr: SQL.Return, alias: Option[String]): SQL.Return = expr match {
-    case (sql: String, seqTyps: Seq[(Type, Any)]) =>
-      (sql+SQLUtils.defaultPutAlias(alias), seqTyps)
+  def putColumnAnAlias(expr: SQL.Return, alias: Option[String]): SQL.Return = {
+    val (sql: String, seqTyps: Seq[(Type, Any)]) = expr
+    val al = SQLUtils.defaultPutAlias(alias)
+    (sql+al, seqTyps)
   }
 
+  // FIXME: make deterministic
+  /*def putTableAnAlias(expr: SQL.Return, alias: Option[String], aliasCount: Int): (Int, SQL.Return) = {
+    val (sql: String, seqTyps: Seq[(Type, Any)]) = expr
+    val al = SQLUtils.generatePutAlias(alias, aliasCount)
+    (al._1, (sql+al._2, seqTyps))
+   }*/
+  val rnd = new java.util.Random()
+  def putTableAnAlias(expr: SQL.Return, alias: Option[String]): SQL.Return = {
+    val (sql: String, seqTyps: Seq[(Type, Any)]) = expr
+    val al = SQLUtils.generatePutAlias(alias, Math.abs(rnd.nextInt() % 10000000))._2
+    (sql+al, seqTyps)
+  }
 
   /**
     * Set Literal
@@ -41,10 +59,7 @@ object SQLUtils {
   /**
     * execute the procedure on every element of the sequence, then concat them and set the 'between'-String between them
     */
-  def putJoiningInfixOption[A](lis: Seq[A], between: String, proc: (A) => (String, Seq[(Type, Any)])) : SQL.ReturnOption =
-    Some(putJoiningInfix(lis, between, proc))
-
-  def putJoiningInfix[A](lis: Seq[A], between: String, proc: (A) => (String, Seq[(Type, Any)])) : SQL.Return = {
+  def putJoiningInfix[A, B](lis: Seq[A], between: String)(proc: (A) => (String, Seq[B])) : (String, Seq[B]) = {
     val tempSeq = lis.map(proc)
     (tempSeq.map(_._1).mkString(between), tempSeq.map(_._2).flatten)
   }
@@ -54,10 +69,10 @@ object SQLUtils {
     *   surround: set given Strings before and after the SQL-Statement
     *   concat: concat the SQL-Statements and Literals
     */
-  def surroundSQL(before: String, sql : SQL.Return, after: String) : SQL.Return =
+  def surroundSQL[B](before: String, sql : (String, B), after: String) : (String, B) =
     (before+sql._1+after, sql._2)
 
-  def concatSQL(sqls : Seq[SQL.Return]) : SQL.Return =
+  def concatSQL[B](sqls : Seq[(String, Seq[B])]) : (String, Seq[B]) =
     (sqls.map(x => x._1).mkString(""), sqls.map(x => x._2).flatten)
 
 }

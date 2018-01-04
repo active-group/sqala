@@ -28,18 +28,20 @@ class SQLUtilsTest extends FunSuite {
     val ret1 = ("BlabaB", Seq.empty)
     val ret2 = ("This to Go", Seq((Type.integer, 4), (Type.string, "foo")))
 
-    assertEquals(SQLUtils.defaultPutAlias(None), " AS __dummy")
+    assertEquals(SQLUtils.defaultPutAlias(None), "")
     assertEquals(SQLUtils.defaultPutAlias(Some("Blub")), " AS Blub")
-    assertEquals(SQLUtils.putColumnAnAlias(ret1, None), (ret1._1 + " AS __dummy", ret1._2))
-    assertEquals(SQLUtils.putColumnAnAlias(ret2, None), (ret2._1 + " AS __dummy", ret2._2))
+    assertEquals(SQLUtils.putColumnAnAlias(ret1, None), (ret1._1, ret1._2))
+    assertEquals(SQLUtils.putColumnAnAlias(ret2, None), (ret2._1, ret2._2))
     assertEquals(SQLUtils.putColumnAnAlias(ret1, Some("X")), ("BlabaB AS X", ret1._2))
     assertEquals(SQLUtils.putColumnAnAlias(ret2, Some("X")), ("This to Go AS X", ret2._2))
+    // TODO:
+    //assertEquals(SQLUtils.putTableAnAlias(ret2, None), (ret2._1, ret2._2))
+    //assertEquals(SQLUtils.putTableAnAlias(ret1, Some("X")), ("BlabaB AS X", ret1._2))
   }
 
   test("joiningInfix") {
-    assertEquals(SQLUtils.putJoiningInfix[String](Seq.empty, ",", x => ("BX", Seq.empty)), ("", Seq.empty))
-    assertEquals(SQLUtils.putJoiningInfixOption[String](Seq.empty, ",", x => ("BX", Seq.empty)), Some(("", Seq.empty)))
-    assertEquals(SQLUtils.putJoiningInfix[String](Seq("a", "b"), "-", x => ("BX", Seq((Type.string, x)))),
+    assert(SQLUtils.putJoiningInfix(Seq.empty, ",") { x => ("BX", Seq.empty) } === ("", Seq.empty))
+    assert(SQLUtils.putJoiningInfix(Seq("a", "b"), "-") { x => ("BX", Seq((Type.string, x))) } ===
       ("BX-BX", Seq((Type.string, "a"), (Type.string, "b"))))
   }
 

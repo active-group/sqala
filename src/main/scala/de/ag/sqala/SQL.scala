@@ -31,14 +31,14 @@ object SQL {
   /**
     * Functions for translation into SQL
     */
-  def attributes(atts: Seq[(String, SQLExpression)]) : ReturnOption = {
+  def attributes(atts: Seq[(String, SQLExpression)]) : Return = {
     if(atts.isEmpty)
-      Some(("*", Seq.empty))
+      ("*", Seq.empty)
     else {
-      SQLUtils.putJoiningInfixOption[(String, SQLExpression)](atts, ", ", {
+      SQLUtils.putJoiningInfix(atts, ", ") {
         case (col: String, sqlE: SQLExpressionColumn) if col == sqlE.name => (col, Seq.empty)
         case (col: String, sqlE: SQLExpression) => SQLUtils.putColumnAnAlias(expression(sqlE), Some(col))
-      })
+      }
     }
   }
 
@@ -77,14 +77,14 @@ object SQL {
       ""))
   }
 
-  def putTables(tables: Seq[(Option[String], SQL)], between: String) : Return =
-    SQLUtils.putJoiningInfix[(Option[String], SQL)](tables, between, {
-      case (alias: Option[String], select: SQLSelectTable) => SQLUtils.putColumnAnAlias((select.name, Seq.empty), alias)
+  private def putTables(tables: Seq[(Option[String], SQL)], between: String) : Return =
+    SQLUtils.putJoiningInfix(tables, between) {
+      case (alias: Option[String], select: SQLSelectTable) => SQLUtils.putTableAnAlias((select.name, Seq.empty), alias)
       case (alias: Option[String], select: SQL) => {
         val temp: Return = select.toSQLText
-        SQLUtils.putColumnAnAlias(("("+temp._1+")", temp._2), alias)
+        SQLUtils.putTableAnAlias(("("+temp._1+")", temp._2), alias)
       }
-    })
+    }
 
 
   def criterias(crit: Seq[SQLExpression]) : ReturnOption =
@@ -92,7 +92,7 @@ object SQL {
 
   def groupBy(grBy: Option[Set[String]]) : ReturnOption =
     grBy.flatMap(g => SQLUtils.putPaddingIfNonNull[String](g.toSeq,
-      {case gg: Seq[String] => SQLUtils.putJoiningInfix[String](gg, ", ", { case x: String => (x, Seq.empty) })},
+      {case gg: Seq[String] => SQLUtils.putJoiningInfix(gg, ", ") { case x: String => (x, Seq.empty) }},
       "GROUP BY "))
 
   def having(hav: Option[Seq[SQLExpression]]) : ReturnOption =
@@ -101,8 +101,9 @@ object SQL {
 
   def orderBy(ordBy: Option[Seq[(String, SQLOrder)]]) : ReturnOption =
     ordBy.flatMap(o => SQLUtils.putPaddingIfNonNull[(String, SQLOrder)](o,
-      tup => SQLUtils.putJoiningInfix[(String, SQLOrder)](tup, ", ",
-          {case (s: String, ord: SQLOrder) => ord.toSQL(s)}),
+      tup => SQLUtils.putJoiningInfix(tup, ", ") {
+        case (s: String, ord: SQLOrder) => ord.toSQL(s)
+      },
       "ORDER BY "))
 
   def extra(v: Option[Seq[String]]) : ReturnOption =
@@ -264,7 +265,7 @@ final case class SQLSelect(
     val tempSeq : Seq[SQL.ReturnOption] = Seq(
       Some(("SELECT", Seq.empty)),
       this.options.flatMap(x => Some((x.mkString(" "), Seq.empty))),
-      SQL.attributes(attributes),
+      Some(SQL.attributes(attributes)),
       SQL.join(tables, outerTables, outerCriteria),
       SQL.criterias(criteria),
       SQL.groupBy(groupBy),
@@ -273,8 +274,9 @@ final case class SQLSelect(
       SQL.extra(extra)
       // extra (Top, Limit ..)
     )
-    SQLUtils.putJoiningInfix[SQL.ReturnOption](tempSeq.filter(_.isDefined), " ",
-      {x => x.get})
+    SQLUtils.putJoiningInfix(tempSeq.filter(_.isDefined), " ") {
+      x => x.get
+    }
   }
 
   def addTable(sql: SQL): SQLSelect = {
@@ -424,12 +426,12 @@ case class SQLExpressionCase(input: Option[SQLExpression],
             SQLUtils.surroundSQL("", input.get.toSQL, " ")
           else ("", Seq.empty)},
           // WHEN ... THEN ... - part
-          SQLUtils.putJoiningInfix[(SQLExpression, SQLExpression)](branches, " ", {
+          SQLUtils.putJoiningInfix(branches, " ") {
             case (exWhen: SQLExpression, exThen: SQLExpression) => {
               val sqlWhen : SQL.Return = exWhen.toSQL
               val sqlThen : SQL.Return = exThen.toSQL
               ("WHEN "+sqlWhen._1+" THEN "+sqlThen._1, sqlWhen._2++sqlThen._2)
-            }}),
+            }},
           // optional default
           {if(default.isDefined)
             SQLUtils.surroundSQL(" ELSE ", default.get.toSQL, "")
@@ -444,9 +446,9 @@ case class SQLExpressionExists(select: SQL) extends SQLExpression {
 }
 case class SQLExpressionTuple(expressions: Seq[SQLExpression]) extends SQLExpression {
   override def toSQL : SQL.Return =
-    SQLUtils.surroundSQL("(", SQLUtils.putJoiningInfix[SQLExpression](expressions, ", ", {
+    SQLUtils.surroundSQL("(", SQLUtils.putJoiningInfix(expressions, ", ") {
       e: SQLExpression => e.toSQL
-    }), ")")
+    }, ")")
 }
 case class SQLExpressionSubquery(query: SQL) extends SQLExpression {
   override def toSQL : SQL.Return =
@@ -460,7 +462,9 @@ case class SQLExpressionOr(exprs: Seq[SQLExpression]) extends SQLExpression {
     if (exprs.size == 1)
       exprs(0).toSQL
     else
-      SQLUtils.surroundSQL("(", SQLUtils.putJoiningInfix[SQLExpression](exprs, " OR ", { e => e.toSQL }), ")")
+      SQLUtils.surroundSQL("(", SQLUtils.putJoiningInfix(exprs, " OR ") {
+        e => e.toSQL
+      }, ")")
   }
 }
 case class SQLExpressionAnd(exprs: Seq[SQLExpression]) extends SQLExpression {
@@ -468,7 +472,9 @@ case class SQLExpressionAnd(exprs: Seq[SQLExpression]) extends SQLExpression {
     if (exprs.size == 1)
       exprs(0).toSQL
     else
-      SQLUtils.surroundSQL("(", SQLUtils.putJoiningInfix[SQLExpression](exprs, " AND ", { e => e.toSQL }), ")")
+      SQLUtils.surroundSQL("(", SQLUtils.putJoiningInfix(exprs, " AND ") {
+        e => e.toSQL
+      }, ")")
   }
 }
 
