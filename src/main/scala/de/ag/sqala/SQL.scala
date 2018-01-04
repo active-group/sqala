@@ -15,6 +15,7 @@ object SQL {
   /*def makeSQLTable(name: String, schema: RelationalScheme) : BaseRelation[SQLSelectTable] =
     BaseRelation(name, schema, SQLSelectTable(name, schema))*/
 
+  // TODO: join this with SQLSelect.make() ?
   def makeSQLSelect(attributes: Seq[(String, SQLExpression)], tables: Seq[(Option[String], SQL)]) : SQLSelect =
     SQLSelect(None, attributes, tables, Seq.empty,
       Seq.empty, Seq.empty,
@@ -124,13 +125,18 @@ object SQL {
         SQL.makeSQLSelect(projAlist, Seq((None, fromQuery(query)))) // FixMe : None not the best Implementation!!
       }
       case Restriction(exp, query) => {
-        val select = toSQLSelect(fromQuery(query))
-        if (exp.isAggregate)
-          // note that having is empty as a result of toSQLSelect
+        val select = toFreshSQLSelect(fromQuery(query))
+        // TODO: could/should be added to the list of conditions in some cases, couldn't it? To get simlper queries.
+        if (exp.isAggregate) {
+          // note that having is empty as a result of toFreshSQLSelect
+          assert(select.having.isEmpty, select.having)
           select.copy(having = Some(Seq(SQLExpression.fromExpression(exp))))
-        else
+        }
+        else {
           // ditto for criteria
+          assert(select.criteria.isEmpty, select.criteria)
           select.copy(criteria = Seq(SQLExpression.fromExpression(exp)))
+        }
       }
       case Product(query1, query2) => {
         val sql1 = fromQuery(query1)
@@ -146,7 +152,7 @@ object SQL {
         }
       }
       case Group(columns, query) => {
-        val sel = toSQLSelect(SQL.fromQuery(query))
+        val sel = toFreshSQLSelect(SQL.fromQuery(query))
         sel.copy(groupBy = Some(sel.groupBy.getOrElse(Set.empty) ++ columns))
       }
       case LeftOuterProduct(query1, query2) => {
@@ -160,11 +166,11 @@ object SQL {
         SQLSelect.make(tables = Seq((None, sql1)), outerTables = Seq((None, sql2)))
       }
       case OuterRestriction(exp, query) => {
-        val sel = toSQLSelect(fromQuery(query))
+        val sel = toFreshSQLSelect(fromQuery(query))
         sel.copy(outerCriteria = Seq(SQLExpression.fromExpression(exp)))
       }
       case Order(alist, query) => {
-        val sel = toSQLSelect(fromQuery(query))
+        val sel = toFreshSQLSelect(fromQuery(query))
         val sqlAlist = alist.map { case (name, dir) =>
           val sqlDir = dir match {
             case Direction.Ascending => SQLOrderAscending
@@ -187,7 +193,7 @@ object SQL {
         ???
       }
       case Top(offset, count, query) => {
-        val sel = toSQLSelect(fromQuery(query))
+        val sel = toFreshSQLSelect(fromQuery(query))
         sel.copy(extra = Some(Seq(s"LIMIT $count OFFSET $offset")))
       }
       case Union(query1, query2) =>
@@ -199,15 +205,15 @@ object SQL {
     }
   }
 
-  def toSQLSelect(thing: SQL): SQLSelect = {
+  def toFreshSQLSelect(thing: SQL): SQLSelect = {
     thing match {
       case SQLSelectEmpty => SQLSelect.empty
       case SQLSelectTable(name, schema) =>
         SQLSelect.make(tables = Seq((None, thing)))
       case _: SQLSelectCombine =>
         SQLSelect.make(tables = Seq((None, thing)))
-      case sel: SQLSelect => { // FIXME: nicer way?
-        if (sel.attributes.isEmpty)
+      case sel: SQLSelect => {
+        if (sel.attributes.isEmpty && sel.criteria.isEmpty && sel.having.isEmpty)  // FIXME: nicer way?
           sel
         else if (sel.groupBy.isDefined)
           SQLSelect.make(tables = Seq((None, thing)))
