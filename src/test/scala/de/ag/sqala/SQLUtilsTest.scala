@@ -34,9 +34,8 @@ class SQLUtilsTest extends FunSuite {
     assertEquals(SQLUtils.putColumnAnAlias(ret2, None), (ret2._1, ret2._2))
     assertEquals(SQLUtils.putColumnAnAlias(ret1, Some("X")), ("BlabaB AS X", ret1._2))
     assertEquals(SQLUtils.putColumnAnAlias(ret2, Some("X")), ("This to Go AS X", ret2._2))
-    // TODO:
-    //assertEquals(SQLUtils.putTableAnAlias(ret2, None), (ret2._1, ret2._2))
-    //assertEquals(SQLUtils.putTableAnAlias(ret1, Some("X")), ("BlabaB AS X", ret1._2))
+    assert(SQLUtils.putTableAnAlias(ret2, None, 42) == (ret2._1 + " AS __dummy42", ret2._2))
+    assert(SQLUtils.putTableAnAlias(ret1, Some("X"), 3) == ("BlabaB AS X", ret1._2))
   }
 
   test("joiningInfix") {
@@ -49,10 +48,10 @@ class SQLUtilsTest extends FunSuite {
 
 
   test("attributes (& putLiteral)") {
-    assertEquals(SQL.attributes(Seq.empty), Some(("*", Seq.empty)))
-    assertEquals(SQL.attributes(att1), Some(("first, second AS abc", Seq.empty)))
-    assertEquals(SQL.attributes(att2), Some(("? AS blub, ? AS blubStr, ? AS blub2",
-      Seq((Type.string, ""), (Type.string, "X"), (Type.integer, 4)))))
+    assertEquals(SQL.attributes(Seq.empty), ("*", Seq.empty))
+    assertEquals(SQL.attributes(att1), ("first, second AS abc", Seq.empty))
+    assertEquals(SQL.attributes(att2), ("? AS blub, ? AS blubStr, ? AS blub2",
+      Seq((Type.string, ""), (Type.string, "X"), (Type.integer, 4))))
     assertEquals(SQLUtils.putLiteral(Type.integer, 5), ("?", Seq((Type.integer, 5))))
   }
 
@@ -78,19 +77,19 @@ class SQLUtilsTest extends FunSuite {
   val tbl3 = SQL.makeSQLSelect(Seq(("a", SQLExpressionColumn("b"))), Seq((Some("t1"), tbl1)))
 
   test("SQL - join") {
-    assertEquals(SQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS __dummy", Seq.empty)))
+    assertEquals(SQL.join(Seq((None, tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS __dummy0", Seq.empty)))
     assertEquals(SQL.join(Seq((Some("A"), tbl1)), Seq.empty, Seq.empty), Some(("FROM tabelleA AS A", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1), (None, tbl2), (Some("tdx"), tbl3)), Seq.empty, Seq.empty),
-      Some((s"FROM tabelleA AS __dummy, tabelleB AS __dummy, (SELECT b AS a FROM tabelleA AS t1) AS tdx", Seq.empty)))
+      Some((s"FROM tabelleA AS __dummy0, tabelleB AS __dummy1, (SELECT b AS a FROM tabelleA AS t1) AS tdx", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1)), Seq((Some("tx"), tbl2)),
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("a"), SQLExpressionColumn("b"))))),
-      Some(("FROM tabelleA AS __dummy LEFT JOIN tabelleB AS tx ON (a = b)", Seq.empty)))
+      Some(("FROM tabelleA AS __dummy0 LEFT JOIN tabelleB AS tx ON (a = b)", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1), (Some("tdx"), tbl3)), Seq((None, tbl2)),
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("a"), SQLExpressionColumn("b"))))),
-      Some(("FROM (SELECT * FROM tabelleA AS __dummy, (SELECT b AS a FROM tabelleA AS t1) AS tdx) LEFT JOIN tabelleB AS __dummy ON (a = b)", Seq.empty)))
+      Some(("FROM (SELECT * FROM tabelleA AS __dummy0, (SELECT b AS a FROM tabelleA AS t1) AS tdx) LEFT JOIN tabelleB AS __dummy2 ON (a = b)", Seq.empty)))
     assertEquals(SQL.join(Seq((None, tbl1)), Seq((Some("t1"), tbl1), (Some("t2"), tbl2), (Some("tt"), tbl1)),
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("b"), SQLExpressionColumn("a"))))),
-      Some(("FROM tabelleA AS __dummy LEFT JOIN tabelleA AS t1 ON (1=1) LEFT JOIN tabelleB AS t2 ON (1=1) LEFT JOIN tabelleA AS tt ON (b = a)", Seq.empty)))
+      Some(("FROM tabelleA AS __dummy0 LEFT JOIN tabelleA AS t1 ON (1=1) LEFT JOIN tabelleB AS t2 ON (1=1) LEFT JOIN tabelleA AS tt ON (b = a)", Seq.empty)))
   }
 
   /*

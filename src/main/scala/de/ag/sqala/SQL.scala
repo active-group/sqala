@@ -57,7 +57,7 @@ object SQL {
   // add outer-restricts
   def join(tables: Seq[(Option[String], SQL)], outerTables: Seq[(Option[String], SQL)],
            outerCriteria: Seq[SQLExpression]) : ReturnOption = {
-    val tempTabs = putTables(tables, ", ")
+    val tempTabs = putTables(tables, ", ", 0)
     Some(SQLUtils.surroundSQL("FROM ",
       SQLUtils.concatSQL(Seq(
         {if(outerTables.isEmpty || tables.size == 1)
@@ -68,7 +68,7 @@ object SQL {
         else
           SQLUtils.surroundSQL(" LEFT JOIN ",
             SQLUtils.concatSQL(Seq(
-              putTables(outerTables, " ON (1=1) LEFT JOIN "), // TODO : kann zu Fehlern führen, siehe Kommentar in SQLUtilsTests - wurde so von SQLosure übernommen
+              putTables(outerTables, " ON (1=1) LEFT JOIN ", tables.length), // TODO : kann zu Fehlern führen, siehe Kommentar in SQLUtilsTests - wurde so von SQLosure übernommen
               SQLUtils.surroundSQL(" ON ", // add last ON with all JOIN Criterias
                 conditions(outerCriteria),
                 ""))),
@@ -77,12 +77,12 @@ object SQL {
       ""))
   }
 
-  private def putTables(tables: Seq[(Option[String], SQL)], between: String) : Return =
-    SQLUtils.putJoiningInfix(tables, between) {
-      case (alias: Option[String], select: SQLSelectTable) => SQLUtils.putTableAnAlias((select.name, Seq.empty), alias)
-      case (alias: Option[String], select: SQL) => {
+  private def putTables(tables: Seq[(Option[String], SQL)], between: String, aliasOffset: Int) : Return =
+    SQLUtils.putJoiningInfix(tables.zipWithIndex, between) {
+      case ((alias: Option[String], select: SQLSelectTable), idx) => SQLUtils.putTableAnAlias((select.name, Seq.empty), alias, aliasOffset + idx)
+      case ((alias: Option[String], select: SQL), idx) => {
         val temp: Return = select.toSQLText
-        SQLUtils.putTableAnAlias(("("+temp._1+")", temp._2), alias)
+        SQLUtils.putTableAnAlias(("("+temp._1+")", temp._2), alias, aliasOffset + idx)
       }
     }
 

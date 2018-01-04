@@ -21,9 +21,9 @@ object SQLUtils {
     case None => ""
   }
 
-  def generatePutAlias(alias: Option[String], aliasCount: Int) : (Int, String) = alias match {
-    case Some(al) => (aliasCount, " AS "+al)
-    case None => (aliasCount+1, s" AS __dummy$aliasCount")
+  def indexedPutAlias(alias: Option[String], idx: Int) : String = alias match {
+    case Some(al) => " AS "+al
+    case None => s" AS __dummy$idx"
   }
 
   // Note: also used for table aliases.
@@ -33,16 +33,9 @@ object SQLUtils {
     (sql+al, seqTyps)
   }
 
-  // FIXME: make deterministic
-  /*def putTableAnAlias(expr: SQL.Return, alias: Option[String], aliasCount: Int): (Int, SQL.Return) = {
+  def putTableAnAlias(expr: SQL.Return, alias: Option[String], idx: Int): SQL.Return = {
     val (sql: String, seqTyps: Seq[(Type, Any)]) = expr
-    val al = SQLUtils.generatePutAlias(alias, aliasCount)
-    (al._1, (sql+al._2, seqTyps))
-   }*/
-  val rnd = new java.util.Random()
-  def putTableAnAlias(expr: SQL.Return, alias: Option[String]): SQL.Return = {
-    val (sql: String, seqTyps: Seq[(Type, Any)]) = expr
-    val al = SQLUtils.generatePutAlias(alias, Math.abs(rnd.nextInt() % 10000000))._2
+    val al = SQLUtils.indexedPutAlias(alias, idx)
     (sql+al, seqTyps)
   }
 

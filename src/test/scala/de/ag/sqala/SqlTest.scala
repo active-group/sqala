@@ -86,7 +86,7 @@ class SQLTest extends FunSuite {
   val select1 = SQL.makeSQLSelect(Seq.empty, Seq((None, tbl1)))
 
   val tbl3 = SQL.makeSQLSelect(Seq(("city", SQLExpressionColumn("orte")), ("xx", SQLExpressionConst(Type.string, "Nn"))), Seq((None, standorte)))
-  val tbl3S = ("(SELECT orte AS city, ? AS xx FROM standorte AS __dummy)", Seq((Type.string, "Nn")))
+  val tbl3S = ("(SELECT orte AS city, ? AS xx FROM standorte AS __dummy0)", Seq((Type.string, "Nn")))
 
   test("SQLExpressionColumn::toSQL works as expected") {
     assert(SQLExpressionColumn("blub").toSQL === ("blub", Seq.empty))
@@ -190,16 +190,16 @@ class SQLTest extends FunSuite {
   test("toSQL / simple Querys") {
     assertEquals(SQLSelectEmpty.toSQLText, ("SELECT * FROM (SELECT 1) AS TBL WHERE 2=3", Seq.empty))
     assertEquals(tbl1.toSQLText, ("SELECT * FROM personen", Seq.empty))
-    assertEquals(select1.toSQLText, ("SELECT * FROM personen AS __dummy", Seq.empty))
+    assertEquals(select1.toSQLText, ("SELECT * FROM personen AS __dummy0", Seq.empty))
     assertEquals(SQL.makeSQLSelect(Seq.empty, Seq((Some("personen"), tbl1))).toSQLText,
       ("SELECT * FROM personen AS personen", Seq.empty))
     assertEquals(SQL.makeSQLSelect(Seq("DISTINCT"), Seq(("id", SQLExpressionColumn("gzd"))), Seq((None, SQLSelectTable("baz", null)))).toSQLText,
-      ("SELECT DISTINCT gzd AS id FROM baz AS __dummy", Seq.empty))
+      ("SELECT DISTINCT gzd AS id FROM baz AS __dummy0", Seq.empty))
     assertEquals(SQLSelect(Some(Seq("DISTINCT")), Seq(("id", SQLExpressionColumn("gzd"))), Seq((None, SQLSelectTable("baz", null))),
       Seq.empty, Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("foo"), SQLExpressionConst(Type.string, "bla")))),
       Seq.empty,None, None, Some(Seq(("b", SQLOrderAscending))), None
       ).toSQLText,
-      ("SELECT DISTINCT gzd AS id FROM baz AS __dummy WHERE (foo = ?) ORDER BY b ASC", Seq((Type.string, "bla"))))
+      ("SELECT DISTINCT gzd AS id FROM baz AS __dummy0 WHERE (foo = ?) ORDER BY b ASC", Seq((Type.string, "bla"))))
   }
 
 
@@ -210,7 +210,7 @@ class SQLTest extends FunSuite {
       Seq(SQLExpressionApp(SQLOperator.isNull, Seq(SQLExpressionColumn("fabbs")))),
       Seq(SQLExpressionApp(SQLOperator.eq, Seq(SQLExpressionColumn("bab"), SQLExpressionColumn("blad")))),
       None, None, None, Some(Seq("LIMIT 5"))).toSQLText,
-      ("SELECT * FROM (SELECT * FROM personen AS one, firm_address AS __dummy) LEFT JOIN (SELECT city, ? AS xx FROM addresses AS __dummy) AS bl "
+      ("SELECT * FROM (SELECT * FROM personen AS one, firm_address AS __dummy1) LEFT JOIN (SELECT city, ? AS xx FROM addresses AS __dummy0) AS bl "
         +"ON (bab = blad) WHERE (fabbs) IS NULL LIMIT 5", Seq((Type.string, "BlX"))))
     assertEquals(SQLSelect(None, Seq(("idc", SQLExpressionColumn("idc")), ("countThem", SQLExpressionApp(SQLOperator.count, Seq(SQLExpressionColumn("idc"))))),
       Seq((Some("one"), tbl1)), Seq((Some("bl"), tbl2)),
@@ -220,7 +220,7 @@ class SQLTest extends FunSuite {
       Some(Seq(SQLExpressionApp(SQLOperator.gt, Seq(SQLExpressionApp(SQLOperator.count, Seq(SQLExpressionColumn("idc"))), SQLExpressionConst(Type.integer, 9))))),
       Some(Seq(("countThem", SQLOrderDescending))), Some(Seq("LIMIT 5"))).toSQLText,
       ("SELECT idc, COUNT(idc) AS countThem"
-        +" FROM personen AS one LEFT JOIN (SELECT city, ? AS xx FROM addresses AS __dummy) AS bl"
+        +" FROM personen AS one LEFT JOIN (SELECT city, ? AS xx FROM addresses AS __dummy0) AS bl"
         +" ON (bab = blad) WHERE (fabbs) IS NULL"
         +" GROUP BY idc HAVING (COUNT(idc) > ?)"
         +" ORDER BY countThem DESC LIMIT 5", Seq((Type.string, "BlX"), (Type.integer, 9))))
@@ -245,7 +245,7 @@ object SQLTest {
 
   val adr1 = SQLSelectTable("addresses", RelationalScheme.make(Seq(("city", Type.string))))
   val tbl2 = SQL.makeSQLSelect(Seq(("city", SQLExpressionColumn("city")), ("xx", SQLExpressionConst(Type.string, "BlX"))), Seq((None, adr1)))
-  val tbl2S = ("(SELECT city, ? AS xx FROM addresses AS __dummy)", Seq((Type.string, "BlX")))
+  val tbl2S = ("(SELECT city, ? AS xx FROM addresses AS __dummy0)", Seq((Type.string, "BlX")))
 
   val longExpr = SQLExpressionOr(Seq(
     SQLExpressionExists(tbl2),
