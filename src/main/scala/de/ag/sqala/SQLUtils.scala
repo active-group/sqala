@@ -21,12 +21,7 @@ object SQLUtils {
     case None => " AS __dummy" // gensym TODO
   }
 
-  def putAlias(alias: Option[String]) : Option[String] =
-    alias.flatMap(x => Some(defaultPutAlias(Some(x))))
-
-  def putDummyAlias(alias: Option[String]) : String =
-    defaultPutAlias(alias) // gensym TODO
-
+  // Note: also used for table aliases.
   def putColumnAnAlias(expr: SQL.Return, alias: Option[String]): SQL.Return = expr match {
     case (sql: String, seqTyps: Seq[(Type, Any)]) =>
       (sql+SQLUtils.defaultPutAlias(alias), seqTyps)
